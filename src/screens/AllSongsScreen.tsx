@@ -17,7 +17,7 @@ import {
   batchHide, selectAllBatch, clearBatchSelect,
 } from '../store/musicSlice';
 import { Track, SortMode } from '../types';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SORT_OPTIONS: { mode: SortMode; label: string; icon: string }[] = [
   { mode: 'title', label: '按名称', icon: 'text-outline' },
@@ -32,6 +32,7 @@ const AllSongsScreen: React.FC = () => {
     scanDirectories, scanProgress, repeatMode, sortMode,
     batchSelectMode, batchSelectedIds,
   } = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -70,14 +71,10 @@ const AllSongsScreen: React.FC = () => {
     init();
   }, [dispatch]);
 
-  // 排序 + 搜索
   const filteredTracks = useMemo(() => {
     let list = [...tracks];
-    // Sort
     if (sortMode === 'artist') list.sort((a, b) => a.artist.localeCompare(b.artist, 'zh-CN'));
-    else if (sortMode === 'recent') list.reverse(); // newest first (scan order reversed)
-    // else 'title' - already sorted from scanner
-    // Search
+    else if (sortMode === 'recent') list.reverse();
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.fileName.toLowerCase().includes(q));
@@ -103,28 +100,31 @@ const AllSongsScreen: React.FC = () => {
 
   const keyExtractor = useCallback((item: Track) => item.id, []);
 
-  if (loading) return <View style={styles.root} />;
+  if (loading) return <View style={[styles.root, { backgroundColor: colors.bg }]} />;
 
   if (isScanning && tracks.length === 0) {
     const p = scanProgress; const pct = p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={styles.loadTxt}>正在导入歌曲</Text>
-        <Text style={styles.loadSub}>{p?.phase === 'scanning' ? '正在扫描文件夹...' : '正在解析歌曲元数据...'}</Text>
-        <View style={styles.progressWrap}><View style={styles.progressBg}><View style={[styles.progressFill, { width: `${pct}%` }]} /></View><Text style={styles.progressText}>{pct}%</Text></View>
-        {p?.phase === 'parsing' && <Text style={styles.progressDetail}>{p.current} / {p.total} 首</Text>}
+      <View style={[styles.center, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={{ fontSize: sizes.xl, color: colors.textPrimary, fontWeight: '600', marginTop: 20 }}>正在导入歌曲</Text>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 8 }}>{p?.phase === 'scanning' ? '正在扫描文件夹...' : '正在解析歌曲元数据...'}</Text>
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressBg, { backgroundColor: colors.bgElevated }]}><View style={[styles.progressFill, { backgroundColor: colors.accent, width: `${pct}%` }]} /></View>
+          <Text style={[styles.progressText, { color: colors.accent }]}>{pct}%</Text>
+        </View>
+        {p?.phase === 'parsing' && <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginTop: 8, fontVariant: ['tabular-nums'] }}>{p.current} / {p.total} 首</Text>}
       </View>
     );
   }
 
   if (tracks.length === 0 && !isScanning) {
     return (
-      <View style={styles.center}>
-        <Icon name="folder-open-outline" size={64} color={COLORS.textMuted} />
-        <Text style={styles.emptyTxt}>未找到本地音乐</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => setShowFolderPicker(true)}>
-          <Text style={styles.retryTxt}>选择扫描目录</Text>
+      <View style={[styles.center, { backgroundColor: colors.bg }]}>
+        <Icon name="folder-open-outline" size={64} color={colors.textMuted} />
+        <Text style={{ fontSize: sizes.xl, color: colors.textSecondary, marginTop: 16, fontWeight: '600' }}>未找到本地音乐</Text>
+        <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.accent }]} onPress={() => setShowFolderPicker(true)}>
+          <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>选择扫描目录</Text>
         </TouchableOpacity>
         <Modal visible={showFolderPicker} animationType="slide">
           <FolderPickerScreen onConfirm={handleFolderConfirm} onCancel={() => setShowFolderPicker(false)} initialSelected={scanDirectories} />
@@ -134,59 +134,57 @@ const AllSongsScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>全部歌曲</Text>
+        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>全部歌曲</Text>
         <View style={styles.headerRight}>
-          {isScanning && <ActivityIndicator size="small" color={COLORS.accent} style={{ marginRight: 8 }} />}
+          {isScanning && <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />}
           <TouchableOpacity onPress={() => dispatch(toggleBatchMode())} hitSlop={8} style={{ marginRight: 10 }}>
-            <Icon name={batchSelectMode ? 'close-circle' : 'checkbox-outline'} size={22} color={batchSelectMode ? COLORS.accent : COLORS.textSecondary} />
+            <Icon name={batchSelectMode ? 'close-circle' : 'checkbox-outline'} size={22} color={batchSelectMode ? colors.accent : colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowSort(!showSort)} hitSlop={8} style={{ marginRight: 10 }}>
-            <Icon name="swap-vertical-outline" size={22} color={COLORS.textSecondary} />
+            <Icon name="swap-vertical-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowFolderPicker(true)} hitSlop={8}>
-            <Icon name="folder-outline" size={22} color={COLORS.textSecondary} />
+            <Icon name="folder-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* 排序选项 */}
       {showSort && (
         <View style={styles.sortRow}>
           {SORT_OPTIONS.map(o => (
-            <TouchableOpacity key={o.mode} style={[styles.sortBtn, sortMode === o.mode && styles.sortBtnActive]}
+            <TouchableOpacity key={o.mode} style={[styles.sortBtn, { backgroundColor: colors.bgCard }, sortMode === o.mode && { backgroundColor: colors.accent }]}
               onPress={() => { dispatch(setSortMode(o.mode)); setShowSort(false); }}>
-              <Icon name={o.icon} size={14} color={sortMode === o.mode ? COLORS.bg : COLORS.textMuted} />
-              <Text style={[styles.sortTxt, sortMode === o.mode && { color: COLORS.bg }]}>{o.label}</Text>
+              <Icon name={o.icon} size={14} color={sortMode === o.mode ? colors.bg : colors.textMuted} />
+              <Text style={[styles.sortTxt, { color: colors.textMuted }, sortMode === o.mode && { color: colors.bg }]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      {/* 批量操作栏 */}
       {batchSelectMode && (
-        <View style={styles.batchBar}>
-          <TouchableOpacity onPress={() => dispatch(selectAllBatch())}><Text style={styles.batchAction}>全选</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => dispatch(clearBatchSelect())}><Text style={styles.batchAction}>取消</Text></TouchableOpacity>
-          <Text style={styles.batchCount}>已选 {batchSelectedIds.length}</Text>
-          <TouchableOpacity onPress={() => dispatch(batchFavorite())} style={styles.batchBtn}><Icon name="heart" size={16} color={COLORS.heart} /><Text style={styles.batchBtnTxt}>收藏</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => { Alert.alert('批量删除', `确定从列表移除 ${batchSelectedIds.length} 首歌曲？`, [{ text: '取消' }, { text: '确定', onPress: () => dispatch(batchHide()) }]); }} style={styles.batchBtn}>
-            <Icon name="trash-outline" size={16} color={COLORS.secondary} /><Text style={[styles.batchBtnTxt, { color: COLORS.secondary }]}>移除</Text>
+        <View style={[styles.batchBar, { backgroundColor: colors.bgElevated, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => dispatch(selectAllBatch())}><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>全选</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => dispatch(clearBatchSelect())}><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>取消</Text></TouchableOpacity>
+          <Text style={{ flex: 1, fontSize: sizes.sm, color: colors.textMuted, textAlign: 'center' }}>已选 {batchSelectedIds.length}</Text>
+          <TouchableOpacity onPress={() => dispatch(batchFavorite())} style={[styles.batchBtn, { backgroundColor: colors.bgCard }]}><Icon name="heart" size={16} color={colors.heart} /><Text style={{ fontSize: sizes.xs, color: colors.heart, fontWeight: '600' }}>收藏</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => { Alert.alert('批量删除', `确定从列表移除 ${batchSelectedIds.length} 首歌曲？`, [{ text: '取消' }, { text: '确定', onPress: () => dispatch(batchHide()) }]); }} style={[styles.batchBtn, { backgroundColor: colors.bgCard }]}>
+            <Icon name="trash-outline" size={16} color={colors.secondary} /><Text style={{ fontSize: sizes.xs, color: colors.secondary, fontWeight: '600' }}>移除</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <SearchBar value={searchQuery} onChangeText={(t) => dispatch(setSearchQuery(t))} />
-      <Text style={styles.count}>{searchQuery ? `找到 ${filteredTracks.length} 首` : `共 ${tracks.length} 首`}</Text>
+      <Text style={{ fontSize: sizes.sm, color: colors.textMuted, paddingHorizontal: 20, paddingBottom: 4 }}>{searchQuery ? `找到 ${filteredTracks.length} 首` : `共 ${tracks.length} 首`}</Text>
 
       <FlatList
         data={filteredTracks} renderItem={renderItem} keyExtractor={keyExtractor}
         contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
         initialNumToRender={20} maxToRenderPerBatch={15} windowSize={11} removeClippedSubviews={true}
         getItemLayout={(_, i) => ({ length: 66, offset: 66 * i, index: i })}
-        ListEmptyComponent={searchQuery ? <View style={styles.noResult}><Icon name="search-outline" size={48} color={COLORS.textMuted} /><Text style={styles.noResultTxt}>没有找到匹配的歌曲</Text></View> : null}
+        ListEmptyComponent={searchQuery ? <View style={styles.noResult}><Icon name="search-outline" size={48} color={colors.textMuted} /><Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>没有找到匹配的歌曲</Text></View> : null}
       />
 
       <Modal visible={showFolderPicker} animationType="slide">
@@ -198,36 +196,21 @@ const AllSongsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+  root: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 4 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: SIZES.xxxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
-  count: { fontSize: SIZES.sm, color: COLORS.textMuted, paddingHorizontal: 20, paddingBottom: 4 },
-  // Sort
   sortRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 4 },
-  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.bgCard },
-  sortBtnActive: { backgroundColor: COLORS.accent },
-  sortTxt: { fontSize: SIZES.xs, color: COLORS.textMuted, fontWeight: '600' },
-  // Batch
-  batchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10, backgroundColor: COLORS.bgElevated, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  batchAction: { fontSize: SIZES.sm, color: COLORS.accent, fontWeight: '600' },
-  batchCount: { flex: 1, fontSize: SIZES.sm, color: COLORS.textMuted, textAlign: 'center' },
-  batchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.bgCard },
-  batchBtnTxt: { fontSize: SIZES.xs, color: COLORS.heart, fontWeight: '600' },
-  // Progress
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  sortTxt: { fontSize: 10, fontWeight: '600' },
+  batchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10, borderBottomWidth: 1 },
+  batchBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   progressWrap: { flexDirection: 'row', alignItems: 'center', marginTop: 24, width: '80%', gap: 12 },
-  progressBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: COLORS.bgElevated, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 3, backgroundColor: COLORS.accent },
-  progressText: { fontSize: SIZES.md, color: COLORS.accent, fontWeight: '700', fontVariant: ['tabular-nums'], minWidth: 40, textAlign: 'right' },
-  progressDetail: { fontSize: SIZES.sm, color: COLORS.textMuted, marginTop: 8, fontVariant: ['tabular-nums'] },
-  center: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  loadTxt: { fontSize: SIZES.xl, color: COLORS.textPrimary, fontWeight: '600', marginTop: 20 },
-  loadSub: { fontSize: SIZES.md, color: COLORS.textMuted, marginTop: 8 },
-  emptyTxt: { fontSize: SIZES.xl, color: COLORS.textSecondary, marginTop: 16, fontWeight: '600' },
-  retryBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, backgroundColor: COLORS.accent, gap: 8 },
-  retryTxt: { fontSize: SIZES.md, fontWeight: '700', color: COLORS.bg },
+  progressBg: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3 },
+  progressText: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'], minWidth: 40, textAlign: 'right' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, gap: 8 },
   noResult: { alignItems: 'center', marginTop: 60 },
-  noResultTxt: { fontSize: SIZES.md, color: COLORS.textMuted, marginTop: 12 },
 });
 
 export default AllSongsScreen;

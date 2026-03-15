@@ -17,13 +17,15 @@ import FullPlayerScreen from './src/screens/FullPlayerScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
-import { COLORS, SIZES } from './src/utils/theme';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { DARK_COLORS, SIZES } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
 
 function MainApp() {
   const dispatch = useAppDispatch();
   const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
+  const { colors, isDark } = useTheme();
 
   useEffect(() => {
     dispatch(loadUserPrefs());
@@ -31,19 +33,19 @@ function MainApp() {
   }, [dispatch]);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <NavigationContainer
         theme={{
-          dark: true,
-          colors: { primary: COLORS.accent, background: COLORS.bg, card: COLORS.bgCard, text: COLORS.textPrimary, border: COLORS.border, notification: COLORS.accent },
+          dark: isDark,
+          colors: { primary: colors.accent, background: colors.bg, card: colors.bgCard, text: colors.textPrimary, border: colors.border, notification: colors.accent },
         }}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarStyle: { backgroundColor: COLORS.bgElevated, borderTopColor: COLORS.border, height: SIZES.tabBarHeight, paddingBottom: 6, paddingTop: 4 },
-            tabBarActiveTintColor: COLORS.accent,
-            tabBarInactiveTintColor: COLORS.textMuted,
+            tabBarStyle: { backgroundColor: colors.bgElevated, borderTopColor: colors.border, height: SIZES.tabBarHeight, paddingBottom: 6, paddingTop: 4 },
+            tabBarActiveTintColor: colors.accent,
+            tabBarInactiveTintColor: colors.textMuted,
             tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
             tabBarIcon: ({ color, size }: { color: string; size: number }) => {
               const icons: Record<string, string> = {
@@ -74,7 +76,6 @@ export default function App() {
     (async () => {
       const ok = await setupPlayer();
       if (ok) {
-        // 初始化均衡器并恢复上次的音效设置
         await initEqualizer();
       }
       setReady(ok);
@@ -84,17 +85,23 @@ export default function App() {
   if (!ready) {
     return (
       <View style={styles.loading}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <ActivityIndicator size="large" color={COLORS.accent} />
+        <StatusBar barStyle="light-content" backgroundColor={DARK_COLORS.bg} />
+        <ActivityIndicator size="large" color={DARK_COLORS.accent} />
         <Text style={styles.loadTxt}>初始化播放器...</Text>
       </View>
     );
   }
-  return <Provider store={store}><MainApp /></Provider>;
+  return (
+    <Provider store={store}>
+      <ThemeProvider>
+        <MainApp />
+      </ThemeProvider>
+    </Provider>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  loading: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center' },
-  loadTxt: { color: COLORS.textSecondary, fontSize: SIZES.md, marginTop: 16 },
+  container: { flex: 1 },
+  loading: { flex: 1, backgroundColor: DARK_COLORS.bg, alignItems: 'center', justifyContent: 'center' },
+  loadTxt: { color: DARK_COLORS.textSecondary, fontSize: SIZES.md, marginTop: 16 },
 });

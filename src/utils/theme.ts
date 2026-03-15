@@ -44,14 +44,6 @@ export const LIGHT_COLORS = {
   transparent: 'transparent',
 };
 
-// 默认深色
-export let COLORS = { ...DARK_COLORS };
-
-export function setThemeColors(mode: 'dark' | 'light') {
-  const src = mode === 'light' ? LIGHT_COLORS : DARK_COLORS;
-  Object.assign(COLORS, src);
-}
-
 export const SIZES = {
   xs: 10,
   sm: 12,

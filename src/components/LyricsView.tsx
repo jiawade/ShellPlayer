@@ -9,16 +9,16 @@ import TrackPlayer from 'react-native-track-player';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSelector } from '../store';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
-// 默认值
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 52;
-const ACTIVE_FONT_BOOST = 6; // 当前行比普通行大几号
+const ACTIVE_FONT_BOOST = 6;
 
 const LyricsView: React.FC = () => {
   const { lyrics, currentLyricIndex } = useAppSelector(s => s.music);
   const { seekToPrevLyric, seekToNextLyric, replayCurrentLyric } = usePlayerControls();
+  const { colors, sizes } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
 
   const [scrollAreaHeight, setScrollAreaHeight] = useState(400);
@@ -27,7 +27,6 @@ const LyricsView: React.FC = () => {
 
   const centerOffset = scrollAreaHeight / 2 - lineH / 2;
 
-  // 加载用户歌词设置
   useEffect(() => {
     (async () => {
       try {
@@ -111,9 +110,9 @@ const LyricsView: React.FC = () => {
   if (lyrics.length === 0) {
     return (
       <View style={styles.empty}>
-        <Icon name="musical-notes-outline" size={64} color={COLORS.textMuted} />
-        <Text style={styles.emptyTitle}>暂无歌词</Text>
-        <Text style={styles.emptySub}>支持 .lrc 文件或 ID3 内嵌歌词{'\n'}.lrc 文件需与歌曲同名同目录</Text>
+        <Icon name="musical-notes-outline" size={64} color={colors.textMuted} />
+        <Text style={{ fontSize: sizes.xl, color: colors.textSecondary, marginTop: 16, fontWeight: '600' }}>暂无歌词</Text>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>支持 .lrc 文件或 ID3 内嵌歌词{'\n'}.lrc 文件需与歌曲同名同目录</Text>
       </View>
     );
   }
@@ -133,13 +132,15 @@ const LyricsView: React.FC = () => {
             const isPast = !isDragging && !waitingForSeek.current && i < currentLyricIndex;
             return (
               <View key={`${i}-${line.time}`}
-                style={[{ minHeight: lineH }, styles.line, isActive && styles.lineActive, isDragTarget && styles.lineDragTarget]}>
+                style={[{ minHeight: lineH }, styles.line,
+                  isActive && { backgroundColor: 'rgba(0, 229, 195, 0.1)' },
+                  isDragTarget && { backgroundColor: 'rgba(0, 229, 195, 0.15)' },
+                ]}>
                 <Text style={[
-                  { fontSize, lineHeight: fontSize * 1.8 },
-                  styles.text,
-                  isActive && [styles.textActive, { fontSize: fontSize + ACTIVE_FONT_BOOST, lineHeight: (fontSize + ACTIVE_FONT_BOOST) * 1.6 }],
-                  isDragTarget && [styles.textDragTarget, { fontSize: fontSize + 4, lineHeight: (fontSize + 4) * 1.6 }],
-                  isPast && styles.textPast,
+                  { fontSize, lineHeight: fontSize * 1.8, color: colors.textMuted, textAlign: 'center', fontWeight: '400' },
+                  isActive && { color: colors.accent, fontWeight: '700', fontSize: fontSize + ACTIVE_FONT_BOOST, lineHeight: (fontSize + ACTIVE_FONT_BOOST) * 1.6, textShadowColor: colors.accentGlow, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 },
+                  isDragTarget && { color: colors.white, fontWeight: '600', fontSize: fontSize + 4, lineHeight: (fontSize + 4) * 1.6 },
+                  isPast && { color: colors.textSecondary, opacity: 0.7 },
                 ]}>{line.text}</Text>
               </View>
             );
@@ -150,25 +151,25 @@ const LyricsView: React.FC = () => {
         {isDragging && dragLineIndex >= 0 && (
           <View style={[styles.seekOverlay, { top: centerOffset + lineH / 2 - 1 }]} pointerEvents="box-none">
             <View style={styles.seekLineRow}>
-              <View style={styles.seekLine} />
-              <TouchableOpacity style={styles.seekPlayBtn} onPress={handleSeekToDragLine} activeOpacity={0.7}>
-                <Icon name="play" size={16} color={COLORS.bg} />
+              <View style={[styles.seekLine, { backgroundColor: colors.accent }]} />
+              <TouchableOpacity style={[styles.seekPlayBtn, { backgroundColor: colors.accent }]} onPress={handleSeekToDragLine} activeOpacity={0.7}>
+                <Icon name="play" size={16} color={colors.bg} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.seekTimeText}>{fmt(lyrics[dragLineIndex]?.time || 0)}</Text>
+            <Text style={[styles.seekTimeText, { color: colors.accent }]}>{fmt(lyrics[dragLineIndex]?.time || 0)}</Text>
           </View>
         )}
       </View>
 
-      <View style={styles.ctrlBar}>
-        <TouchableOpacity onPress={seekToPrevLyric} style={styles.ctrlBtn} activeOpacity={0.6}>
-          <Icon name="play-back" size={18} color={COLORS.accent} /><Text style={styles.ctrlLabel}>上一句</Text>
+      <View style={[styles.ctrlBar, { backgroundColor: colors.bgGlass, borderTopColor: colors.border }]}>
+        <TouchableOpacity onPress={seekToPrevLyric} style={[styles.ctrlBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.6}>
+          <Icon name="play-back" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>上一句</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={replayCurrentLyric} style={[styles.ctrlBtn, styles.replayBtn]} activeOpacity={0.6}>
-          <Icon name="refresh" size={20} color={COLORS.bg} /><Text style={[styles.ctrlLabel, { color: COLORS.bg }]}>重播</Text>
+        <TouchableOpacity onPress={replayCurrentLyric} style={[styles.ctrlBtn, styles.replayBtn, { backgroundColor: colors.accent }]} activeOpacity={0.6}>
+          <Icon name="refresh" size={20} color={colors.bg} /><Text style={{ fontSize: sizes.sm, color: colors.bg, fontWeight: '600' }}>重播</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={seekToNextLyric} style={styles.ctrlBtn} activeOpacity={0.6}>
-          <Icon name="play-forward" size={18} color={COLORS.accent} /><Text style={styles.ctrlLabel}>下一句</Text>
+        <TouchableOpacity onPress={seekToNextLyric} style={[styles.ctrlBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.6}>
+          <Icon name="play-forward" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>下一句</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -185,24 +186,15 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20 },
   line: { justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10 },
-  lineActive: { backgroundColor: 'rgba(0, 229, 195, 0.1)' },
-  lineDragTarget: { backgroundColor: 'rgba(0, 229, 195, 0.15)' },
-  text: { color: COLORS.textMuted, textAlign: 'center', fontWeight: '400' },
-  textActive: { color: COLORS.accent, fontWeight: '700', textShadowColor: COLORS.accentGlow, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 16 },
-  textDragTarget: { color: COLORS.white, fontWeight: '600' },
-  textPast: { color: COLORS.textSecondary, opacity: 0.7 },
   seekOverlay: { position: 'absolute', left: 0, right: 0, alignItems: 'flex-end', paddingHorizontal: 12 },
   seekLineRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  seekLine: { flex: 1, height: 1.5, backgroundColor: COLORS.accent, opacity: 0.5 },
-  seekPlayBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.accent, alignItems: 'center', justifyContent: 'center', marginLeft: 8, elevation: 4 },
-  seekTimeText: { fontSize: 11, color: COLORS.accent, fontVariant: ['tabular-nums'], marginTop: 4, marginRight: 42, opacity: 0.8 },
+  seekLine: { flex: 1, height: 1.5, opacity: 0.5 },
+  seekPlayBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginLeft: 8, elevation: 4 },
+  seekTimeText: { fontSize: 11, fontVariant: ['tabular-nums'], marginTop: 4, marginRight: 42, opacity: 0.8 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  emptyTitle: { fontSize: SIZES.xl, color: COLORS.textSecondary, marginTop: 16, fontWeight: '600' },
-  emptySub: { fontSize: SIZES.md, color: COLORS.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 },
-  ctrlBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 20, backgroundColor: COLORS.bgGlass, borderTopWidth: 1, borderTopColor: COLORS.border },
-  ctrlBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.accentDim, gap: 6 },
-  replayBtn: { backgroundColor: COLORS.accent, paddingHorizontal: 20, paddingVertical: 10 },
-  ctrlLabel: { fontSize: SIZES.sm, color: COLORS.accent, fontWeight: '600' },
+  ctrlBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 20, borderTopWidth: 1 },
+  ctrlBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  replayBtn: { paddingHorizontal: 20, paddingVertical: 10 },
 });
 
 export default memo(LyricsView);

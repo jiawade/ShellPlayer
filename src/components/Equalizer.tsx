@@ -3,7 +3,7 @@ import React, { memo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { applyEQPreset, getSavedPresetId } from '../utils/equalizer';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 const EQ_PRESETS = [
   { id: 0, name: '关闭', icon: 'ban-outline', desc: '原始音效' },
@@ -23,10 +23,10 @@ const EQ_PRESETS = [
 interface Props { visible: boolean; onClose: () => void; }
 
 const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
+  const { colors, sizes } = useTheme();
   const [active, setActive] = useState(0);
   const [applying, setApplying] = useState(false);
 
-  // 加载已保存的预设
   useEffect(() => {
     if (visible) {
       getSavedPresetId().then(id => setActive(id));
@@ -34,7 +34,7 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
   }, [visible]);
 
   const handleSelect = async (id: number) => {
-    setActive(id); // 立即 UI 反馈
+    setActive(id);
     setApplying(true);
     await applyEQPreset(id);
     setApplying(false);
@@ -44,26 +44,35 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={onClose}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
           <View style={styles.header}>
-            <Text style={styles.title}>音效模式</Text>
-            {applying && <Text style={styles.applyingTxt}>应用中...</Text>}
+            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>音效模式</Text>
+            {applying && <Text style={{ fontSize: sizes.xs, color: colors.accent, marginRight: 12 }}>应用中...</Text>}
             <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Icon name="close" size={22} color={COLORS.textSecondary} />
+              <Icon name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
             {EQ_PRESETS.map(p => {
               const on = active === p.id;
               return (
-                <TouchableOpacity key={p.id} style={[styles.card, on && styles.cardOn]} onPress={() => handleSelect(p.id)} activeOpacity={0.7}>
-                  <View style={[styles.iconW, on && styles.iconWOn]}>
-                    <Icon name={p.icon} size={24} color={on ? COLORS.bg : COLORS.textSecondary} />
+                <TouchableOpacity
+                  key={p.id}
+                  style={[styles.card, {
+                    backgroundColor: on ? colors.accentDim : colors.bgCard,
+                    borderColor: on ? colors.accent : colors.border,
+                  }]}
+                  onPress={() => handleSelect(p.id)}
+                  activeOpacity={0.7}>
+                  <View style={[styles.iconW, {
+                    backgroundColor: on ? colors.accent : colors.bgElevated,
+                  }]}>
+                    <Icon name={p.icon} size={24} color={on ? colors.bg : colors.textSecondary} />
                   </View>
-                  <Text style={[styles.cardName, on && { color: COLORS.accent }]}>{p.name}</Text>
-                  <Text style={styles.cardDesc}>{p.desc}</Text>
-                  {on && <View style={styles.badge}><Icon name="checkmark-circle" size={16} color={COLORS.accent} /></View>}
+                  <Text style={{ fontSize: sizes.md, fontWeight: '600', color: on ? colors.accent : colors.textPrimary, marginBottom: 4 }}>{p.name}</Text>
+                  <Text style={{ fontSize: 10, color: colors.textMuted, textAlign: 'center' }}>{p.desc}</Text>
+                  {on && <View style={styles.badge}><Icon name="checkmark-circle" size={16} color={colors.accent} /></View>}
                 </TouchableOpacity>
               );
             })}
@@ -75,18 +84,12 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: COLORS.bgElevated, borderTopLeftRadius: SIZES.radiusXl, borderTopRightRadius: SIZES.radiusXl, paddingTop: 16, paddingBottom: 34, maxHeight: '75%' },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 16, paddingBottom: 34, maxHeight: '75%' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
-  title: { fontSize: SIZES.xl, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
-  applyingTxt: { fontSize: SIZES.xs, color: COLORS.accent, marginRight: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10 },
-  card: { width: '30%', minWidth: 100, backgroundColor: COLORS.bgCard, borderRadius: SIZES.radius, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, position: 'relative' },
-  cardOn: { borderColor: COLORS.accent, backgroundColor: COLORS.accentDim },
-  iconW: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.bgElevated, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  iconWOn: { backgroundColor: COLORS.accent },
-  cardName: { fontSize: SIZES.md, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 4 },
-  cardDesc: { fontSize: 10, color: COLORS.textMuted, textAlign: 'center' },
+  card: { width: '30%', minWidth: 100, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, position: 'relative' },
+  iconW: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   badge: { position: 'absolute', top: 8, right: 8 },
 });
 

@@ -7,11 +7,12 @@ import TrackMenu from '../components/TrackMenu';
 import { useAppSelector, useAppDispatch } from '../store';
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { Track } from '../types';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 const FavoritesScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { tracks, currentTrack, favoriteIds, repeatMode } = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -30,19 +31,19 @@ const FavoritesScreen: React.FC = () => {
 
   if (favTracks.length === 0) {
     return (
-      <View style={styles.empty}>
-        <View style={styles.emptyIcon}><Icon name="heart-outline" size={72} color={COLORS.heartDim} /></View>
-        <Text style={styles.emptyTitle}>还没有喜欢的歌曲</Text>
-        <Text style={styles.emptySub}>点击歌曲旁的 ♡ 按钮{'\n'}将歌曲加入收藏</Text>
+      <View style={[styles.empty, { backgroundColor: colors.bg }]}>
+        <View style={[styles.emptyIcon, { backgroundColor: colors.bgCard }]}><Icon name="heart-outline" size={72} color={colors.heartDim} /></View>
+        <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary }}>还没有喜欢的歌曲</Text>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>点击歌曲旁的 ♡ 按钮{'\n'}将歌曲加入收藏</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>我喜欢的</Text>
-        <View style={styles.badge}><Icon name="heart" size={14} color={COLORS.heart} /><Text style={styles.badgeTxt}>{favTracks.length}</Text></View>
+        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>我喜欢的</Text>
+        <View style={[styles.badge, { backgroundColor: colors.heartDim }]}><Icon name="heart" size={14} color={colors.heart} /><Text style={{ fontSize: sizes.sm, color: colors.heart, fontWeight: '600' }}>{favTracks.length}</Text></View>
       </View>
       <FlatList data={favTracks} renderItem={renderItem} keyExtractor={item => item.id}
         contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
@@ -53,15 +54,11 @@ const FavoritesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+  root: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12, gap: 12 },
-  title: { fontSize: SIZES.xxxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: COLORS.heartDim },
-  badgeTxt: { fontSize: SIZES.sm, color: COLORS.heart, fontWeight: '600' },
-  empty: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  emptyIcon: { width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.bgCard, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  emptyTitle: { fontSize: SIZES.xl, fontWeight: '600', color: COLORS.textSecondary },
-  emptySub: { fontSize: SIZES.md, color: COLORS.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  emptyIcon: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
 });
 
 export default FavoritesScreen;

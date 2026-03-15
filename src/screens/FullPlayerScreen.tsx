@@ -13,7 +13,7 @@ import PlayQueueView from '../components/PlayQueueView';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setShowFullPlayer, toggleShowLyrics, toggleFavorite, setRepeatMode, setPlaybackSpeed } from '../store/musicSlice';
 import { usePlayerControls, usePlayerSync } from '../hooks/usePlayerProgress';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { RepeatMode } from '../types';
 
 const COVER = Dimensions.get('window').width * 0.7;
@@ -30,6 +30,7 @@ const FullPlayerScreen: React.FC = () => {
   const { currentTrack, isPlaying, showLyrics, repeatMode, lyrics, playbackSpeed, sleepTimerEnd } = useAppSelector(s => s.music);
   const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
   const { position, duration } = usePlayerSync();
+  const { colors, sizes, isDark } = useTheme();
   const [showEQ, setShowEQ] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
@@ -47,7 +48,6 @@ const FullPlayerScreen: React.FC = () => {
 
   if (!currentTrack) return null;
 
-  // 标题显示逻辑：歌手 - 歌曲名，缺失则显示文件名
   const headerTitle = (() => {
     const hasArtist = currentTrack.artist && currentTrack.artist !== '未知歌手';
     const hasTitle = currentTrack.title && currentTrack.title !== currentTrack.fileName;
@@ -75,20 +75,20 @@ const FullPlayerScreen: React.FC = () => {
   const hasTimer = sleepTimerEnd && sleepTimerEnd > Date.now();
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Header: 歌手 - 歌曲名 */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => dispatch(setShowFullPlayer(false))} style={styles.hBtn} hitSlop={12}>
-          <Icon name="chevron-down" size={28} color={COLORS.textPrimary} />
+          <Icon name="chevron-down" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.hCenter}>
-          <Text style={styles.hLabel}>正在播放</Text>
-          <Text style={styles.hTitle} numberOfLines={1}>{headerTitle}</Text>
+          <Text style={{ fontSize: sizes.xs, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 2 }}>正在播放</Text>
+          <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{headerTitle}</Text>
         </View>
         <TouchableOpacity onPress={() => dispatch(toggleFavorite(currentTrack.id))} style={styles.hBtn} hitSlop={12}>
-          <Icon name={currentTrack.isFavorite ? 'heart' : 'heart-outline'} size={24} color={currentTrack.isFavorite ? COLORS.heart : COLORS.textSecondary} />
+          <Icon name={currentTrack.isFavorite ? 'heart' : 'heart-outline'} size={24} color={currentTrack.isFavorite ? colors.heart : colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -96,19 +96,19 @@ const FullPlayerScreen: React.FC = () => {
       <View style={styles.main}>
         {showLyrics ? (
           <View style={styles.lyricsContainer}>
-            <TouchableOpacity onPress={() => dispatch(toggleShowLyrics())} style={styles.backToCoverBtn} activeOpacity={0.7}>
-              <Icon name="image-outline" size={16} color={COLORS.accent} /><Text style={styles.backToCoverTxt}>封面</Text>
+            <TouchableOpacity onPress={() => dispatch(toggleShowLyrics())} style={[styles.backToCoverBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.7}>
+              <Icon name="image-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent, fontWeight: '600' }}>封面</Text>
             </TouchableOpacity>
             <LyricsView />
           </View>
         ) : (
           <TouchableOpacity style={styles.coverArea} activeOpacity={0.95} onPress={() => hasLyrics && dispatch(toggleShowLyrics())}>
-            <View style={styles.coverGlow}><CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={SIZES.radiusXl} /></View>
+            <View style={[styles.coverGlow, { shadowColor: colors.accent }]}><CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={28} /></View>
             <View style={styles.trackInfo}>
-              <Text style={styles.trackTitle} numberOfLines={2}>{currentTrack.title}</Text>
-              <Text style={styles.trackArtist} numberOfLines={1}>{currentTrack.artist}</Text>
+              <Text style={{ fontSize: sizes.xxl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', lineHeight: 36 }} numberOfLines={2}>{currentTrack.title}</Text>
+              <Text style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }} numberOfLines={1}>{currentTrack.artist}</Text>
             </View>
-            {hasLyrics && <View style={styles.lyrHint}><Icon name="document-text-outline" size={16} color={COLORS.accent} /><Text style={styles.lyrHintTxt}>点击查看歌词</Text></View>}
+            {hasLyrics && <View style={[styles.lyrHint, { backgroundColor: colors.accentDim }]}><Icon name="document-text-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent }}>点击查看歌词</Text></View>}
           </TouchableOpacity>
         )}
       </View>
@@ -117,52 +117,54 @@ const FullPlayerScreen: React.FC = () => {
       <View style={styles.controls}>
         <ProgressBar position={position} duration={duration} />
 
-        {/* 功能按钮行 */}
         <View style={styles.funcRow}>
           <TouchableOpacity onPress={() => setShowSleep(true)} style={styles.funcBtn}>
-            <Icon name={hasTimer ? 'moon' : 'moon-outline'} size={18} color={hasTimer ? COLORS.accent : COLORS.textMuted} />
+            <Icon name={hasTimer ? 'moon' : 'moon-outline'} size={18} color={hasTimer ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowSpeed(!showSpeed)} style={styles.funcBtn}>
-            <Text style={[styles.speedLabel, playbackSpeed !== 1.0 && { color: COLORS.accent }]}>{playbackSpeed}x</Text>
+            <Text style={[styles.speedLabel, { color: colors.textMuted }, playbackSpeed !== 1.0 && { color: colors.accent }]}>{playbackSpeed}x</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowQueue(true)} style={styles.funcBtn}>
-            <Icon name="list-outline" size={18} color={COLORS.textMuted} />
+            <Icon name="list-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowEQ(true)} style={styles.funcBtn}>
-            <Icon name="options-outline" size={18} color={COLORS.textMuted} />
+            <Icon name="options-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        {/* 倍速选择 */}
         {showSpeed && (
           <View style={styles.speedRow}>
             {SPEEDS.map(s => (
-              <TouchableOpacity key={s} style={[styles.speedBtn, playbackSpeed === s && styles.speedBtnActive]} onPress={() => changeSpeed(s)}>
-                <Text style={[styles.speedBtnTxt, playbackSpeed === s && { color: COLORS.bg }]}>{s}x</Text>
+              <TouchableOpacity key={s} style={[styles.speedBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }, playbackSpeed === s && { backgroundColor: colors.accent, borderColor: colors.accent }]} onPress={() => changeSpeed(s)}>
+                <Text style={[styles.speedBtnTxt, { color: colors.textMuted }, playbackSpeed === s && { color: colors.bg }]}>{s}x</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* 主控制栏 - 完全居中 */}
         <View style={styles.mainCtrl}>
           <TouchableOpacity onPress={cycleRepeat} style={styles.ctrlSideBtn}>
-            <Icon name={cfg.icon} size={22} color={repeatMode !== 'off' ? COLORS.accent : COLORS.textMuted} />
+            <Icon name={cfg.icon} size={22} color={repeatMode !== 'off' ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={skipToPrevious} style={styles.ctrlBtn}>
-            <Icon name="play-skip-back" size={28} color={COLORS.textPrimary} />
+            <Icon name="play-skip-back" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={togglePlayPause} style={styles.playBtn} activeOpacity={0.8}>
-            <Icon name={isPlaying ? 'pause' : 'play'} size={32} color={COLORS.bg} />
+          <TouchableOpacity onPress={togglePlayPause} style={[styles.playBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]} activeOpacity={0.8}>
+            <Icon name={isPlaying ? 'pause' : 'play'} size={32} color={colors.bg} />
           </TouchableOpacity>
           <TouchableOpacity onPress={skipToNext} style={styles.ctrlBtn}>
-            <Icon name="play-skip-forward" size={28} color={COLORS.textPrimary} />
+            <Icon name="play-skip-forward" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.ctrlSideBtn} />
         </View>
       </View>
 
-      {showModeToast !== '' && <View style={styles.modeToast}><Icon name={cfg.icon} size={16} color={COLORS.accent} /><Text style={styles.modeToastText}>{showModeToast}</Text></View>}
+      {showModeToast !== '' && (
+        <View style={[styles.modeToast, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+          <Icon name={cfg.icon} size={16} color={colors.accent} />
+          <Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>{showModeToast}</Text>
+        </View>
+      )}
 
       <Equalizer visible={showEQ} onClose={() => setShowEQ(false)} />
       <SleepTimer visible={showSleep} onClose={() => setShowSleep(false)} />
@@ -172,47 +174,33 @@ const FullPlayerScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  // Header
+  root: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 10 },
   hBtn: { padding: 8, width: 44, alignItems: 'center' },
   hCenter: { flex: 1, alignItems: 'center' },
-  hLabel: { fontSize: SIZES.xs, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 2 },
-  hTitle: { fontSize: SIZES.sm, color: COLORS.textSecondary, marginTop: 2 },
-  // Main
   main: { flex: 1 },
   lyricsContainer: { flex: 1 },
-  backToCoverBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6, marginBottom: 4, borderRadius: 16, backgroundColor: COLORS.accentDim, gap: 6 },
-  backToCoverTxt: { fontSize: SIZES.xs, color: COLORS.accent, fontWeight: '600' },
+  backToCoverBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6, marginBottom: 4, borderRadius: 16, gap: 6 },
   coverArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 20 },
-  coverGlow: { shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 12 },
+  coverGlow: { shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 12 },
   trackInfo: { alignItems: 'center', marginTop: 28, paddingHorizontal: 40 },
-  trackTitle: { fontSize: SIZES.xxl, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center', lineHeight: 36 },
-  trackArtist: { fontSize: SIZES.lg, color: COLORS.textSecondary, marginTop: 6 },
-  lyrHint: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: COLORS.accentDim, gap: 6 },
-  lyrHintTxt: { fontSize: SIZES.xs, color: COLORS.accent },
-  // Controls
+  lyrHint: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, gap: 6 },
   controls: { paddingBottom: 34 },
   funcRow: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 8, marginBottom: 4 },
   funcBtn: { padding: 8 },
-  speedLabel: { fontSize: SIZES.sm, color: COLORS.textMuted, fontWeight: '700' },
+  speedLabel: { fontSize: 12, fontWeight: '700' },
   speedRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 },
-  speedBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: COLORS.bgCard, borderWidth: 1, borderColor: COLORS.border },
-  speedBtnActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  speedBtnTxt: { fontSize: SIZES.sm, color: COLORS.textMuted, fontWeight: '600' },
-  // 主控制栏 - 用固定宽度确保居中
+  speedBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1 },
+  speedBtnTxt: { fontSize: 12, fontWeight: '600' },
   mainCtrl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   ctrlSideBtn: { width: 48, alignItems: 'center', justifyContent: 'center' },
   ctrlBtn: { width: 56, alignItems: 'center', justifyContent: 'center' },
   playBtn: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.accent,
+    width: 64, height: 64, borderRadius: 32,
     alignItems: 'center', justifyContent: 'center', marginHorizontal: 12,
-    shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
-  // Toast
-  modeToast: { position: 'absolute', bottom: 90, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.bgElevated, borderWidth: 1, borderColor: COLORS.border, elevation: 6 },
-  modeToastText: { fontSize: SIZES.sm, color: COLORS.accent, fontWeight: '600' },
+  modeToast: { position: 'absolute', bottom: 90, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, elevation: 6 },
 });
 
 export default memo(FullPlayerScreen);

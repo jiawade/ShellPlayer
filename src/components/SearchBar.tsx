@@ -2,7 +2,7 @@
 import React, { memo } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   value: string;
@@ -11,15 +11,20 @@ interface Props {
 }
 
 const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder = '搜索歌曲、歌手...' }) => {
+  const { colors, sizes } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Icon name="search-outline" size={18} color={COLORS.textMuted} style={styles.icon} />
+    <View style={[styles.container, {
+      backgroundColor: colors.bgElevated,
+      borderColor: colors.border,
+    }]}>
+      <Icon name="search-outline" size={18} color={colors.textMuted} style={styles.icon} />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { fontSize: sizes.md, color: colors.textPrimary }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.textMuted}
+        placeholderTextColor={colors.textMuted}
         autoCorrect={false}
         autoCapitalize="none"
         clearButtonMode="while-editing"
@@ -27,7 +32,7 @@ const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder = '搜索
       />
       {value.length > 0 && (
         <TouchableOpacity onPress={() => onChangeText('')} style={styles.clearBtn} hitSlop={8}>
-          <Icon name="close-circle" size={18} color={COLORS.textMuted} />
+          <Icon name="close-circle" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       )}
     </View>
@@ -36,24 +41,12 @@ const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder = '搜索
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 14,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginVertical: 8, paddingHorizontal: 14,
+    height: 42, borderRadius: 21, borderWidth: 1,
   },
   icon: { marginRight: 8 },
-  input: {
-    flex: 1,
-    fontSize: SIZES.md,
-    color: COLORS.textPrimary,
-    padding: 0,
-  },
+  input: { flex: 1, padding: 0 },
   clearBtn: { marginLeft: 8 },
 });
 

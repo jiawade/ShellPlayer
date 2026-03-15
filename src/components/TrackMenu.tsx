@@ -9,7 +9,7 @@ import TrackPlayer from 'react-native-track-player';
 import { Track } from '../types';
 import { useAppDispatch } from '../store';
 import { hideTrack, deleteTrackPermanently } from '../store/musicSlice';
-import { COLORS, SIZES } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   track: Track | null;
@@ -19,6 +19,7 @@ interface Props {
 
 const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
   const dispatch = useAppDispatch();
+  const { colors, sizes } = useTheme();
   const [showInfo, setShowInfo] = React.useState(false);
 
   const handlePlayNext = useCallback(async () => {
@@ -27,7 +28,6 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
       const queue = await TrackPlayer.getQueue();
       const currentIdx = await TrackPlayer.getActiveTrackIndex();
       const insertIdx = (currentIdx ?? 0) + 1;
-      // 如果已在队列中先移除
       const existIdx = queue.findIndex(t => t.id === track.id);
       if (existIdx >= 0) await TrackPlayer.remove(existIdx);
       await TrackPlayer.add({
@@ -55,32 +55,33 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
         { text: '取消', style: 'cancel' },
         {
           text: '确定删除', style: 'destructive',
-          onPress: () => {
-            dispatch(deleteTrackPermanently(track.id));
-            onClose();
-          },
+          onPress: () => { dispatch(deleteTrackPermanently(track.id)); onClose(); },
         },
       ],
     );
   }, [track, dispatch, onClose]);
 
-  const handleShowInfo = useCallback(() => {
-    setShowInfo(true);
-  }, []);
+  const handleShowInfo = useCallback(() => { setShowInfo(true); }, []);
 
   if (!track) return null;
 
-  // 歌曲信息详情页
+  const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
+      <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginBottom: 4 }}>{label}</Text>
+      <Text style={{ fontSize: sizes.md, color: colors.textPrimary, lineHeight: 22 }} selectable>{value}</Text>
+    </View>
+  );
+
   if (showInfo) {
     const ext = track.fileName.substring(track.fileName.lastIndexOf('.') + 1).toUpperCase();
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { setShowInfo(false); onClose(); }}>
-        <Pressable style={styles.overlay} onPress={() => { setShowInfo(false); onClose(); }}>
-          <Pressable style={styles.infoSheet} onPress={() => {}}>
-            <View style={styles.infoHeader}>
-              <Text style={styles.infoTitle}>歌曲信息</Text>
+        <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => { setShowInfo(false); onClose(); }}>
+          <Pressable style={[styles.infoSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+            <View style={[styles.infoHeader, { borderBottomColor: colors.border }]}>
+              <Text style={{ fontSize: sizes.lg, fontWeight: '700', color: colors.textPrimary }}>歌曲信息</Text>
               <TouchableOpacity onPress={() => { setShowInfo(false); onClose(); }} hitSlop={12}>
-                <Icon name="close" size={22} color={COLORS.textSecondary} />
+                <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.infoScroll} showsVerticalScrollIndicator={false}>
@@ -101,41 +102,35 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          {/* 歌曲标题 */}
-          <View style={styles.menuHeader}>
-            <Text style={styles.menuTitle} numberOfLines={1}>{track.title}</Text>
-            <Text style={styles.menuSubtitle} numberOfLines={1}>{track.artist}</Text>
+      <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={onClose}>
+        <Pressable style={[styles.sheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+          <View style={[styles.menuHeader, { borderBottomColor: colors.border }]}>
+            <Text style={{ fontSize: sizes.lg, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>{track.title}</Text>
+            <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginTop: 2 }} numberOfLines={1}>{track.artist}</Text>
           </View>
 
-          {/* 下一首播放 */}
           <TouchableOpacity style={styles.menuItem} onPress={handlePlayNext} activeOpacity={0.6}>
-            <Icon name="play-forward-outline" size={20} color={COLORS.textPrimary} />
-            <Text style={styles.menuItemText}>下一首播放</Text>
+            <Icon name="play-forward-outline" size={20} color={colors.textPrimary} />
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>下一首播放</Text>
           </TouchableOpacity>
 
-          {/* 歌曲信息 */}
           <TouchableOpacity style={styles.menuItem} onPress={handleShowInfo} activeOpacity={0.6}>
-            <Icon name="information-circle-outline" size={20} color={COLORS.textPrimary} />
-            <Text style={styles.menuItemText}>歌曲信息</Text>
+            <Icon name="information-circle-outline" size={20} color={colors.textPrimary} />
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>歌曲信息</Text>
           </TouchableOpacity>
 
-          {/* 从列表移除 */}
           <TouchableOpacity style={styles.menuItem} onPress={handleHide} activeOpacity={0.6}>
-            <Icon name="eye-off-outline" size={20} color={COLORS.secondary} />
-            <Text style={[styles.menuItemText, { color: COLORS.secondary }]}>从列表中移除</Text>
+            <Icon name="eye-off-outline" size={20} color={colors.secondary} />
+            <Text style={{ fontSize: sizes.md, color: colors.secondary, fontWeight: '500' }}>从列表中移除</Text>
           </TouchableOpacity>
 
-          {/* 永久删除 */}
           <TouchableOpacity style={styles.menuItem} onPress={handleDeletePermanent} activeOpacity={0.6}>
-            <Icon name="trash-outline" size={20} color={COLORS.heart} />
-            <Text style={[styles.menuItemText, { color: COLORS.heart }]}>永久删除文件</Text>
+            <Icon name="trash-outline" size={20} color={colors.heart} />
+            <Text style={{ fontSize: sizes.md, color: colors.heart, fontWeight: '500' }}>永久删除文件</Text>
           </TouchableOpacity>
 
-          {/* 取消 */}
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
-            <Text style={styles.cancelText}>取消</Text>
+          <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: colors.bgCard }]} onPress={onClose} activeOpacity={0.7}>
+            <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>取消</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -143,59 +138,16 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
   );
 };
 
-const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue} selectable>{value}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: COLORS.bgElevated,
-    borderTopLeftRadius: SIZES.radiusXl, borderTopRightRadius: SIZES.radiusXl,
-    paddingTop: 8, paddingBottom: 34,
-  },
-  menuHeader: {
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  menuTitle: { fontSize: SIZES.lg, fontWeight: '700', color: COLORS.textPrimary },
-  menuSubtitle: { fontSize: SIZES.sm, color: COLORS.textMuted, marginTop: 2 },
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 20, paddingVertical: 16,
-  },
-  menuItemText: { fontSize: SIZES.md, color: COLORS.textPrimary, fontWeight: '500' },
-  cancelBtn: {
-    marginHorizontal: 16, marginTop: 8,
-    paddingVertical: 14, borderRadius: SIZES.radius,
-    backgroundColor: COLORS.bgCard, alignItems: 'center',
-  },
-  cancelText: { fontSize: SIZES.md, color: COLORS.textSecondary, fontWeight: '600' },
-  // 歌曲信息
-  infoSheet: {
-    backgroundColor: COLORS.bgElevated,
-    borderTopLeftRadius: SIZES.radiusXl, borderTopRightRadius: SIZES.radiusXl,
-    paddingTop: 8, paddingBottom: 34, maxHeight: '80%',
-  },
-  infoHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  infoTitle: { fontSize: SIZES.lg, fontWeight: '700', color: COLORS.textPrimary },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, paddingBottom: 34 },
+  menuHeader: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 16 },
+  cancelBtn: { marginHorizontal: 16, marginTop: 8, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  infoSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 8, paddingBottom: 34, maxHeight: '80%' },
+  infoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1 },
   infoScroll: { paddingHorizontal: 20 },
-  infoRow: {
-    paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  infoLabel: { fontSize: SIZES.sm, color: COLORS.textMuted, marginBottom: 4 },
-  infoValue: { fontSize: SIZES.md, color: COLORS.textPrimary, lineHeight: 22 },
+  infoRow: { paddingVertical: 14, borderBottomWidth: 1 },
 });
 
 export default memo(TrackMenu);

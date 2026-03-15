@@ -6,64 +6,61 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-import { store, useAppSelector } from './src/store';
+import { store, useAppSelector, useAppDispatch } from './src/store';
+import { loadUserPrefs, loadPlayHistory } from './src/store/musicSlice';
 import AllSongsScreen from './src/screens/AllSongsScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
+import BrowseScreen from './src/screens/BrowseScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import FullPlayerScreen from './src/screens/FullPlayerScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 import { setupPlayer } from './src/utils/playerSetup';
+import { initEqualizer } from './src/utils/equalizer';
 import { COLORS, SIZES } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
 
 function MainApp() {
+  const dispatch = useAppDispatch();
   const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
+
+  useEffect(() => {
+    dispatch(loadUserPrefs());
+    dispatch(loadPlayHistory());
+  }, [dispatch]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-
       <NavigationContainer
         theme={{
           dark: true,
-          colors: {
-            primary: COLORS.accent,
-            background: COLORS.bg,
-            card: COLORS.bgCard,
-            text: COLORS.textPrimary,
-            border: COLORS.border,
-            notification: COLORS.accent,
-          },
+          colors: { primary: COLORS.accent, background: COLORS.bg, card: COLORS.bgCard, text: COLORS.textPrimary, border: COLORS.border, notification: COLORS.accent },
         }}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarStyle: {
-              backgroundColor: COLORS.bgElevated,
-              borderTopColor: COLORS.border,
-              height: SIZES.tabBarHeight,
-              paddingBottom: 8,
-              paddingTop: 6,
-            },
+            tabBarStyle: { backgroundColor: COLORS.bgElevated, borderTopColor: COLORS.border, height: SIZES.tabBarHeight, paddingBottom: 6, paddingTop: 4 },
             tabBarActiveTintColor: COLORS.accent,
             tabBarInactiveTintColor: COLORS.textMuted,
-            tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+            tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
             tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-              let iconName = 'musical-notes';
-              if (route.name === 'Favorites') iconName = 'heart';
-              if (route.name === 'Settings') iconName = 'settings';
-              return <Icon name={iconName} size={size} color={color} />;
+              const icons: Record<string, string> = {
+                AllSongs: 'musical-notes', Browse: 'albums', Favorites: 'heart',
+                History: 'time', Settings: 'settings',
+              };
+              return <Icon name={icons[route.name] || 'ellipse'} size={size - 2} color={color} />;
             },
           })}>
-          <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '全部歌曲' }} />
-          <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '我喜欢的' }} />
+          <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '歌曲' }} />
+          <Tab.Screen name="Browse" component={BrowseScreen} options={{ tabBarLabel: '浏览' }} />
+          <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '喜欢' }} />
+          <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: '历史' }} />
           <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '设置' }} />
         </Tab.Navigator>
       </NavigationContainer>
-
       {currentTrack && !showFullPlayer && <MiniPlayer />}
-
       <Modal visible={showFullPlayer} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
         <FullPlayerScreen />
       </Modal>
@@ -73,9 +70,15 @@ function MainApp() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
-    setupPlayer().then(ok => setReady(ok));
+    (async () => {
+      const ok = await setupPlayer();
+      if (ok) {
+        // 初始化均衡器并恢复上次的音效设置
+        await initEqualizer();
+      }
+      setReady(ok);
+    })();
   }, []);
 
   if (!ready) {
@@ -87,12 +90,7 @@ export default function App() {
       </View>
     );
   }
-
-  return (
-    <Provider store={store}>
-      <MainApp />
-    </Provider>
-  );
+  return <Provider store={store}><MainApp /></Provider>;
 }
 
 const styles = StyleSheet.create({

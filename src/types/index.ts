@@ -12,7 +12,7 @@ export interface Track {
   filePath: string;
   isFavorite: boolean;
   lrcPath?: string;
-  embeddedLyrics?: string;  // 内嵌歌词 (USLT)
+  embeddedLyrics?: string;
 }
 
 export interface LyricLine {
@@ -21,3 +21,10 @@ export interface LyricLine {
 }
 
 export type RepeatMode = 'off' | 'track' | 'queue';
+export type SortMode = 'title' | 'artist' | 'recent';
+export type ThemeMode = 'dark' | 'light';
+
+export interface PlayHistoryEntry {
+  trackId: string;
+  playedAt: number; // timestamp
+}

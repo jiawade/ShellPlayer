@@ -3,7 +3,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import RNFS from 'react-native-fs';
-import { Track, LyricLine, RepeatMode } from '../types';
+import { Track, LyricLine, RepeatMode, SortMode, ThemeMode, PlayHistoryEntry } from '../types';
 import { scanAllMusic, readLrcFile, ScanProgress } from '../utils/scanner';
 import { parseLRC } from '../utils/lrcParser';
 import { requestStoragePermission } from '../utils/permissions';
@@ -20,7 +20,6 @@ interface MusicState {
   showFullPlayer: boolean;
   showLyrics: boolean;
   repeatMode: RepeatMode;
-  shuffleEnabled: boolean;
   isScanning: boolean;
   scanError: string | null;
   favoriteIds: string[];
@@ -28,6 +27,15 @@ interface MusicState {
   searchQuery: string;
   hiddenTrackIds: string[];
   scanProgress: ScanProgress | null;
+  // New features
+  sortMode: SortMode;
+  themeMode: ThemeMode;
+  playHistory: PlayHistoryEntry[];
+  playbackSpeed: number;
+  sleepTimerEnd: number | null; // timestamp when timer expires
+  playQueue: Track[]; // current play queue for queue viewer
+  batchSelectMode: boolean;
+  batchSelectedIds: string[];
 }
 
 const initialState: MusicState = {
@@ -40,7 +48,6 @@ const initialState: MusicState = {
   showFullPlayer: false,
   showLyrics: false,
   repeatMode: 'off',
-  shuffleEnabled: false,
   isScanning: false,
   scanError: null,
   favoriteIds: [],
@@ -48,19 +55,17 @@ const initialState: MusicState = {
   searchQuery: '',
   hiddenTrackIds: [],
   scanProgress: null,
+  sortMode: 'title',
+  themeMode: 'dark',
+  playHistory: [],
+  playbackSpeed: 1.0,
+  sleepTimerEnd: null,
+  playQueue: [],
+  batchSelectMode: false,
+  batchSelectedIds: [],
 };
 
-/**
- * Fisher-Yates 洗牌算法
- */
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// --- Async thunks ---
 
 export const scanMusic = createAsyncThunk(
   'music/scan',
@@ -72,12 +77,11 @@ export const scanMusic = createAsyncThunk(
     try {
       const lite = tracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
       await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
-    } catch (e) { await logCrash(e instanceof Error ? e : new Error(String(e)), 'scanMusic:cache'); }
+    } catch (e) { await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache'); }
     try {
       const withArt = tracks.filter(t => t.artwork && t.artwork.startsWith('data:'));
       for (let i = 0; i < withArt.length; i += 10) {
-        const batch = withArt.slice(i, i + 10);
-        await Promise.all(batch.map(t => saveArtworkFile(t.id, t.artwork!)));
+        await Promise.all(withArt.slice(i, i + 10).map(t => saveArtworkFile(t.id, t.artwork!)));
       }
     } catch {}
     return { tracks, directories };
@@ -90,57 +94,41 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
     if (!data) return [];
     const cached = JSON.parse(data) as Track[];
     const tracks = cached.map(t => ({ ...t, artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork }));
-    // 尝试从文件缓存恢复封面，失败不影响列表
     try {
       const { getCachedArtwork } = require('../utils/artworkCache');
-      for (const t of tracks) {
-        if (!t.artwork) {
-          const art = await getCachedArtwork(t.id);
-          if (art) t.artwork = art;
-        }
-      }
+      for (const t of tracks) { if (!t.artwork) { const a = await getCachedArtwork(t.id); if (a) t.artwork = a; } }
     } catch {}
     return tracks;
   } catch { return []; }
 });
 
 export const loadFavorites = createAsyncThunk('music/loadFavorites', async () => {
-  try { const d = await AsyncStorage.getItem('@favorites'); return d ? JSON.parse(d) : []; } catch { return []; }
+  try { return JSON.parse((await AsyncStorage.getItem('@favorites')) || '[]'); } catch { return []; }
 });
 export const loadScanDirs = createAsyncThunk('music/loadScanDirs', async () => {
-  try { const d = await AsyncStorage.getItem('@scanDirs'); return d ? JSON.parse(d) : []; } catch { return []; }
+  try { return JSON.parse((await AsyncStorage.getItem('@scanDirs')) || '[]'); } catch { return []; }
 });
 export const loadHiddenTracks = createAsyncThunk('music/loadHidden', async () => {
-  try { const d = await AsyncStorage.getItem('@hiddenTracks'); return d ? JSON.parse(d) : []; } catch { return []; }
+  try { return JSON.parse((await AsyncStorage.getItem('@hiddenTracks')) || '[]'); } catch { return []; }
+});
+export const loadPlayHistory = createAsyncThunk('music/loadHistory', async () => {
+  try { return JSON.parse((await AsyncStorage.getItem('@playHistory')) || '[]'); } catch { return []; }
+});
+export const loadUserPrefs = createAsyncThunk('music/loadPrefs', async () => {
+  try { return JSON.parse((await AsyncStorage.getItem('@userPrefs')) || '{}'); } catch { return {}; }
 });
 
-/**
- * 播放曲目 — 随机模式时打乱队列顺序
- */
 export const playTrack = createAsyncThunk(
   'music/playTrack',
-  async ({ track, queue, shuffle }: { track: Track; queue: Track[]; shuffle?: boolean }, { dispatch }) => {
+  async ({ track, queue, shuffle }: { track: Track; queue: Track[]; shuffle?: boolean }, { dispatch, getState }) => {
     try {
-      let playQueue: Track[];
-      let trackIndex: number;
+      let idx = queue.findIndex(t => t.id === track.id);
+      if (idx < 0) idx = 0;
 
-      if (shuffle) {
-        // 随机模式：打乱队列，但把选中歌曲放到第一位
-        const rest = queue.filter(t => t.id !== track.id);
-        const shuffled = shuffleArray(rest);
-        playQueue = [track, ...shuffled];
-        trackIndex = 0;
-      } else {
-        playQueue = queue;
-        trackIndex = queue.findIndex(t => t.id === track.id);
-        if (trackIndex < 0) trackIndex = 0;
-      }
-
-      // 只加载前后各10首
-      const start = Math.max(0, trackIndex - 10);
-      const end = Math.min(playQueue.length, trackIndex + 11);
-      const sub = playQueue.slice(start, end);
-      const si = trackIndex - start;
+      const start = Math.max(0, idx - 10);
+      const end = Math.min(queue.length, idx + 11);
+      const sub = queue.slice(start, end);
+      const si = idx - start;
 
       try { await TrackPlayer.reset(); } catch {
         await new Promise(r => setTimeout(r, 200));
@@ -151,6 +139,11 @@ export const playTrack = createAsyncThunk(
         id: t.id, url: t.url, title: t.title, artist: t.artist, artwork: t.artwork,
       })));
       if (si > 0) await TrackPlayer.skip(si);
+
+      // Apply saved playback speed
+      const state = getState() as { music: MusicState };
+      try { await TrackPlayer.setRate(state.music.playbackSpeed); } catch {}
+
       await TrackPlayer.play();
 
       try {
@@ -159,7 +152,13 @@ export const playTrack = createAsyncThunk(
         else dispatch(setLyrics([]));
       } catch { dispatch(setLyrics([])); }
 
-      return { track, index: trackIndex };
+      // Add to play history
+      dispatch(addToHistory(track.id));
+
+      // Store play queue
+      dispatch(setPlayQueue(queue));
+
+      return { track, index: idx };
     } catch (err) {
       await logCrash(err instanceof Error ? err : new Error(String(err)), 'playTrack');
       return { track, index: 0 };
@@ -167,13 +166,15 @@ export const playTrack = createAsyncThunk(
   },
 );
 
-export const deleteTrackPermanently = createAsyncThunk('music/deletePermanent', async (trackId: string) => {
+export const deleteTrackPermanently = createAsyncThunk('music/deletePermanent', async (id: string) => {
   try {
-    if (await RNFS.exists(trackId)) await RNFS.unlink(trackId);
-    const dot = trackId.lastIndexOf('.');
-    if (dot > 0) { const lrc = trackId.substring(0, dot) + '.lrc'; if (await RNFS.exists(lrc)) await RNFS.unlink(lrc); }
-  } catch {} return trackId;
+    if (await RNFS.exists(id)) await RNFS.unlink(id);
+    const dot = id.lastIndexOf('.');
+    if (dot > 0) { const lrc = id.substring(0, dot) + '.lrc'; if (await RNFS.exists(lrc)) await RNFS.unlink(lrc); }
+  } catch {} return id;
 });
+
+// --- Slice ---
 
 const musicSlice = createSlice({
   name: 'music',
@@ -186,7 +187,6 @@ const musicSlice = createSlice({
     setShowFullPlayer: (s, a: PayloadAction<boolean>) => { s.showFullPlayer = a.payload; },
     toggleShowLyrics: (s) => { s.showLyrics = !s.showLyrics; },
     setRepeatMode: (s, a: PayloadAction<RepeatMode>) => { s.repeatMode = a.payload; },
-    toggleShuffle: (s) => { s.shuffleEnabled = !s.shuffleEnabled; },
     toggleFavorite: (s, a: PayloadAction<string>) => {
       const id = a.payload; const idx = s.favoriteIds.indexOf(id);
       if (idx >= 0) s.favoriteIds.splice(idx, 1); else s.favoriteIds.push(id);
@@ -206,6 +206,68 @@ const musicSlice = createSlice({
       s.tracks = s.tracks.filter(t => t.id !== id);
       AsyncStorage.setItem('@hiddenTracks', JSON.stringify(s.hiddenTrackIds)).catch(() => {});
     },
+    // Sort
+    setSortMode: (s, a: PayloadAction<SortMode>) => {
+      s.sortMode = a.payload;
+      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: a.payload, themeMode: s.themeMode, speed: s.playbackSpeed })).catch(() => {});
+    },
+    // Theme
+    setThemeMode: (s, a: PayloadAction<ThemeMode>) => {
+      s.themeMode = a.payload;
+      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: s.sortMode, themeMode: a.payload, speed: s.playbackSpeed })).catch(() => {});
+    },
+    // Play history
+    addToHistory: (s, a: PayloadAction<string>) => {
+      const entry: PlayHistoryEntry = { trackId: a.payload, playedAt: Date.now() };
+      // Remove duplicate then add to front
+      s.playHistory = [entry, ...s.playHistory.filter(h => h.trackId !== a.payload)].slice(0, 100);
+      AsyncStorage.setItem('@playHistory', JSON.stringify(s.playHistory)).catch(() => {});
+    },
+    clearHistory: (s) => {
+      s.playHistory = [];
+      AsyncStorage.setItem('@playHistory', '[]').catch(() => {});
+    },
+    // Playback speed
+    setPlaybackSpeed: (s, a: PayloadAction<number>) => {
+      s.playbackSpeed = a.payload;
+      TrackPlayer.setRate(a.payload).catch(() => {});
+      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: s.sortMode, themeMode: s.themeMode, speed: a.payload })).catch(() => {});
+    },
+    // Sleep timer
+    setSleepTimer: (s, a: PayloadAction<number | null>) => {
+      s.sleepTimerEnd = a.payload;
+    },
+    // Play queue
+    setPlayQueue: (s, a: PayloadAction<Track[]>) => { s.playQueue = a.payload; },
+    // Batch select
+    toggleBatchMode: (s) => {
+      s.batchSelectMode = !s.batchSelectMode;
+      if (!s.batchSelectMode) s.batchSelectedIds = [];
+    },
+    toggleBatchSelect: (s, a: PayloadAction<string>) => {
+      const id = a.payload;
+      const idx = s.batchSelectedIds.indexOf(id);
+      if (idx >= 0) s.batchSelectedIds.splice(idx, 1);
+      else s.batchSelectedIds.push(id);
+    },
+    batchFavorite: (s) => {
+      for (const id of s.batchSelectedIds) {
+        if (!s.favoriteIds.includes(id)) s.favoriteIds.push(id);
+        const t = s.tracks.find(x => x.id === id); if (t) t.isFavorite = true;
+      }
+      AsyncStorage.setItem('@favorites', JSON.stringify(s.favoriteIds)).catch(() => {});
+      s.batchSelectMode = false; s.batchSelectedIds = [];
+    },
+    batchHide: (s) => {
+      for (const id of s.batchSelectedIds) {
+        if (!s.hiddenTrackIds.includes(id)) s.hiddenTrackIds.push(id);
+      }
+      s.tracks = s.tracks.filter(t => !s.batchSelectedIds.includes(t.id));
+      AsyncStorage.setItem('@hiddenTracks', JSON.stringify(s.hiddenTrackIds)).catch(() => {});
+      s.batchSelectMode = false; s.batchSelectedIds = [];
+    },
+    selectAllBatch: (s) => { s.batchSelectedIds = s.tracks.map(t => t.id); },
+    clearBatchSelect: (s) => { s.batchSelectedIds = []; },
   },
   extraReducers: (builder) => {
     builder
@@ -226,6 +288,13 @@ const musicSlice = createSlice({
       .addCase(loadFavorites.fulfilled, (s, a) => { s.favoriteIds = a.payload; for (const t of s.tracks) t.isFavorite = s.favoriteIds.includes(t.id); })
       .addCase(loadScanDirs.fulfilled, (s, a) => { s.scanDirectories = a.payload; })
       .addCase(loadHiddenTracks.fulfilled, (s, a) => { s.hiddenTrackIds = a.payload; })
+      .addCase(loadPlayHistory.fulfilled, (s, a) => { s.playHistory = a.payload; })
+      .addCase(loadUserPrefs.fulfilled, (s, a) => {
+        const p = a.payload as any;
+        if (p.sortMode) s.sortMode = p.sortMode;
+        if (p.themeMode) s.themeMode = p.themeMode;
+        if (p.speed) s.playbackSpeed = p.speed;
+      })
       .addCase(playTrack.fulfilled, (s, a) => { s.currentTrack = a.payload.track; s.currentIndex = a.payload.index; s.isPlaying = true; })
       .addCase(deleteTrackPermanently.fulfilled, (s, a) => { s.tracks = s.tracks.filter(t => t.id !== a.payload); });
   },
@@ -233,8 +302,11 @@ const musicSlice = createSlice({
 
 export const {
   setCurrentTrack, setIsPlaying, setLyrics, setCurrentLyricIndex,
-  setShowFullPlayer, toggleShowLyrics, setRepeatMode, toggleShuffle,
+  setShowFullPlayer, toggleShowLyrics, setRepeatMode,
   toggleFavorite, setCurrentIndex, setSearchQuery, setScanDirectories,
-  setScanProgress, hideTrack,
+  setScanProgress, hideTrack, setSortMode, setThemeMode,
+  addToHistory, clearHistory, setPlaybackSpeed, setSleepTimer,
+  setPlayQueue, toggleBatchMode, toggleBatchSelect,
+  batchFavorite, batchHide, selectAllBatch, clearBatchSelect,
 } = musicSlice.actions;
 export default musicSlice.reducer;

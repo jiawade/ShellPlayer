@@ -1,118 +1,102 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+// App.tsx
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, StatusBar, Modal, ActivityIndicator, Text } from 'react-native';
+import { Provider } from 'react-redux';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/Ionicons';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import { store, useAppSelector } from './src/store';
+import AllSongsScreen from './src/screens/AllSongsScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import FullPlayerScreen from './src/screens/FullPlayerScreen';
+import MiniPlayer from './src/components/MiniPlayer';
+import { setupPlayer } from './src/utils/playerSetup';
+import { COLORS, SIZES } from './src/utils/theme';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const Tab = createBottomTabNavigator();
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+function MainApp() {
+  const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+
+      <NavigationContainer
+        theme={{
+          dark: true,
+          colors: {
+            primary: COLORS.accent,
+            background: COLORS.bg,
+            card: COLORS.bgCard,
+            text: COLORS.textPrimary,
+            border: COLORS.border,
+            notification: COLORS.accent,
           },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+        }}>
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            tabBarStyle: {
+              backgroundColor: COLORS.bgElevated,
+              borderTopColor: COLORS.border,
+              height: SIZES.tabBarHeight,
+              paddingBottom: 8,
+              paddingTop: 6,
+            },
+            tabBarActiveTintColor: COLORS.accent,
+            tabBarInactiveTintColor: COLORS.textMuted,
+            tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+            tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+              let iconName = 'musical-notes';
+              if (route.name === 'Favorites') iconName = 'heart';
+              if (route.name === 'Settings') iconName = 'settings';
+              return <Icon name={iconName} size={size} color={color} />;
+            },
+          })}>
+          <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '全部歌曲' }} />
+          <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '我喜欢的' }} />
+          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '设置' }} />
+        </Tab.Navigator>
+      </NavigationContainer>
+
+      {currentTrack && !showFullPlayer && <MiniPlayer />}
+
+      <Modal visible={showFullPlayer} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
+        <FullPlayerScreen />
+      </Modal>
     </View>
   );
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+export default function App() {
+  const [ready, setReady] = useState(false);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  useEffect(() => {
+    setupPlayer().then(ok => setReady(ok));
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={styles.loading}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+        <ActivityIndicator size="large" color={COLORS.accent} />
+        <Text style={styles.loadTxt}>初始化播放器...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <Provider store={store}>
+      <MainApp />
+    </Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  loading: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center' },
+  loadTxt: { color: COLORS.textSecondary, fontSize: SIZES.md, marginTop: 16 },
 });
-
-export default App;

@@ -1,0 +1,71 @@
+// src/utils/artworkCache.ts
+import RNFS from 'react-native-fs';
+
+const CACHE_DIR = `${RNFS.CachesDirectoryPath}/artwork`;
+let dirReady = false;
+
+async function ensureDir() {
+  if (dirReady) return;
+  try {
+    if (!(await RNFS.exists(CACHE_DIR))) await RNFS.mkdir(CACHE_DIR);
+    dirReady = true;
+  } catch {}
+}
+
+function hashKey(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
+/**
+ * 将 base64 data URI 保存为 jpg 文件，返回 file:// 路径
+ */
+export async function saveArtworkFile(trackId: string, dataUri: string): Promise<string | undefined> {
+  await ensureDir();
+  try {
+    // 提取 base64 数据部分
+    const commaIdx = dataUri.indexOf(',');
+    if (commaIdx < 0) return undefined;
+    const base64Data = dataUri.substring(commaIdx + 1);
+    const ext = dataUri.includes('image/png') ? 'png' : 'jpg';
+    const fileName = `${hashKey(trackId)}.${ext}`;
+    const filePath = `${CACHE_DIR}/${fileName}`;
+
+    // 如果已存在就不重复写
+    if (await RNFS.exists(filePath)) {
+      return `file://${filePath}`;
+    }
+
+    await RNFS.writeFile(filePath, base64Data, 'base64');
+    return `file://${filePath}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 检查某首歌是否有缓存的封面文件
+ */
+export function getArtworkPath(trackId: string): string {
+  const h = hashKey(trackId);
+  return `${CACHE_DIR}/${h}`;
+}
+
+/**
+ * 尝试获取已缓存的封面 file:// URI
+ */
+export async function getCachedArtwork(trackId: string): Promise<string | undefined> {
+  const h = hashKey(trackId);
+  // 尝试 jpg 和 png
+  for (const ext of ['jpg', 'png']) {
+    const p = `${CACHE_DIR}/${h}.${ext}`;
+    try {
+      if (await RNFS.exists(p)) return `file://${p}`;
+    } catch {}
+  }
+  return undefined;
+}

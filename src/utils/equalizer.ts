@@ -1,57 +1,36 @@
 // src/utils/equalizer.ts
 // 均衡器桥接层：连接 Android 原生 EqualizerModule + AsyncStorage 持久化
-// 保证用户选择的均衡器模式在杀进程、重启手机后依然保留
+// 在播放开始后重新绑定 audio session，确保音效生效
 
 import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from 'react-native-track-player';
 
 const { EqualizerModule } = NativeModules;
 
 const EQ_STORAGE_KEY = '@eq_preset_id';
 
-/** 当前活跃的预设 ID（内存缓存） */
 let activePresetId = 0;
-/** 是否已成功初始化原生模块 */
 let isInitialized = false;
-
-/**
- * 获取当前 audio session ID
- * react-native-track-player 在 Android 上使用 ExoPlayer，
- * 通过 getActiveTrack 时获取 session
- */
-async function getAudioSessionId(): Promise<number> {
-  try {
-    // react-native-track-player v4 暴露 getPlaybackState，
-    // 但 audioSessionId 需要通过 NativeModule 获取
-    // Android ExoPlayer 默认 audioSessionId = 0 (系统混音输出)
-    // 使用 0 可以绑定到系统级音频输出
-    return 0;
-  } catch {
-    return 0;
-  }
-}
 
 /**
  * 初始化均衡器引擎并恢复上次保存的音效设置
  * 在 App 启动时（setupPlayer 成功后）调用
  */
 export async function initEqualizer(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || !EqualizerModule) return;
 
   try {
-    const sessionId = await getAudioSessionId();
-    const result = await EqualizerModule.init(sessionId);
+    // 初始化时使用 session 0（全局），后续播放时会 rebind 到实际 session
+    const result = await EqualizerModule.init(0);
     isInitialized = true;
-
     console.log('[EQ] Initialized:', JSON.stringify(result));
 
     // 恢复上次保存的预设
     const savedId = await getSavedPresetId();
     if (savedId > 0) {
-      console.log(`[EQ] Restoring saved preset: ${savedId}`);
       await EqualizerModule.applyPreset(savedId);
       activePresetId = savedId;
+      console.log(`[EQ] Restored preset: ${savedId}`);
     }
   } catch (e) {
     console.warn('[EQ] Init failed:', e);
@@ -60,26 +39,45 @@ export async function initEqualizer(): Promise<void> {
 }
 
 /**
+ * 在播放开始后调用，重新绑定 EQ 到实际的音频 session
+ * react-native-track-player 的 ExoPlayer 播放后会产生有效的 audio session
+ * 此方法会尝试重新创建音效引擎绑定到新 session，并重新应用当前预设
+ */
+export async function rebindEqualizer(): Promise<void> {
+  if (Platform.OS !== 'android' || !EqualizerModule) return;
+  if (activePresetId === 0) return; // 关闭状态不需要 rebind
+
+  try {
+    // 重新初始化，让原生层检测新的 audio session
+    const result = await EqualizerModule.init(0);
+    isInitialized = true;
+
+    // 重新应用当前预设
+    if (activePresetId > 0) {
+      await EqualizerModule.applyPreset(activePresetId);
+    }
+    console.log(`[EQ] Rebound with preset ${activePresetId}, session: ${result?.sessionId}`);
+  } catch (e) {
+    console.warn('[EQ] Rebind failed:', e);
+  }
+}
+
+/**
  * 应用均衡器预设并持久化到 AsyncStorage
  * @param presetId 预设 ID (0=关闭, 1-11=各音效模式)
  */
 export async function applyEQPreset(presetId: number): Promise<void> {
-  // 先保存到 AsyncStorage（确保即使应用被杀也能恢复）
-  try {
-    await AsyncStorage.setItem(EQ_STORAGE_KEY, String(presetId));
-  } catch (e) {
-    console.warn('[EQ] Failed to save preset:', e);
-  }
-
   activePresetId = presetId;
 
-  if (Platform.OS !== 'android') return;
+  try {
+    await AsyncStorage.setItem(EQ_STORAGE_KEY, String(presetId));
+  } catch {}
 
-  // 如果原生模块未初始化，尝试重新初始化
+  if (Platform.OS !== 'android' || !EqualizerModule) return;
+
   if (!isInitialized) {
     try {
-      const sessionId = await getAudioSessionId();
-      await EqualizerModule.init(sessionId);
+      await EqualizerModule.init(0);
       isInitialized = true;
     } catch (e) {
       console.warn('[EQ] Re-init failed:', e);
@@ -91,62 +89,16 @@ export async function applyEQPreset(presetId: number): Promise<void> {
     await EqualizerModule.applyPreset(presetId);
     console.log(`[EQ] Applied preset: ${presetId}`);
   } catch (e) {
-    console.warn('[EQ] Apply failed, retrying with re-init:', e);
-    // 可能是 session 变了（比如播放器重建），尝试重新初始化
-    try {
-      const sessionId = await getAudioSessionId();
-      await EqualizerModule.init(sessionId);
-      await EqualizerModule.applyPreset(presetId);
-      console.log(`[EQ] Applied preset after re-init: ${presetId}`);
-    } catch (e2) {
-      console.warn('[EQ] Apply after re-init also failed:', e2);
-    }
+    console.warn('[EQ] Apply failed:', e);
   }
 }
 
-/**
- * 从 AsyncStorage 读取已保存的预设 ID
- * @returns 预设 ID，默认 0（关闭）
- */
 export async function getSavedPresetId(): Promise<number> {
   try {
     const val = await AsyncStorage.getItem(EQ_STORAGE_KEY);
-    if (val !== null) {
-      const id = parseInt(val, 10);
-      return isNaN(id) ? 0 : id;
-    }
+    if (val !== null) { const id = parseInt(val, 10); return isNaN(id) ? 0 : id; }
     return 0;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
-/**
- * 获取当前内存中的活跃预设 ID
- */
-export function getActivePresetId(): number {
-  return activePresetId;
-}
 
-/**
- * 获取均衡器硬件信息（调试用）
- */
-export async function getEqualizerInfo(): Promise<any> {
-  if (Platform.OS !== 'android' || !isInitialized) return null;
-  try {
-    return await EqualizerModule.getInfo();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 释放均衡器资源（App 退出时调用）
- */
-export async function releaseEqualizer(): Promise<void> {
-  if (Platform.OS !== 'android' || !isInitialized) return;
-  try {
-    await EqualizerModule.release();
-    isInitialized = false;
-  } catch {}
-}

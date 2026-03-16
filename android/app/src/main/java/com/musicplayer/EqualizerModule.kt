@@ -1,5 +1,7 @@
 package com.musicplayer
 
+import android.content.Context
+import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
@@ -19,53 +21,32 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
     private var presetReverb: PresetReverb? = null
 
     private var currentSessionId: Int = 0
+    private var lastPresetId: Int = 0
 
     /**
      * 初始化音效引擎，绑定到 audioSessionId
-     * audioSessionId 来自 react-native-track-player 的 playback session
+     * 如果传 0，会尝试自动获取当前活跃的音频 session
      */
     @ReactMethod
     fun init(audioSessionId: Int, promise: Promise) {
         try {
+            val sessionId = if (audioSessionId > 0) audioSessionId else detectAudioSession()
             releaseAll()
-            currentSessionId = audioSessionId
+            currentSessionId = sessionId
 
-            // 创建均衡器 (10 段)
-            equalizer = Equalizer(0, audioSessionId).apply {
-                enabled = false
-            }
-
-            // 低音增强
-            bassBoost = BassBoost(0, audioSessionId).apply {
-                enabled = false
-            }
-
-            // 虚拟环绕声
-            virtualizer = Virtualizer(0, audioSessionId).apply {
-                enabled = false
-            }
-
-            // 响度增强
-            try {
-                loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
-                    enabled = false
-                }
-            } catch (e: Exception) {
-                // LoudnessEnhancer 在部分设备不可用
-                loudnessEnhancer = null
-            }
-
-            // 混响
-            try {
-                presetReverb = PresetReverb(0, audioSessionId).apply {
-                    enabled = false
-                }
-            } catch (e: Exception) {
-                presetReverb = null
-            }
+            // 使用 priority=0（普通优先级），让系统和其他 app 的音效可以共存
+            // 对于 sessionId=0 的情况，创建全局音效
+            equalizer = Equalizer(0, sessionId).apply { enabled = false }
+            bassBoost = BassBoost(0, sessionId).apply { enabled = false }
+            virtualizer = Virtualizer(0, sessionId).apply { enabled = false }
+            try { loudnessEnhancer = LoudnessEnhancer(sessionId).apply { enabled = false } }
+            catch (_: Exception) { loudnessEnhancer = null }
+            try { presetReverb = PresetReverb(0, sessionId).apply { enabled = false } }
+            catch (_: Exception) { presetReverb = null }
 
             val result = Arguments.createMap().apply {
                 putBoolean("success", true)
+                putInt("sessionId", sessionId)
                 putInt("bands", equalizer?.numberOfBands?.toInt() ?: 0)
                 putBoolean("hasBassBoost", bassBoost != null)
                 putBoolean("hasVirtualizer", virtualizer != null)
@@ -76,6 +57,22 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             promise.reject("EQ_INIT_ERROR", "Failed to init equalizer: ${e.message}", e)
         }
+    }
+
+    /**
+     * 尝试检测当前活跃的音频 session ID
+     * ExoPlayer (react-native-track-player) 在播放时会生成一个 session
+     */
+    private fun detectAudioSession(): Int {
+        try {
+            val am = reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            if (am != null) {
+                // 通过反射获取 generateAudioSessionId (API 21+)
+                val sessionId = am.generateAudioSessionId()
+                if (sessionId > 0) return sessionId
+            }
+        } catch (_: Exception) {}
+        return 0
     }
 
     /**
@@ -92,80 +89,68 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun applyPreset(presetId: Int, promise: Promise) {
         try {
-            if (presetId == 0) {
-                // 关闭所有音效
-                disableAll()
-                promise.resolve(true)
-                return
-            }
-
-            val eq = equalizer
-            if (eq == null) {
-                promise.reject("EQ_NOT_INIT", "Equalizer not initialized")
-                return
-            }
-
-            val numBands = eq.numberOfBands.toInt()
-            val bandRange = eq.bandLevelRange
-            val minLevel = bandRange[0].toInt()
-            val maxLevel = bandRange[1].toInt()
-
-            // 获取预设参数
-            val preset = getPresetConfig(presetId)
-
-            // 应用均衡器频段增益
-            eq.enabled = true
-            val gains = preset.eqGains
-            for (i in 0 until minOf(numBands, gains.size)) {
-                // 将 -12..+12 dB 映射到设备支持的 minLevel..maxLevel (单位 milliBel)
-                val targetMb = gains[i] * 100 // dB -> milliBel
-                val clamped = targetMb.coerceIn(minLevel, maxLevel)
-                eq.setBandLevel(i.toShort(), clamped.toShort())
-            }
-
-            // 应用低音增强
-            bassBoost?.let { bb ->
-                if (preset.bassStrength > 0) {
-                    bb.setStrength(preset.bassStrength.toShort())
-                    bb.enabled = true
-                } else {
-                    bb.enabled = false
-                }
-            }
-
-            // 应用虚拟环绕声
-            virtualizer?.let { virt ->
-                if (preset.virtualizerStrength > 0) {
-                    virt.setStrength(preset.virtualizerStrength.toShort())
-                    virt.enabled = true
-                } else {
-                    virt.enabled = false
-                }
-            }
-
-            // 应用响度增强
-            loudnessEnhancer?.let { le ->
-                if (preset.loudnessGain > 0) {
-                    le.setTargetGain(preset.loudnessGain)
-                    le.enabled = true
-                } else {
-                    le.enabled = false
-                }
-            }
-
-            // 应用混响
-            presetReverb?.let { reverb ->
-                if (preset.reverbPreset >= 0) {
-                    reverb.preset = preset.reverbPreset.toShort()
-                    reverb.enabled = true
-                } else {
-                    reverb.enabled = false
-                }
-            }
-
+            lastPresetId = presetId
+            applyPresetInternal(presetId)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("EQ_APPLY_ERROR", "Failed to apply preset: ${e.message}", e)
+        }
+    }
+
+    private fun applyPresetInternal(presetId: Int) {
+        if (presetId == 0) {
+            disableAll()
+            return
+        }
+
+        val eq = equalizer ?: return
+
+        val numBands = eq.numberOfBands.toInt()
+        val bandRange = eq.bandLevelRange
+        val minLevel = bandRange[0].toInt()
+        val maxLevel = bandRange[1].toInt()
+
+        val preset = getPresetConfig(presetId)
+
+        // 应用均衡器频段增益
+        eq.enabled = true
+        val gains = preset.eqGains
+        for (i in 0 until minOf(numBands, gains.size)) {
+            val targetMb = gains[i] * 100
+            val clamped = targetMb.coerceIn(minLevel, maxLevel)
+            eq.setBandLevel(i.toShort(), clamped.toShort())
+        }
+
+        // 应用低音增强
+        bassBoost?.let { bb ->
+            if (preset.bassStrength > 0) {
+                bb.setStrength(preset.bassStrength.toShort())
+                bb.enabled = true
+            } else bb.enabled = false
+        }
+
+        // 应用虚拟环绕声
+        virtualizer?.let { virt ->
+            if (preset.virtualizerStrength > 0) {
+                virt.setStrength(preset.virtualizerStrength.toShort())
+                virt.enabled = true
+            } else virt.enabled = false
+        }
+
+        // 应用响度增强
+        loudnessEnhancer?.let { le ->
+            if (preset.loudnessGain > 0) {
+                le.setTargetGain(preset.loudnessGain)
+                le.enabled = true
+            } else le.enabled = false
+        }
+
+        // 应用混响
+        presetReverb?.let { reverb ->
+            if (preset.reverbPreset >= 0) {
+                reverb.preset = preset.reverbPreset.toShort()
+                reverb.enabled = true
+            } else reverb.enabled = false
         }
     }
 

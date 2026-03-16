@@ -8,7 +8,8 @@ import { scanAllMusic, readLrcFile, ScanProgress } from '../utils/scanner';
 import { parseLRC } from '../utils/lrcParser';
 import { requestStoragePermission } from '../utils/permissions';
 import { logCrash, logInfo } from '../utils/crashLogger';
-import { saveArtworkFile } from '../utils/artworkCache';
+import { saveArtworkFile, getCachedArtwork } from '../utils/artworkCache';
+import { importFromMediaLibrary, requestMediaLibraryPermission } from '../utils/mediaLibrary';
 
 interface MusicState {
   tracks: Track[];
@@ -67,6 +68,23 @@ const initialState: MusicState = {
 
 // --- Async thunks ---
 
+export const importiOSMediaLibrary = createAsyncThunk(
+  'music/importiOS',
+  async (_, { dispatch }) => {
+    await logInfo('Importing from iOS Media Library', 'importiOS');
+    const ok = await requestMediaLibraryPermission();
+    if (!ok) throw new Error('没有媒体库访问权限，请在系统设置中允许访问');
+    dispatch(setScanProgress({ phase: 'scanning', current: 0, total: 1 }));
+    const tracks = await importFromMediaLibrary();
+    dispatch(setScanProgress({ phase: 'parsing', current: tracks.length, total: tracks.length }));
+    try {
+      const lite = tracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
+      await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
+    } catch (e) { await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache_ios'); }
+    return { tracks, directories: ['ipod-library'] };
+  },
+);
+
 export const scanMusic = createAsyncThunk(
   'music/scan',
   async (directories: string[], { dispatch }) => {
@@ -95,7 +113,6 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
     const cached = JSON.parse(data) as Track[];
     const tracks = cached.map(t => ({ ...t, artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork }));
     try {
-      const { getCachedArtwork } = require('../utils/artworkCache');
       for (const t of tracks) { if (!t.artwork) { const a = await getCachedArtwork(t.id); if (a) t.artwork = a; } }
     } catch {}
     return tracks;
@@ -191,47 +208,36 @@ const musicSlice = createSlice({
       const id = a.payload; const idx = s.favoriteIds.indexOf(id);
       if (idx >= 0) s.favoriteIds.splice(idx, 1); else s.favoriteIds.push(id);
       const t = s.tracks.find(x => x.id === id); if (t) t.isFavorite = idx < 0;
-      AsyncStorage.setItem('@favorites', JSON.stringify(s.favoriteIds)).catch(() => {});
     },
     setCurrentIndex: (s, a: PayloadAction<number>) => { s.currentIndex = a.payload; },
     setSearchQuery: (s, a: PayloadAction<string>) => { s.searchQuery = a.payload; },
     setScanDirectories: (s, a: PayloadAction<string[]>) => {
       s.scanDirectories = a.payload;
-      AsyncStorage.setItem('@scanDirs', JSON.stringify(a.payload)).catch(() => {});
     },
     setScanProgress: (s, a: PayloadAction<ScanProgress | null>) => { s.scanProgress = a.payload; },
     hideTrack: (s, a: PayloadAction<string>) => {
       const id = a.payload;
       if (!s.hiddenTrackIds.includes(id)) s.hiddenTrackIds.push(id);
       s.tracks = s.tracks.filter(t => t.id !== id);
-      AsyncStorage.setItem('@hiddenTracks', JSON.stringify(s.hiddenTrackIds)).catch(() => {});
     },
     // Sort
     setSortMode: (s, a: PayloadAction<SortMode>) => {
       s.sortMode = a.payload;
-      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: a.payload, themeMode: s.themeMode, speed: s.playbackSpeed })).catch(() => {});
     },
-    // Theme
     setThemeMode: (s, a: PayloadAction<ThemeMode>) => {
       s.themeMode = a.payload;
-      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: s.sortMode, themeMode: a.payload, speed: s.playbackSpeed })).catch(() => {});
     },
     // Play history
     addToHistory: (s, a: PayloadAction<string>) => {
       const entry: PlayHistoryEntry = { trackId: a.payload, playedAt: Date.now() };
-      // Remove duplicate then add to front
       s.playHistory = [entry, ...s.playHistory.filter(h => h.trackId !== a.payload)].slice(0, 100);
-      AsyncStorage.setItem('@playHistory', JSON.stringify(s.playHistory)).catch(() => {});
     },
     clearHistory: (s) => {
       s.playHistory = [];
-      AsyncStorage.setItem('@playHistory', '[]').catch(() => {});
     },
     // Playback speed
     setPlaybackSpeed: (s, a: PayloadAction<number>) => {
       s.playbackSpeed = a.payload;
-      TrackPlayer.setRate(a.payload).catch(() => {});
-      AsyncStorage.setItem('@userPrefs', JSON.stringify({ sortMode: s.sortMode, themeMode: s.themeMode, speed: a.payload })).catch(() => {});
     },
     // Sleep timer
     setSleepTimer: (s, a: PayloadAction<number | null>) => {
@@ -255,7 +261,6 @@ const musicSlice = createSlice({
         if (!s.favoriteIds.includes(id)) s.favoriteIds.push(id);
         const t = s.tracks.find(x => x.id === id); if (t) t.isFavorite = true;
       }
-      AsyncStorage.setItem('@favorites', JSON.stringify(s.favoriteIds)).catch(() => {});
       s.batchSelectMode = false; s.batchSelectedIds = [];
     },
     batchHide: (s) => {
@@ -263,7 +268,6 @@ const musicSlice = createSlice({
         if (!s.hiddenTrackIds.includes(id)) s.hiddenTrackIds.push(id);
       }
       s.tracks = s.tracks.filter(t => !s.batchSelectedIds.includes(t.id));
-      AsyncStorage.setItem('@hiddenTracks', JSON.stringify(s.hiddenTrackIds)).catch(() => {});
       s.batchSelectMode = false; s.batchSelectedIds = [];
     },
     selectAllBatch: (s) => { s.batchSelectedIds = s.tracks.map(t => t.id); },
@@ -279,6 +283,14 @@ const musicSlice = createSlice({
         for (const t of s.tracks) t.isFavorite = s.favoriteIds.includes(t.id);
       })
       .addCase(scanMusic.rejected, (s, a) => { s.isScanning = false; s.scanProgress = null; s.scanError = a.error.message || '扫描失败'; })
+      .addCase(importiOSMediaLibrary.pending, (s) => { s.isScanning = true; s.scanError = null; s.scanProgress = null; })
+      .addCase(importiOSMediaLibrary.fulfilled, (s, a) => {
+        s.isScanning = false; s.scanProgress = null;
+        s.tracks = a.payload.tracks.filter(t => !s.hiddenTrackIds.includes(t.id));
+        s.scanDirectories = a.payload.directories;
+        for (const t of s.tracks) t.isFavorite = s.favoriteIds.includes(t.id);
+      })
+      .addCase(importiOSMediaLibrary.rejected, (s, a) => { s.isScanning = false; s.scanProgress = null; s.scanError = a.error.message || '导入失败'; })
       .addCase(loadCachedTracks.fulfilled, (s, a) => {
         if (a.payload.length > 0 && s.tracks.length === 0) {
           s.tracks = a.payload.filter(t => !s.hiddenTrackIds.includes(t.id));

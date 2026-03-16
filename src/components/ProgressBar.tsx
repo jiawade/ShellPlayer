@@ -1,5 +1,5 @@
 // src/components/ProgressBar.tsx
-import React, { memo } from 'react';
+import React, { memo, useRef, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, PanResponder, Dimensions } from 'react-native';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { formatTime } from '../utils/lrcParser';
@@ -13,19 +13,39 @@ interface Props { position: number; duration: number; }
 const ProgressBar: React.FC<Props> = ({ position, duration }) => {
   const { seekTo } = usePlayerControls();
   const { colors, sizes } = useTheme();
-  const progress = duration > 0 ? position / duration : 0;
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const seekRef = useRef(seekTo);
+  seekRef.current = seekTo;
 
-  const panResponder = PanResponder.create({
+  const [dragging, setDragging] = useState(false);
+  const [dragRatio, setDragRatio] = useState(0);
+  const dragRatioRef = useRef(0);
+
+  const progress = dragging ? dragRatio : (duration > 0 ? position / duration : 0);
+  const displayPosition = dragging ? dragRatio * duration : position;
+
+  const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
       const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / BAR_W));
-      seekTo(ratio * duration);
+      dragRatioRef.current = ratio;
+      setDragging(true);
+      setDragRatio(ratio);
     },
     onPanResponderMove: (e) => {
       const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / BAR_W));
-      seekTo(ratio * duration);
+      dragRatioRef.current = ratio;
+      setDragRatio(ratio);
     },
-  });
+    onPanResponderRelease: () => {
+      seekRef.current(dragRatioRef.current * durationRef.current);
+      setDragging(false);
+    },
+    onPanResponderTerminate: () => {
+      setDragging(false);
+    },
+  }), []);
 
   return (
     <View style={{ paddingHorizontal: PADDING, marginTop: 20 }}>
@@ -40,7 +60,7 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
         </View>
       </View>
       <View style={styles.times}>
-        <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, fontVariant: ['tabular-nums'] }}>{formatTime(position)}</Text>
+        <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, fontVariant: ['tabular-nums'] }}>{formatTime(displayPosition)}</Text>
         <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, fontVariant: ['tabular-nums'] }}>{formatTime(duration)}</Text>
       </View>
     </View>

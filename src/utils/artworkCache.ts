@@ -48,14 +48,6 @@ export async function saveArtworkFile(trackId: string, dataUri: string): Promise
 }
 
 /**
- * 检查某首歌是否有缓存的封面文件
- */
-export function getArtworkPath(trackId: string): string {
-  const h = hashKey(trackId);
-  return `${CACHE_DIR}/${h}`;
-}
-
-/**
  * 尝试获取已缓存的封面 file:// URI
  */
 export async function getCachedArtwork(trackId: string): Promise<string | undefined> {

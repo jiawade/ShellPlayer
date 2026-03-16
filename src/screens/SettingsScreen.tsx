@@ -1,10 +1,10 @@
 // src/screens/SettingsScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store';
-import { scanMusic, setThemeMode } from '../store/musicSlice';
+import { scanMusic, setThemeMode, importiOSMediaLibrary } from '../store/musicSlice';
 import FolderPickerScreen from './FolderPickerScreen';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeMode } from '../types';
@@ -41,7 +41,12 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleRescan = () => {
-    if (scanDirectories.length > 0) {
+    if (Platform.OS === 'ios') {
+      Alert.alert('重新导入', '确定要重新从音乐库导入吗？', [
+        { text: '取消', style: 'cancel' },
+        { text: '导入', onPress: () => dispatch(importiOSMediaLibrary()) },
+      ]);
+    } else if (scanDirectories.length > 0) {
       Alert.alert('重新扫描', '确定要重新扫描本地音乐吗？', [
         { text: '取消', style: 'cancel' },
         { text: '扫描', onPress: () => dispatch(scanMusic(scanDirectories)) },
@@ -91,11 +96,12 @@ const SettingsScreen: React.FC = () => {
         </View>
         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accentDim }]} onPress={handleRescan} disabled={isScanning}>
           <Icon name={isScanning ? 'hourglass-outline' : 'refresh'} size={20} color={colors.accent} />
-          <Text style={[styles.actionTxt, { color: colors.accent }]}>{isScanning ? '正在扫描...' : '重新扫描'}</Text>
+          <Text style={[styles.actionTxt, { color: colors.accent }]}>{isScanning ? '正在导入...' : (Platform.OS === 'ios' ? '重新导入音乐库' : '重新扫描')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 扫描目录 */}
+      {/* 扫描目录 (仅 Android) */}
+      {Platform.OS !== 'ios' && (
       <View style={styles.section}>
         <Text style={[styles.secTitle, { color: colors.textMuted }]}>扫描目录</Text>
         <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -111,6 +117,7 @@ const SettingsScreen: React.FC = () => {
           <Text style={[styles.actionTxt, { color: colors.accent }]}>修改扫描目录</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       {/* 歌词设置 */}
       <View style={styles.section}>

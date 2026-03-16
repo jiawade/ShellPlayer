@@ -1,17 +1,25 @@
 // src/utils/crashLogger.ts
 import RNFS from 'react-native-fs';
+import {Platform} from 'react-native';
 
-const LOG_DIR = `${RNFS.ExternalDirectoryPath}/ShellPlayer_logs`;
+const LOG_DIR =
+  Platform.OS === 'ios'
+    ? `${RNFS.DocumentDirectoryPath}/ShellPlayer_logs`
+    : `${RNFS.ExternalDirectoryPath}/ShellPlayer_logs`;
 const MAX_LOG_SIZE = 500 * 1024; // 500KB per file
 const MAX_LOG_FILES = 5;
 
 let initialized = false;
 
 async function ensureLogDir() {
-  if (initialized) return;
+  if (initialized) {
+    return;
+  }
   try {
     const exists = await RNFS.exists(LOG_DIR);
-    if (!exists) await RNFS.mkdir(LOG_DIR);
+    if (!exists) {
+      await RNFS.mkdir(LOG_DIR);
+    }
     initialized = true;
   } catch (e) {
     console.warn('Failed to create log dir:', e);
@@ -20,7 +28,9 @@ async function ensureLogDir() {
 
 function getTimestamp(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${d.getMilliseconds()}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${d.getMilliseconds()}`;
 }
 
 function pad(n: number): string {
@@ -29,7 +39,9 @@ function pad(n: number): string {
 
 function getLogFileName(): string {
   const d = new Date();
-  return `crash_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.log`;
+  return `crash_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(
+    d.getDate(),
+  )}.log`;
 }
 
 async function rotateLogsIfNeeded() {
@@ -37,7 +49,7 @@ async function rotateLogsIfNeeded() {
     const files = await RNFS.readDir(LOG_DIR);
     const logFiles = files
       .filter(f => f.name.endsWith('.log'))
-      .sort((a, b) => (a.mtime || 0) < (b.mtime || 0) ? -1 : 1);
+      .sort((a, b) => ((a.mtime || 0) < (b.mtime || 0) ? -1 : 1));
 
     if (logFiles.length > MAX_LOG_FILES) {
       const toDelete = logFiles.slice(0, logFiles.length - MAX_LOG_FILES);
@@ -55,11 +67,14 @@ export async function logCrash(error: Error | string, context?: string) {
   const filePath = `${LOG_DIR}/${fileName}`;
   const timestamp = getTimestamp();
 
-  const errorStr = error instanceof Error
-    ? `${error.name}: ${error.message}\nStack: ${error.stack || 'N/A'}`
-    : String(error);
+  const errorStr =
+    error instanceof Error
+      ? `${error.name}: ${error.message}\nStack: ${error.stack || 'N/A'}`
+      : String(error);
 
-  const entry = `\n========== [${timestamp}] ==========\nContext: ${context || 'unknown'}\n${errorStr}\n`;
+  const entry = `\n========== [${timestamp}] ==========\nContext: ${
+    context || 'unknown'
+  }\n${errorStr}\n`;
 
   try {
     const exists = await RNFS.exists(filePath);
@@ -70,7 +85,11 @@ export async function logCrash(error: Error | string, context?: string) {
       }
       await RNFS.appendFile(filePath, entry, 'utf8');
     } else {
-      await RNFS.writeFile(filePath, `ShellPlayer Crash Log\nDevice Time: ${timestamp}\n${entry}`, 'utf8');
+      await RNFS.writeFile(
+        filePath,
+        `ShellPlayer Crash Log\nDevice Time: ${timestamp}\n${entry}`,
+        'utf8',
+      );
     }
   } catch (e) {
     console.warn('Failed to write crash log:', e);
@@ -93,10 +112,6 @@ export async function logInfo(message: string, context?: string) {
       await RNFS.writeFile(filePath, `ShellPlayer Log\n${entry}`, 'utf8');
     }
   } catch {}
-}
-
-export function getLogDirectory(): string {
-  return LOG_DIR;
 }
 
 /**

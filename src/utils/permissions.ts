@@ -1,7 +1,11 @@
 // src/utils/permissions.ts
 import { Platform, PermissionsAndroid } from 'react-native';
+import { requestMediaLibraryPermission } from './mediaLibrary';
 
 export async function requestStoragePermission(): Promise<boolean> {
+  if (Platform.OS === 'ios') {
+    return requestMediaLibraryPermission();
+  }
   if (Platform.OS !== 'android') return true;
 
   try {

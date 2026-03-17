@@ -71,7 +71,6 @@ const FullPlayerScreen: React.FC = () => {
   const changeSpeed = (spd: number) => { dispatch(setPlaybackSpeed(spd)); setShowSpeed(false); };
 
   const cfg = PLAY_MODES.find(m => m.mode === repeatMode) || PLAY_MODES[0];
-  const hasLyrics = lyrics.length > 0;
   const hasTimer = sleepTimerEnd && sleepTimerEnd > Date.now();
 
   return (
@@ -102,13 +101,13 @@ const FullPlayerScreen: React.FC = () => {
             <LyricsView />
           </View>
         ) : (
-          <TouchableOpacity style={styles.coverArea} activeOpacity={0.95} onPress={() => hasLyrics && dispatch(toggleShowLyrics())}>
+          <TouchableOpacity style={styles.coverArea} activeOpacity={0.95} onPress={() => dispatch(toggleShowLyrics())}>
             <View style={[styles.coverGlow, { shadowColor: colors.accent }]}><CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={28} /></View>
             <View style={styles.trackInfo}>
               <Text style={{ fontSize: sizes.xxl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', lineHeight: 36 }} numberOfLines={2}>{currentTrack.title}</Text>
               <Text style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }} numberOfLines={1}>{currentTrack.artist}</Text>
             </View>
-            {hasLyrics && <View style={[styles.lyrHint, { backgroundColor: colors.accentDim }]}><Icon name="document-text-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent }}>点击查看歌词</Text></View>}
+            <View style={[styles.lyrHint, { backgroundColor: colors.accentDim }]}><Icon name="document-text-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent }}>点击查看歌词</Text></View>
           </TouchableOpacity>
         )}
       </View>

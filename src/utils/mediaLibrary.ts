@@ -51,6 +51,20 @@ export async function exportTrackToFile(ipodUrl: string): Promise<string> {
 }
 
 /**
+ * 从音频文件 URL 读取内嵌歌词（M4A ©lyr / MP3 USLT）
+ * 使用 AVURLAsset 元数据读取，比 MPMediaItemPropertyLyrics 更可靠
+ */
+export async function getLyricsForUrl(url: string): Promise<string | null> {
+  if (Platform.OS !== 'ios' || !MediaLibraryModule) return null;
+  try {
+    const result = await MediaLibraryModule.getLyricsForUrl(url);
+    return result && typeof result === 'string' && result.length > 0 ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 从 iTunes/iPod 音乐库导入所有本地歌曲
  */
 export async function importFromMediaLibrary(): Promise<Track[]> {
@@ -69,6 +83,7 @@ export async function importFromMediaLibrary(): Promise<Track[]> {
       fileName: item.fileName || item.title || '',
       filePath: item.filePath || item.url,
       isFavorite: false,
+      embeddedLyrics: item.lyrics || undefined,
     }));
 
     tracks.sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));

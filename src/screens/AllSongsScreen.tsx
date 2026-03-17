@@ -241,10 +241,10 @@ const AllSongsScreen: React.FC = () => {
         </Text>
         <Text
           style={{fontSize: sizes.md, color: colors.textMuted, marginTop: 8}}>
-          {Platform.OS === 'ios'
-            ? '正在读取音乐库...'
-            : p?.phase === 'scanning'
-            ? '正在扫描文件夹...'
+          {p?.phase === 'scanning'
+            ? Platform.OS === 'ios'
+              ? '正在读取音乐库和本地文件...'
+              : '正在扫描文件夹...'
             : '正在解析歌曲元数据...'}
         </Text>
         <View style={styles.progressWrap}>
@@ -295,7 +295,7 @@ const AllSongsScreen: React.FC = () => {
             marginTop: 16,
             fontWeight: '600',
           }}>
-          {Platform.OS === 'ios' ? '未找到音乐' : '未找到本地音乐'}
+          未找到音乐
         </Text>
         {scanError ? (
           <Text
@@ -310,14 +310,28 @@ const AllSongsScreen: React.FC = () => {
           </Text>
         ) : null}
         {Platform.OS === 'ios' ? (
-          <TouchableOpacity
-            style={[styles.retryBtn, {backgroundColor: colors.accent}]}
-            onPress={() => dispatch(importiOSMediaLibrary())}>
+          <>
+            <TouchableOpacity
+              style={[styles.retryBtn, {backgroundColor: colors.accent}]}
+              onPress={() => dispatch(importiOSMediaLibrary())}>
+              <Icon name="musical-notes" size={18} color={colors.bg} />
+              <Text
+                style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
+                从音乐库导入
+              </Text>
+            </TouchableOpacity>
             <Text
-              style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-              从音乐库导入
+              style={{
+                fontSize: sizes.xs,
+                color: colors.textMuted,
+                marginTop: 16,
+                textAlign: 'center',
+                paddingHorizontal: 32,
+              }}>
+              将自动导入 iTunes/iPod 音乐库和 Documents 目录中的音乐文件。{'\n'}
+              可通过 iTunes/Finder 或「文件」应用将音乐传入 Documents 目录。
             </Text>
-          </TouchableOpacity>
+          </>
         ) : (
           <TouchableOpacity
             style={[styles.retryBtn, {backgroundColor: colors.accent}]}
@@ -328,15 +342,13 @@ const AllSongsScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         )}
-        {Platform.OS !== 'ios' && (
-          <Modal visible={showFolderPicker} animationType="slide">
-            <FolderPickerScreen
-              onConfirm={handleFolderConfirm}
-              onCancel={() => setShowFolderPicker(false)}
-              initialSelected={scanDirectories}
-            />
-          </Modal>
-        )}
+        <Modal visible={showFolderPicker} animationType="slide">
+          <FolderPickerScreen
+            onConfirm={handleFolderConfirm}
+            onCancel={() => setShowFolderPicker(false)}
+            initialSelected={scanDirectories}
+          />
+        </Modal>
       </View>
     );
   }

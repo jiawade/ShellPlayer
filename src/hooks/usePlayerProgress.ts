@@ -1,5 +1,6 @@
 // src/hooks/usePlayerProgress.ts
 import { useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
 import TrackPlayer, {
   useProgress,
   usePlaybackState,
@@ -11,9 +12,9 @@ import {
   setIsPlaying, setCurrentTrack, setCurrentLyricIndex,
   setLyrics, setCurrentIndex, playTrack,
 } from '../store/musicSlice';
-import { findCurrentLyricIndex } from '../utils/lrcParser';
+import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { readLrcFile } from '../utils/scanner';
-import { parseLRC } from '../utils/lrcParser';
+import { getLyricsForUrl } from '../utils/mediaLibrary';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
@@ -36,13 +37,30 @@ export function usePlayerSync() {
     if (!matched) return;
     dispatch(setCurrentTrack(matched));
     dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
-    if (matched.lrcPath) {
-      readLrcFile(matched.lrcPath).then(c => dispatch(setLyrics(parseLRC(c))));
-    } else if (matched.embeddedLyrics) {
-      dispatch(setLyrics(parseLRC(matched.embeddedLyrics)));
-    } else {
-      dispatch(setLyrics([]));
-    }
+
+    const loadLyrics = async () => {
+      let lines: import('../types').LyricLine[] = [];
+      if (matched.lrcPath) {
+        lines = parseLRC(await readLrcFile(matched.lrcPath));
+      } else if (matched.embeddedLyrics) {
+        lines = parseLRC(matched.embeddedLyrics);
+        if (lines.length === 0) {
+          lines = parseTextLyrics(matched.embeddedLyrics, matched.duration);
+        }
+      }
+      // iOS: AVURLAsset 元数据读取内嵌歌词
+      if (lines.length === 0 && Platform.OS === 'ios' && matched.url) {
+        const native = await getLyricsForUrl(matched.url);
+        if (native) {
+          lines = parseLRC(native);
+          if (lines.length === 0) {
+            lines = parseTextLyrics(native, matched.duration);
+          }
+        }
+      }
+      dispatch(setLyrics(lines));
+    };
+    loadLyrics();
   }, [activeTrack?.id, dispatch, tracks]);
 
   // 检测单曲循环重播

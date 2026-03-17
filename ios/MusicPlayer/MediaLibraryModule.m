@@ -135,6 +135,61 @@ RCT_EXPORT_METHOD(exportToFile:(NSString *)ipodUrl
 }
 
 /**
+ * 从 AVURLAsset 中读取歌词元数据（支持 M4A/MP3 的 ©lyr / USLT 标签）
+ */
+RCT_EXPORT_METHOD(getLyricsForUrl:(NSString *)urlString
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    @try {
+      NSURL *url = [NSURL URLWithString:urlString];
+      if (!url) { resolve([NSNull null]); return; }
+
+      AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
+      NSString *lyrics = nil;
+
+      // 1. iTunes metadata (M4A ©lyr)
+      NSArray *iTunesMeta = [asset metadataForFormat:AVMetadataFormatiTunesMetadata];
+      for (AVMetadataItem *item in iTunesMeta) {
+        if ([item.commonKey isEqualToString:AVMetadataCommonKeyDescription] ||
+            (item.identifier && [item.identifier localizedCaseInsensitiveContainsString:@"lyrics"])) {
+          NSString *val = [item stringValue];
+          if (val && val.length > 0) { lyrics = val; break; }
+        }
+      }
+
+      // 2. ID3 metadata (MP3 USLT)
+      if (!lyrics || lyrics.length == 0) {
+        NSArray *id3Meta = [asset metadataForFormat:AVMetadataFormatID3Metadata];
+        for (AVMetadataItem *item in id3Meta) {
+          if ((item.identifier && [item.identifier localizedCaseInsensitiveContainsString:@"USLT"]) ||
+              [item.commonKey isEqualToString:AVMetadataCommonKeyDescription]) {
+            NSString *val = [item stringValue];
+            if (val && val.length > 0) { lyrics = val; break; }
+          }
+        }
+      }
+
+      // 3. Common metadata fallback
+      if (!lyrics || lyrics.length == 0) {
+        NSArray *commonMeta = [asset commonMetadata];
+        for (AVMetadataItem *item in commonMeta) {
+          if ([item.commonKey isEqualToString:AVMetadataCommonKeyDescription]) {
+            NSString *val = [item stringValue];
+            if (val && val.length > 0) { lyrics = val; break; }
+          }
+        }
+      }
+
+      resolve(lyrics ?: [NSNull null]);
+    } @catch (NSException *exception) {
+      resolve([NSNull null]);
+    }
+  });
+}
+
+/**
  * 获取 iTunes/iPod 音乐库中的所有歌曲
  */
 RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
@@ -198,6 +253,7 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
         }
 
         NSString *fileName = assetURL.lastPathComponent ?: title;
+        NSString *lyrics = [item valueForProperty:MPMediaItemPropertyLyrics];
 
         NSMutableDictionary *track = [NSMutableDictionary dictionaryWithDictionary:@{
           @"id": trackId,
@@ -212,6 +268,9 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
 
         if (artworkUri) {
           track[@"artwork"] = artworkUri;
+        }
+        if (lyrics && lyrics.length > 0) {
+          track[@"lyrics"] = lyrics;
         }
 
         [results addObject:track];

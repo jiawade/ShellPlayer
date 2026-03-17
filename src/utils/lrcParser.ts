@@ -49,6 +49,26 @@ export function parseLRC(lrcContent: string): LyricLine[] {
 }
 
 /**
+ * 解析纯文本歌词（无时间戳）
+ * 每行均匀分配时间，以便展示和基本滚动
+ */
+export function parseTextLyrics(text: string, duration?: number): LyricLine[] {
+  if (!text || text.trim().length === 0) return [];
+  const lines = text.split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+  if (lines.length === 0) return [];
+
+  const totalTime = duration && duration > 0 ? duration : lines.length * 4;
+  const interval = totalTime / lines.length;
+
+  return lines.map((line, i) => ({
+    time: i * interval,
+    text: line,
+  }));
+}
+
+/**
  * 二分查找当前歌词索引
  * 找到满足 lyrics[i].time <= currentTime < lyrics[i+1].time 的 i
  */

@@ -1,15 +1,16 @@
 // src/store/musicSlice.ts
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import RNFS from 'react-native-fs';
 import { Track, LyricLine, RepeatMode, SortMode, ThemeMode, PlayHistoryEntry } from '../types';
 import { scanAllMusic, readLrcFile, ScanProgress } from '../utils/scanner';
-import { parseLRC } from '../utils/lrcParser';
+import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { requestStoragePermission } from '../utils/permissions';
 import { logCrash, logInfo } from '../utils/crashLogger';
 import { saveArtworkFile, getCachedArtwork } from '../utils/artworkCache';
-import { importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile } from '../utils/mediaLibrary';
+import { importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile, getLyricsForUrl } from '../utils/mediaLibrary';
 
 interface MusicState {
   tracks: Track[];
@@ -71,29 +72,62 @@ const initialState: MusicState = {
 export const importiOSMediaLibrary = createAsyncThunk(
   'music/importiOS',
   async (_, { dispatch }) => {
-    await logInfo('Importing from iOS Media Library', 'importiOS');
+    await logInfo('Importing from iOS Media Library + local files', 'importiOS');
 
-    // Check if running on simulator
+    const allTracks: Track[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. 尝试从 iTunes/iPod 媒体库导入
     const { MediaLibraryModule: MLModule } = require('react-native').NativeModules;
     let isSim = false;
     try { isSim = MLModule ? await MLModule.isSimulator() : false; } catch {}
-    if (isSim) {
-      throw new Error('iOS 模拟器不支持媒体库，请使用真机测试导入功能');
+
+    if (!isSim) {
+      dispatch(setScanProgress({ phase: 'scanning', current: 0, total: 2 }));
+      const permOk = await requestMediaLibraryPermission();
+      if (permOk) {
+        try {
+          const mediaItems = await importFromMediaLibrary();
+          for (const t of mediaItems) {
+            if (!seenIds.has(t.id)) { seenIds.add(t.id); allTracks.push(t); }
+          }
+        } catch (e) {
+          await logInfo(`Media library import failed: ${e}`, 'importiOS');
+        }
+      }
     }
 
-    const ok = await requestMediaLibraryPermission();
-    if (!ok) throw new Error('没有媒体库访问权限，请前往「设置 > 隐私与安全 > 媒体与 Apple Music」中允许访问');
-    dispatch(setScanProgress({ phase: 'scanning', current: 0, total: 1 }));
-    const tracks = await importFromMediaLibrary();
-    dispatch(setScanProgress({ phase: 'parsing', current: tracks.length, total: tracks.length }));
-    if (tracks.length === 0) {
-      throw new Error('音乐库中没有本地歌曲。请先通过 iTunes/Finder 同步音乐到设备');
-    }
+    // 2. 扫描本地音乐文件（Documents 目录）
+    dispatch(setScanProgress({ phase: 'scanning', current: 1, total: 2 }));
     try {
-      const lite = tracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
+      const docDir = RNFS.DocumentDirectoryPath;
+      const localTracks = await scanAllMusic([docDir], (p) => {
+        if (p.phase === 'parsing') {
+          dispatch(setScanProgress({ phase: 'parsing', current: p.current, total: p.total + allTracks.length }));
+        }
+      });
+      for (const t of localTracks) {
+        if (!seenIds.has(t.id)) { seenIds.add(t.id); allTracks.push(t); }
+      }
+    } catch (e) {
+      await logInfo(`Local file scan failed: ${e}`, 'importiOS');
+    }
+
+    dispatch(setScanProgress({ phase: 'parsing', current: allTracks.length, total: allTracks.length }));
+
+    if (allTracks.length === 0) {
+      throw new Error(
+        isSim
+          ? '模拟器无法访问媒体库。请将音乐文件放入 Documents 目录后重试'
+          : '未找到音乐。\n1. 通过 iTunes/Finder 同步音乐到设备\n2. 或使用「文件」应用将音乐放入 ShellPlayer 的 Documents 目录',
+      );
+    }
+
+    try {
+      const lite = allTracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
       await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
     } catch (e) { await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache_ios'); }
-    return { tracks, directories: ['ipod-library'] };
+    return { tracks: allTracks, directories: ['ipod-library', RNFS.DocumentDirectoryPath] };
   },
 );
 
@@ -101,8 +135,10 @@ export const scanMusic = createAsyncThunk(
   'music/scan',
   async (directories: string[], { dispatch }) => {
     await logInfo(`Scanning ${directories.length} dirs`, 'scanMusic');
-    const ok = await requestStoragePermission();
-    if (!ok) throw new Error('没有存储权限，无法扫描音乐文件');
+    if (Platform.OS !== 'ios') {
+      const ok = await requestStoragePermission();
+      if (!ok) throw new Error('没有存储权限，无法扫描音乐文件');
+    }
     const tracks = await scanAllMusic(directories, (p) => dispatch(setScanProgress(p)));
     try {
       const lite = tracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
@@ -164,25 +200,61 @@ export const playTrack = createAsyncThunk(
         try { await TrackPlayer.reset(); } catch {}
       }
 
-      // iOS iPod library 歌曲需要导出为本地文件才能被 TrackPlayer 播放
-      const resolvedTracks = await Promise.all(sub.map(async t => {
-        const url = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-        return { id: t.id, url, title: t.title, artist: t.artist, artwork: t.artwork };
-      }));
+      // 先导出并添加当前歌曲，立即开始播放
+      const currentUrl = track.url.startsWith('ipod-library://')
+        ? await exportTrackToFile(track.url) : track.url;
+      await TrackPlayer.add({
+        id: track.id, url: currentUrl,
+        title: track.title, artist: track.artist, artwork: track.artwork,
+      });
 
-      await TrackPlayer.add(resolvedTracks);
-      if (si > 0) await TrackPlayer.skip(si);
-
-      // Apply saved playback speed
       const state = getState() as { music: MusicState };
       try { await TrackPlayer.setRate(state.music.playbackSpeed); } catch {}
-
       await TrackPlayer.play();
 
+      // 后台逐个导出并添加周围歌曲（避免并发导出导致 iOS "Operation Stopped"）
+      const before = sub.slice(0, si).reverse();
+      const after = sub.slice(si + 1);
+      const addAfter = async () => {
+        for (const t of after) {
+          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+          try { await TrackPlayer.add({ id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork }); } catch {}
+        }
+      };
+      const addBefore = async () => {
+        const items = [];
+        for (const t of before) {
+          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+          items.unshift({ id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork });
+        }
+        for (const item of items) {
+          try { await TrackPlayer.add(item, 0); } catch {}
+        }
+      };
+      addAfter();
+      addBefore();
+
       try {
-        if (track.lrcPath) dispatch(setLyrics(parseLRC(await readLrcFile(track.lrcPath))));
-        else if (track.embeddedLyrics) dispatch(setLyrics(parseLRC(track.embeddedLyrics)));
-        else dispatch(setLyrics([]));
+        let lyrLines: LyricLine[] = [];
+        if (track.lrcPath) {
+          lyrLines = parseLRC(await readLrcFile(track.lrcPath));
+        } else if (track.embeddedLyrics) {
+          lyrLines = parseLRC(track.embeddedLyrics);
+          if (lyrLines.length === 0) {
+            lyrLines = parseTextLyrics(track.embeddedLyrics, track.duration);
+          }
+        }
+        // iOS: 如果没有歌词，通过 AVURLAsset 从音频文件直接读取内嵌歌词
+        if (lyrLines.length === 0 && Platform.OS === 'ios' && track.url) {
+          const nativeLyrics = await getLyricsForUrl(track.url);
+          if (nativeLyrics) {
+            lyrLines = parseLRC(nativeLyrics);
+            if (lyrLines.length === 0) {
+              lyrLines = parseTextLyrics(nativeLyrics, track.duration);
+            }
+          }
+        }
+        dispatch(setLyrics(lyrLines));
       } catch { dispatch(setLyrics([])); }
 
       // Add to play history

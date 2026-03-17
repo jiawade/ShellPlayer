@@ -14,6 +14,7 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		7699B88040F8A987B510C191 /* libPods-MusicPlayer-MusicPlayerTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-MusicPlayer-MusicPlayerTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		A1B2C3D61234567800AABBCC /* MediaLibraryModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D51234567800AABBCC /* MediaLibraryModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,8 @@
 		5DCACB8F33CDC322A6C60F78 /* libPods-MusicPlayer.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MusicPlayer.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = MusicPlayer/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-MusicPlayer-MusicPlayerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MusicPlayer-MusicPlayerTests.release.xcconfig"; path = "Target Support Files/Pods-MusicPlayer-MusicPlayerTests/Pods-MusicPlayer-MusicPlayerTests.release.xcconfig"; sourceTree = "<group>"; };
+		A1B2C3D41234567800AABBCC /* MediaLibraryModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MediaLibraryModule.h; path = MusicPlayer/MediaLibraryModule.h; sourceTree = "<group>"; };
+		A1B2C3D51234567800AABBCC /* MediaLibraryModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MediaLibraryModule.m; path = MusicPlayer/MediaLibraryModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -92,6 +95,8 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB71A68108700A75B9A /* main.m */,
+				A1B2C3D41234567800AABBCC /* MediaLibraryModule.h */,
+				A1B2C3D51234567800AABBCC /* MediaLibraryModule.m */,
 			);
 			name = MusicPlayer;
 			sourceTree = "<group>";
@@ -394,6 +399,7 @@
 			files = (
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				A1B2C3D61234567800AABBCC /* MediaLibraryModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

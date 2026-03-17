@@ -42,7 +42,7 @@ const SettingsScreen: React.FC = () => {
 
   const handleRescan = () => {
     if (Platform.OS === 'ios') {
-      Alert.alert('重新导入', '确定要重新从音乐库导入吗？', [
+      Alert.alert('重新导入', '将从 iTunes/iPod 音乐库和 Documents 目录重新导入音乐', [
         { text: '取消', style: 'cancel' },
         { text: '导入', onPress: () => dispatch(importiOSMediaLibrary()) },
       ]);
@@ -96,28 +96,45 @@ const SettingsScreen: React.FC = () => {
         </View>
         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accentDim }]} onPress={handleRescan} disabled={isScanning}>
           <Icon name={isScanning ? 'hourglass-outline' : 'refresh'} size={20} color={colors.accent} />
-          <Text style={[styles.actionTxt, { color: colors.accent }]}>{isScanning ? '正在导入...' : (Platform.OS === 'ios' ? '重新导入音乐库' : '重新扫描')}</Text>
+          <Text style={[styles.actionTxt, { color: colors.accent }]}>{isScanning ? '正在导入...' : (Platform.OS === 'ios' ? '重新导入音乐' : '重新扫描')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 扫描目录 (仅 Android) */}
-      {Platform.OS !== 'ios' && (
+      {/* 音乐来源 */}
       <View style={styles.section}>
-        <Text style={[styles.secTitle, { color: colors.textMuted }]}>扫描目录</Text>
+        <Text style={[styles.secTitle, { color: colors.textMuted }]}>{Platform.OS === 'ios' ? '音乐来源' : '扫描目录'}</Text>
         <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          {scanDirectories.length > 0 ? scanDirectories.map((dir, i) => (
-            <View key={dir} style={[styles.dirItem, i < scanDirectories.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-              <Icon name="folder" size={18} color={colors.secondary} />
-              <Text style={[styles.dirTxt, { color: colors.textSecondary }]} numberOfLines={1}>{shortPath(dir)}</Text>
-            </View>
-          )) : <Text style={{ color: colors.textMuted, textAlign: 'center', paddingVertical: 8 }}>未设置</Text>}
+          {Platform.OS === 'ios' ? (
+            <>
+              <View style={[styles.dirItem, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                <Icon name="musical-notes" size={18} color={colors.secondary} />
+                <Text style={[styles.dirTxt, { color: colors.textSecondary }]}>iTunes/iPod 音乐库</Text>
+              </View>
+              <View style={styles.dirItem}>
+                <Icon name="folder" size={18} color={colors.secondary} />
+                <Text style={[styles.dirTxt, { color: colors.textSecondary }]}>Documents 目录（本地文件）</Text>
+              </View>
+            </>
+          ) : (
+            scanDirectories.length > 0 ? scanDirectories.map((dir, i) => (
+              <View key={dir} style={[styles.dirItem, i < scanDirectories.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                <Icon name="folder" size={18} color={colors.secondary} />
+                <Text style={[styles.dirTxt, { color: colors.textSecondary }]} numberOfLines={1}>{shortPath(dir)}</Text>
+              </View>
+            )) : <Text style={{ color: colors.textMuted, textAlign: 'center', paddingVertical: 8 }}>未设置</Text>
+          )}
         </View>
-        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accentDim }]} onPress={() => setShowFolderPicker(true)}>
-          <Icon name="folder-open-outline" size={20} color={colors.accent} />
-          <Text style={[styles.actionTxt, { color: colors.accent }]}>修改扫描目录</Text>
-        </TouchableOpacity>
+        {Platform.OS === 'ios' ? (
+          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 8, paddingHorizontal: 4, lineHeight: 16 }}>
+            通过 iTunes/Finder 同步音乐或使用「文件」应用将音乐文件放入 ShellPlayer 的 Documents 目录
+          </Text>
+        ) : (
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accentDim }]} onPress={() => setShowFolderPicker(true)}>
+            <Icon name="folder-open-outline" size={20} color={colors.accent} />
+            <Text style={[styles.actionTxt, { color: colors.accent }]}>修改扫描目录</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      )}
 
       {/* 歌词设置 */}
       <View style={styles.section}>

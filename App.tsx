@@ -4,13 +4,15 @@ import { View, StyleSheet, StatusBar, Modal, ActivityIndicator, Text } from 'rea
 import { Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { store, useAppSelector, useAppDispatch } from './src/store';
 import { loadUserPrefs, loadPlayHistory } from './src/store/musicSlice';
 import AllSongsScreen from './src/screens/AllSongsScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
-import BrowseScreen from './src/screens/BrowseScreen';
+import PlaylistsScreen from './src/screens/PlaylistsScreen';
+import PlaylistDetailScreen from './src/screens/PlaylistDetailScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import FullPlayerScreen from './src/screens/FullPlayerScreen';
@@ -21,6 +23,16 @@ import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { DARK_COLORS, SIZES } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
+const PlaylistStack = createNativeStackNavigator();
+
+function PlaylistStackScreen() {
+  return (
+    <PlaylistStack.Navigator screenOptions={{ headerShown: false }}>
+      <PlaylistStack.Screen name="PlaylistList" component={PlaylistsScreen} />
+      <PlaylistStack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} />
+    </PlaylistStack.Navigator>
+  );
+}
 
 function MainApp() {
   const dispatch = useAppDispatch();
@@ -49,14 +61,14 @@ function MainApp() {
             tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
             tabBarIcon: ({ color, size }: { color: string; size: number }) => {
               const icons: Record<string, string> = {
-                AllSongs: 'musical-notes', Browse: 'albums', Favorites: 'heart',
+                AllSongs: 'musical-notes', Playlists: 'albums', Favorites: 'heart',
                 History: 'time', Settings: 'settings',
               };
               return <Icon name={icons[route.name] || 'ellipse'} size={size - 2} color={color} />;
             },
           })}>
           <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '歌曲' }} />
-          <Tab.Screen name="Browse" component={BrowseScreen} options={{ tabBarLabel: '浏览' }} />
+          <Tab.Screen name="Playlists" component={PlaylistStackScreen} options={{ tabBarLabel: '歌单' }} />
           <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '喜欢' }} />
           <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: '历史' }} />
           <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '设置' }} />

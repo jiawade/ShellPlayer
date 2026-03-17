@@ -20,6 +20,10 @@ ios/Pods/
 .vscode/
 *.iml
 
+# Xcode 用户数据
+xcuserdata/
+*.xcuserstate
+
 # 环境
 .env
 .env.*

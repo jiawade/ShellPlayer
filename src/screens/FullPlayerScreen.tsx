@@ -126,9 +126,6 @@ const FullPlayerScreen: React.FC = () => {
           <TouchableOpacity onPress={() => setShowQueue(true)} style={styles.funcBtn}>
             <Icon name="list-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowEQ(true)} style={styles.funcBtn}>
-            <Icon name="options-outline" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
         </View>
 
         {showSpeed && (
@@ -154,7 +151,9 @@ const FullPlayerScreen: React.FC = () => {
           <TouchableOpacity onPress={skipToNext} style={styles.ctrlBtn}>
             <Icon name="play-skip-forward" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
-          <View style={styles.ctrlSideBtn} />
+          <TouchableOpacity onPress={() => setShowEQ(true)} style={styles.ctrlSideBtn}>
+            <Icon name="options-outline" size={22} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
       </View>
 

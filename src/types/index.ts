@@ -28,3 +28,11 @@ export interface PlayHistoryEntry {
   trackId: string;
   playedAt: number; // timestamp
 }
+
+export interface Playlist {
+  id: string;
+  name: string;
+  trackIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}

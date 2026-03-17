@@ -87,7 +87,7 @@ export function usePlayerSync() {
 
 export function usePlayerControls() {
   const dispatch = useAppDispatch();
-  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode } = useAppSelector(s => s.music);
+  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playHistory } = useAppSelector(s => s.music);
 
   const togglePlayPause = useCallback(async () => {
     const s = await TrackPlayer.getPlaybackState();
@@ -115,19 +115,22 @@ export function usePlayerControls() {
   }, [repeatMode, tracks, currentTrack, dispatch]);
 
   /**
-   * 上一曲：随机模式下也随机选一首
+   * 上一曲：随机模式下播放上一次播放的歌曲（从播放历史中获取）
    */
   const skipToPrevious = useCallback(async () => {
     if (repeatMode === 'queue' && tracks.length > 1) {
-      const candidates = tracks.filter(t => t.id !== currentTrack?.id);
-      if (candidates.length > 0) {
-        const random = candidates[Math.floor(Math.random() * candidates.length)];
-        dispatch(playTrack({ track: random, queue: tracks, shuffle: false }));
-        return;
+      // playHistory[0] is the current track, [1] is the one before
+      if (playHistory.length >= 2) {
+        const prevEntry = playHistory[1];
+        const prevTrack = tracks.find(t => t.id === prevEntry.trackId);
+        if (prevTrack) {
+          dispatch(playTrack({ track: prevTrack, queue: tracks, shuffle: false }));
+          return;
+        }
       }
     }
     try { await TrackPlayer.skipToPrevious(); } catch {}
-  }, [repeatMode, tracks, currentTrack, dispatch]);
+  }, [repeatMode, tracks, playHistory, dispatch]);
 
   /** 播放指定歌词行，到该行结束自动暂停 */
   const seekAndStop = useCallback(async (lyricIdx: number) => {

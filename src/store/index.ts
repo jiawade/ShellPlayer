@@ -5,10 +5,8 @@ import type { TypedUseSelectorHook } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import musicReducer from './musicSlice';
+import playlistReducer from './playlistSlice';
 
-/**
- * Middleware to persist state changes that were previously side effects in reducers.
- */
 const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
   const result = next(action);
   const state = storeApi.getState() as RootState;
@@ -41,7 +39,12 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
       break;
   }
 
-  // Side effect: apply playback speed to TrackPlayer
+  if (action.type.startsWith('playlist/') && action.type !== 'playlist/load/fulfilled'
+      && action.type !== 'playlist/load/pending' && action.type !== 'playlist/load/rejected') {
+    const pl = state.playlist;
+    AsyncStorage.setItem('@playlists', JSON.stringify(pl.playlists)).catch(() => {});
+  }
+
   if (action.type === 'music/setPlaybackSpeed') {
     TrackPlayer.setRate(m.playbackSpeed).catch(() => {});
   }
@@ -50,7 +53,7 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
 };
 
 export const store = configureStore({
-  reducer: { music: musicReducer },
+  reducer: { music: musicReducer, playlist: playlistReducer },
   middleware: (getDefault) => getDefault({ serializableCheck: false }).concat(persistMiddleware),
 });
 

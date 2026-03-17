@@ -559,7 +559,7 @@ const AllSongsScreen: React.FC = () => {
         maxToRenderPerBatch={15}
         windowSize={11}
         removeClippedSubviews={true}
-        getItemLayout={(_, i) => ({length: 66, offset: 66 * i, index: i})}
+        getItemLayout={(_, i) => ({length: 76, offset: 76 * i, index: i})}
         ListEmptyComponent={
           searchQuery ? (
             <View style={styles.noResult}>

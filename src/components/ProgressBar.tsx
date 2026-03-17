@@ -1,5 +1,5 @@
 // src/components/ProgressBar.tsx
-import React, { memo, useRef, useMemo, useState, useCallback } from 'react';
+import React, { memo, useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, PanResponder, LayoutChangeEvent } from 'react-native';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { formatTime } from '../utils/lrcParser';
@@ -21,7 +21,14 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
   const [dragRatio, setDragRatio] = useState(0);
   const dragRatioRef = useRef(0);
 
-  // 记录进度条在屏幕上的位置和宽度
+  const [seekTarget, setSeekTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (seekTarget !== null && Math.abs(position - seekTarget) < 0.5) {
+      setSeekTarget(null);
+    }
+  }, [position, seekTarget]);
+
   const barLayoutRef = useRef({ x: 0, width: 1 });
 
   const onBarLayout = useCallback((e: LayoutChangeEvent) => {
@@ -32,8 +39,16 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
     });
   }, []);
 
-  const progress = dragging ? dragRatio : (duration > 0 ? position / duration : 0);
-  const displayPosition = dragging ? dragRatio * duration : position;
+  const progress = dragging
+    ? dragRatio
+    : seekTarget !== null
+      ? (duration > 0 ? seekTarget / duration : 0)
+      : (duration > 0 ? position / duration : 0);
+  const displayPosition = dragging
+    ? dragRatio * duration
+    : seekTarget !== null
+      ? seekTarget
+      : position;
 
   const calcRatio = useCallback((pageX: number) => {
     const { x, width } = barLayoutRef.current;
@@ -45,6 +60,7 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
     onPanResponderGrant: (e) => {
       const ratio = calcRatio(e.nativeEvent.pageX);
       dragRatioRef.current = ratio;
+      setSeekTarget(null);
       setDragging(true);
       setDragRatio(ratio);
     },
@@ -54,8 +70,10 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
       setDragRatio(ratio);
     },
     onPanResponderRelease: () => {
-      seekRef.current(dragRatioRef.current * durationRef.current);
+      const targetSec = dragRatioRef.current * durationRef.current;
+      setSeekTarget(targetSec);
       setDragging(false);
+      seekRef.current(targetSec);
     },
     onPanResponderTerminate: () => {
       setDragging(false);

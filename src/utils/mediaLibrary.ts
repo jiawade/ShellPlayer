@@ -43,8 +43,11 @@ export async function exportTrackToFile(ipodUrl: string): Promise<string> {
 
   try {
     const localUrl: string = await MediaLibraryModule.exportToFile(ipodUrl);
-    exportCache.set(ipodUrl, localUrl);
-    return localUrl;
+    if (localUrl && localUrl.startsWith('file://')) {
+      exportCache.set(ipodUrl, localUrl);
+      return localUrl;
+    }
+    return ipodUrl;
   } catch {
     return ipodUrl;
   }

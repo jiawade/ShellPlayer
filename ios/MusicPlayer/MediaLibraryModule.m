@@ -75,8 +75,45 @@ RCT_EXPORT_METHOD(getPermissionStatus:(RCTPromiseResolveBlock)resolve
 }
 
 /**
- * 将 ipod-library:// URL 导出为本地 m4a 文件（使用 passthrough，不重新编码）
- * 返回本地 file:// URL
+ * 用指定 preset + outputFileType 尝试导出，同步等待结果
+ * 返回 YES 表示成功，NO 表示失败
+ */
+- (BOOL)tryExportAsset:(AVURLAsset *)asset
+                toPath:(NSString *)destPath
+                preset:(NSString *)preset
+            fileType:(AVFileType)fileType
+{
+  NSFileManager *fm = [NSFileManager defaultManager];
+  // 清除之前可能残留的失败文件
+  if ([fm fileExistsAtPath:destPath]) {
+    [fm removeItemAtPath:destPath error:nil];
+  }
+
+  AVAssetExportSession *exporter =
+    [AVAssetExportSession exportSessionWithAsset:asset presetName:preset];
+  if (!exporter) return NO;
+
+  exporter.outputURL = [NSURL fileURLWithPath:destPath];
+  exporter.outputFileType = fileType;
+
+  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+  __block BOOL success = NO;
+
+  [exporter exportAsynchronouslyWithCompletionHandler:^{
+    success = (exporter.status == AVAssetExportSessionStatusCompleted);
+    dispatch_semaphore_signal(sem);
+  }];
+  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC));
+
+  if (!success && [fm fileExistsAtPath:destPath]) {
+    [fm removeItemAtPath:destPath error:nil];
+  }
+  return success;
+}
+
+/**
+ * 将 ipod-library:// URL 导出为本地音频文件
+ * 依次尝试：passthrough→M4A, passthrough→MP4, 重编码→M4A
  */
 RCT_EXPORT_METHOD(exportToFile:(NSString *)ipodUrl
                   resolver:(RCTPromiseResolveBlock)resolve
@@ -90,7 +127,6 @@ RCT_EXPORT_METHOD(exportToFile:(NSString *)ipodUrl
         return;
       }
 
-      // 用 URL 的 hash 生成文件名，避免重复导出
       NSString *hash = [NSString stringWithFormat:@"%lu", (unsigned long)[ipodUrl hash]];
       NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
       NSString *exportDir = [cacheDir stringByAppendingPathComponent:@"exported_audio"];
@@ -98,36 +134,56 @@ RCT_EXPORT_METHOD(exportToFile:(NSString *)ipodUrl
       if (![fm fileExistsAtPath:exportDir]) {
         [fm createDirectoryAtPath:exportDir withIntermediateDirectories:YES attributes:nil error:nil];
       }
-      NSString *destPath = [exportDir stringByAppendingPathComponent:
-                            [NSString stringWithFormat:@"%@.m4a", hash]];
 
-      // 如果已导出过，直接返回
-      if ([fm fileExistsAtPath:destPath]) {
-        resolve([NSString stringWithFormat:@"file://%@", destPath]);
-        return;
+      // 检查各种可能的缓存文件
+      NSArray *extensions = @[@"m4a", @"mp4", @"caf"];
+      for (NSString *ext in extensions) {
+        NSString *cached = [exportDir stringByAppendingPathComponent:
+                            [NSString stringWithFormat:@"%@.%@", hash, ext]];
+        if ([fm fileExistsAtPath:cached]) {
+          resolve([NSString stringWithFormat:@"file://%@", cached]);
+          return;
+        }
       }
 
       AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURL options:nil];
-      AVAssetExportSession *exporter = [AVAssetExportSession exportSessionWithAsset:asset
-                                                                         presetName:AVAssetExportPresetPassthrough];
-      if (!exporter) {
-        reject(@"EXPORT_ERROR", @"Cannot create export session", nil);
+
+      // 策略1: passthrough → M4A（最快，AAC/ALAC 音源适用）
+      NSString *pathM4A = [exportDir stringByAppendingPathComponent:
+                           [NSString stringWithFormat:@"%@.m4a", hash]];
+      if ([self tryExportAsset:asset toPath:pathM4A
+                        preset:AVAssetExportPresetPassthrough fileType:AVFileTypeAppleM4A]) {
+        resolve([NSString stringWithFormat:@"file://%@", pathM4A]);
         return;
       }
 
-      exporter.outputURL = [NSURL fileURLWithPath:destPath];
-      exporter.outputFileType = AVFileTypeAppleM4A;
+      // 策略2: passthrough → MPEG4（MP3 等格式可放入 MP4 容器）
+      NSString *pathMP4 = [exportDir stringByAppendingPathComponent:
+                           [NSString stringWithFormat:@"%@.mp4", hash]];
+      if ([self tryExportAsset:asset toPath:pathMP4
+                        preset:AVAssetExportPresetPassthrough fileType:AVFileTypeMPEG4]) {
+        resolve([NSString stringWithFormat:@"file://%@", pathMP4]);
+        return;
+      }
 
-      [exporter exportAsynchronouslyWithCompletionHandler:^{
-        if (exporter.status == AVAssetExportSessionStatusCompleted) {
-          resolve([NSString stringWithFormat:@"file://%@", destPath]);
-        } else {
-          NSString *errMsg = exporter.error.localizedDescription ?: @"Export failed";
-          RCTLogWarn(@"[MediaLibrary] Export failed: %@", errMsg);
-          // 失败时返回原始 URL 作为兜底
-          resolve(ipodUrl);
-        }
-      }];
+      // 策略3: passthrough → CAF（Apple 通用音频容器，接受任何编解码器）
+      NSString *pathCAF = [exportDir stringByAppendingPathComponent:
+                           [NSString stringWithFormat:@"%@.caf", hash]];
+      if ([self tryExportAsset:asset toPath:pathCAF
+                        preset:AVAssetExportPresetPassthrough fileType:AVFileTypeCoreAudioFormat]) {
+        resolve([NSString stringWithFormat:@"file://%@", pathCAF]);
+        return;
+      }
+
+      // 策略4: 重新编码为 AAC M4A（最慢但兼容性最好）
+      if ([self tryExportAsset:asset toPath:pathM4A
+                        preset:AVAssetExportPresetAppleM4A fileType:AVFileTypeAppleM4A]) {
+        resolve([NSString stringWithFormat:@"file://%@", pathM4A]);
+        return;
+      }
+
+      RCTLogInfo(@"[MediaLibrary] All export strategies failed for: %@", ipodUrl);
+      reject(@"EXPORT_ERROR", @"Cannot export audio file", nil);
     } @catch (NSException *exception) {
       reject(@"EXPORT_ERROR", exception.reason, nil);
     }

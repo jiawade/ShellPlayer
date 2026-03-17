@@ -58,7 +58,7 @@ const initialState: MusicState = {
   hiddenTrackIds: [],
   scanProgress: null,
   sortMode: 'title',
-  themeMode: 'dark',
+  themeMode: 'system',
   playHistory: [],
   playbackSpeed: 1.0,
   sleepTimerEnd: null,

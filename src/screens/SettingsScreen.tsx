@@ -69,14 +69,20 @@ const SettingsScreen: React.FC = () => {
             <TouchableOpacity
               style={[styles.themeBtn, { backgroundColor: colors.bgElevated }, themeMode === 'dark' && { backgroundColor: colors.accent }]}
               onPress={() => handleThemeToggle('dark')}>
-              <Icon name="moon" size={20} color={themeMode === 'dark' ? colors.bg : colors.textMuted} />
+              <Icon name="moon" size={18} color={themeMode === 'dark' ? colors.bg : colors.textMuted} />
               <Text style={[styles.themeTxt, { color: colors.textMuted }, themeMode === 'dark' && { color: colors.bg }]}>深色</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.themeBtn, { backgroundColor: colors.bgElevated }, themeMode === 'light' && { backgroundColor: colors.accent }]}
               onPress={() => handleThemeToggle('light')}>
-              <Icon name="sunny" size={20} color={themeMode === 'light' ? colors.bg : colors.textMuted} />
+              <Icon name="sunny" size={18} color={themeMode === 'light' ? colors.bg : colors.textMuted} />
               <Text style={[styles.themeTxt, { color: colors.textMuted }, themeMode === 'light' && { color: colors.bg }]}>浅色</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.themeBtn, { backgroundColor: colors.bgElevated }, themeMode === 'system' && { backgroundColor: colors.accent }]}
+              onPress={() => handleThemeToggle('system')}>
+              <Icon name="phone-portrait-outline" size={18} color={themeMode === 'system' ? colors.bg : colors.textMuted} />
+              <Text style={[styles.themeTxt, { color: colors.textMuted }, themeMode === 'system' && { color: colors.bg }]}>跟随系统</Text>
             </TouchableOpacity>
           </View>
         </View>

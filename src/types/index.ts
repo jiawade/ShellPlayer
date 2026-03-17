@@ -22,7 +22,7 @@ export interface LyricLine {
 
 export type RepeatMode = 'off' | 'track' | 'queue';
 export type SortMode = 'title' | 'artist' | 'recent';
-export type ThemeMode = 'dark' | 'light';
+export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface PlayHistoryEntry {
   trackId: string;

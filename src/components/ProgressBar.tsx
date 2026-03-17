@@ -1,12 +1,11 @@
 // src/components/ProgressBar.tsx
-import React, { memo, useRef, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, PanResponder, Dimensions } from 'react-native';
+import React, { memo, useRef, useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, PanResponder, LayoutChangeEvent } from 'react-native';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { formatTime } from '../utils/lrcParser';
 import { useTheme } from '../contexts/ThemeContext';
 
 const PADDING = 28;
-const BAR_W = Dimensions.get('window').width - PADDING * 2;
 
 interface Props { position: number; duration: number; }
 
@@ -22,19 +21,35 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
   const [dragRatio, setDragRatio] = useState(0);
   const dragRatioRef = useRef(0);
 
+  // 记录进度条在屏幕上的位置和宽度
+  const barLayoutRef = useRef({ x: 0, width: 1 });
+
+  const onBarLayout = useCallback((e: LayoutChangeEvent) => {
+    e.target.measureInWindow((x, _y, width) => {
+      if (width > 0) {
+        barLayoutRef.current = { x, width };
+      }
+    });
+  }, []);
+
   const progress = dragging ? dragRatio : (duration > 0 ? position / duration : 0);
   const displayPosition = dragging ? dragRatio * duration : position;
+
+  const calcRatio = useCallback((pageX: number) => {
+    const { x, width } = barLayoutRef.current;
+    return Math.max(0, Math.min(1, (pageX - x) / width));
+  }, []);
 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
-      const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / BAR_W));
+      const ratio = calcRatio(e.nativeEvent.pageX);
       dragRatioRef.current = ratio;
       setDragging(true);
       setDragRatio(ratio);
     },
     onPanResponderMove: (e) => {
-      const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / BAR_W));
+      const ratio = calcRatio(e.nativeEvent.pageX);
       dragRatioRef.current = ratio;
       setDragRatio(ratio);
     },
@@ -45,11 +60,11 @@ const ProgressBar: React.FC<Props> = ({ position, duration }) => {
     onPanResponderTerminate: () => {
       setDragging(false);
     },
-  }), []);
+  }), [calcRatio]);
 
   return (
     <View style={{ paddingHorizontal: PADDING, marginTop: 20 }}>
-      <View style={styles.barTouch} {...panResponder.panHandlers}>
+      <View style={styles.barTouch} onLayout={onBarLayout} {...panResponder.panHandlers}>
         <View style={[styles.barBg, { backgroundColor: colors.bgElevated }]}>
           <View style={[styles.barFill, { backgroundColor: colors.accent, width: `${progress * 100}%` }]} />
           <View style={[styles.thumb, {

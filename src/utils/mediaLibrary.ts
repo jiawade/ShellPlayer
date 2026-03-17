@@ -29,6 +29,27 @@ export async function getMediaLibraryPermissionStatus(): Promise<string> {
   }
 }
 
+// 导出缓存：避免重复导出同一首歌
+const exportCache = new Map<string, string>();
+
+/**
+ * 将 ipod-library:// URL 导出为本地 file:// URL
+ * 使用 AVAssetExportSession passthrough（不重编码，几乎瞬间完成）
+ */
+export async function exportTrackToFile(ipodUrl: string): Promise<string> {
+  if (!ipodUrl.startsWith('ipod-library://')) return ipodUrl;
+  if (exportCache.has(ipodUrl)) return exportCache.get(ipodUrl)!;
+  if (Platform.OS !== 'ios' || !MediaLibraryModule) return ipodUrl;
+
+  try {
+    const localUrl: string = await MediaLibraryModule.exportToFile(ipodUrl);
+    exportCache.set(ipodUrl, localUrl);
+    return localUrl;
+  } catch {
+    return ipodUrl;
+  }
+}
+
 /**
  * 从 iTunes/iPod 音乐库导入所有本地歌曲
  */

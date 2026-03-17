@@ -1,10 +1,26 @@
 #import "MediaLibraryModule.h"
 #import <MediaPlayer/MediaPlayer.h>
+#import <AVFoundation/AVFoundation.h>
 #import <React/RCTLog.h>
 
 @implementation MediaLibraryModule
 
 RCT_EXPORT_MODULE();
+
++ (BOOL)isSimulator
+{
+#if TARGET_OS_SIMULATOR
+  return YES;
+#else
+  return NO;
+#endif
+}
+
+RCT_EXPORT_METHOD(isSimulator:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  resolve(@([MediaLibraryModule isSimulator]));
+}
 
 /**
  * 请求 Apple Music / 媒体库访问权限
@@ -27,14 +43,12 @@ RCT_EXPORT_METHOD(requestPermission:(RCTPromiseResolveBlock)resolve
       resolve(@(newStatus == MPMediaLibraryAuthorizationStatusAuthorized));
     }];
   } else {
-    // iOS < 9.3: no authorization needed
     resolve(@(YES));
   }
 }
 
 /**
  * 检查当前权限状态
- * 返回: "authorized" | "denied" | "restricted" | "notDetermined"
  */
 RCT_EXPORT_METHOD(getPermissionStatus:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
@@ -61,8 +75,67 @@ RCT_EXPORT_METHOD(getPermissionStatus:(RCTPromiseResolveBlock)resolve
 }
 
 /**
+ * 将 ipod-library:// URL 导出为本地 m4a 文件（使用 passthrough，不重新编码）
+ * 返回本地 file:// URL
+ */
+RCT_EXPORT_METHOD(exportToFile:(NSString *)ipodUrl
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    @try {
+      NSURL *sourceURL = [NSURL URLWithString:ipodUrl];
+      if (!sourceURL) {
+        reject(@"EXPORT_ERROR", @"Invalid URL", nil);
+        return;
+      }
+
+      // 用 URL 的 hash 生成文件名，避免重复导出
+      NSString *hash = [NSString stringWithFormat:@"%lu", (unsigned long)[ipodUrl hash]];
+      NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
+      NSString *exportDir = [cacheDir stringByAppendingPathComponent:@"exported_audio"];
+      NSFileManager *fm = [NSFileManager defaultManager];
+      if (![fm fileExistsAtPath:exportDir]) {
+        [fm createDirectoryAtPath:exportDir withIntermediateDirectories:YES attributes:nil error:nil];
+      }
+      NSString *destPath = [exportDir stringByAppendingPathComponent:
+                            [NSString stringWithFormat:@"%@.m4a", hash]];
+
+      // 如果已导出过，直接返回
+      if ([fm fileExistsAtPath:destPath]) {
+        resolve([NSString stringWithFormat:@"file://%@", destPath]);
+        return;
+      }
+
+      AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURL options:nil];
+      AVAssetExportSession *exporter = [AVAssetExportSession exportSessionWithAsset:asset
+                                                                         presetName:AVAssetExportPresetPassthrough];
+      if (!exporter) {
+        reject(@"EXPORT_ERROR", @"Cannot create export session", nil);
+        return;
+      }
+
+      exporter.outputURL = [NSURL fileURLWithPath:destPath];
+      exporter.outputFileType = AVFileTypeAppleM4A;
+
+      [exporter exportAsynchronouslyWithCompletionHandler:^{
+        if (exporter.status == AVAssetExportSessionStatusCompleted) {
+          resolve([NSString stringWithFormat:@"file://%@", destPath]);
+        } else {
+          NSString *errMsg = exporter.error.localizedDescription ?: @"Export failed";
+          RCTLogWarn(@"[MediaLibrary] Export failed: %@", errMsg);
+          // 失败时返回原始 URL 作为兜底
+          resolve(ipodUrl);
+        }
+      }];
+    } @catch (NSException *exception) {
+      reject(@"EXPORT_ERROR", exception.reason, nil);
+    }
+  });
+}
+
+/**
  * 获取 iTunes/iPod 音乐库中的所有歌曲
- * 返回歌曲数组，每首歌包含: id, url, title, artist, album, artwork, duration, fileName
  */
 RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
@@ -70,7 +143,6 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
   dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
     @try {
       MPMediaQuery *query = [MPMediaQuery songsQuery];
-      // 只要本地可播放的音频文件（排除 Apple Music 云端歌曲）
       MPMediaPropertyPredicate *isCloudPred =
         [MPMediaPropertyPredicate predicateWithValue:@(NO)
                                          forProperty:MPMediaItemPropertyIsCloudItem];
@@ -78,35 +150,35 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
 
       NSArray<MPMediaItem *> *items = query.items;
       if (!items) {
+        RCTLogInfo(@"[MediaLibrary] No items returned from query");
         resolve(@[]);
         return;
       }
 
+      RCTLogInfo(@"[MediaLibrary] Found %lu items in library", (unsigned long)items.count);
       NSMutableArray *results = [NSMutableArray arrayWithCapacity:items.count];
 
       for (MPMediaItem *item in items) {
         NSNumber *persistentID = [item valueForProperty:MPMediaItemPropertyPersistentID];
         NSURL *assetURL = [item valueForProperty:MPMediaItemPropertyAssetURL];
 
-        if (!assetURL) continue; // 跳过无法播放的项目（DRM protected 等）
+        if (!assetURL) continue;
 
         NSString *title = [item valueForProperty:MPMediaItemPropertyTitle] ?: @"未知歌曲";
         NSString *artist = [item valueForProperty:MPMediaItemPropertyArtist] ?: @"未知歌手";
         NSString *album = [item valueForProperty:MPMediaItemPropertyAlbumTitle] ?: @"未知专辑";
         NSNumber *duration = [item valueForProperty:MPMediaItemPropertyPlaybackDuration] ?: @(0);
 
-        // 生成唯一 ID
         NSString *trackId = [NSString stringWithFormat:@"ipod://%@", persistentID];
 
-        // 尝试获取封面
-        NSString *artworkUri = [NSNull null];
+        // 获取封面并保存到缓存
+        NSString *artworkUri = nil;
         MPMediaItemArtwork *artworkObj = [item valueForProperty:MPMediaItemPropertyArtwork];
         if (artworkObj) {
           UIImage *image = [artworkObj imageWithSize:CGSizeMake(300, 300)];
           if (image) {
             NSData *jpegData = UIImageJPEGRepresentation(image, 0.7);
             if (jpegData) {
-              // 保存到缓存目录
               NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
               NSString *artworkDir = [cacheDir stringByAppendingPathComponent:@"artwork"];
 
@@ -125,24 +197,27 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
           }
         }
 
-        // 文件名（从 URL path 取出）
         NSString *fileName = assetURL.lastPathComponent ?: title;
 
-        NSDictionary *track = @{
+        NSMutableDictionary *track = [NSMutableDictionary dictionaryWithDictionary:@{
           @"id": trackId,
           @"url": assetURL.absoluteString,
           @"title": title,
           @"artist": artist,
           @"album": album,
-          @"artwork": artworkUri == (id)[NSNull null] ? [NSNull null] : artworkUri,
           @"duration": duration,
           @"fileName": fileName,
           @"filePath": assetURL.absoluteString,
-        };
+        }];
+
+        if (artworkUri) {
+          track[@"artwork"] = artworkUri;
+        }
 
         [results addObject:track];
       }
 
+      RCTLogInfo(@"[MediaLibrary] Returning %lu playable tracks", (unsigned long)results.count);
       resolve(results);
     } @catch (NSException *exception) {
       reject(@"MEDIA_LIBRARY_ERROR", exception.reason, nil);

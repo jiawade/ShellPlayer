@@ -9,7 +9,7 @@ import { parseLRC } from '../utils/lrcParser';
 import { requestStoragePermission } from '../utils/permissions';
 import { logCrash, logInfo } from '../utils/crashLogger';
 import { saveArtworkFile, getCachedArtwork } from '../utils/artworkCache';
-import { importFromMediaLibrary, requestMediaLibraryPermission } from '../utils/mediaLibrary';
+import { importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile } from '../utils/mediaLibrary';
 
 interface MusicState {
   tracks: Track[];
@@ -72,11 +72,23 @@ export const importiOSMediaLibrary = createAsyncThunk(
   'music/importiOS',
   async (_, { dispatch }) => {
     await logInfo('Importing from iOS Media Library', 'importiOS');
+
+    // Check if running on simulator
+    const { MediaLibraryModule: MLModule } = require('react-native').NativeModules;
+    let isSim = false;
+    try { isSim = MLModule ? await MLModule.isSimulator() : false; } catch {}
+    if (isSim) {
+      throw new Error('iOS 模拟器不支持媒体库，请使用真机测试导入功能');
+    }
+
     const ok = await requestMediaLibraryPermission();
-    if (!ok) throw new Error('没有媒体库访问权限，请在系统设置中允许访问');
+    if (!ok) throw new Error('没有媒体库访问权限，请前往「设置 > 隐私与安全 > 媒体与 Apple Music」中允许访问');
     dispatch(setScanProgress({ phase: 'scanning', current: 0, total: 1 }));
     const tracks = await importFromMediaLibrary();
     dispatch(setScanProgress({ phase: 'parsing', current: tracks.length, total: tracks.length }));
+    if (tracks.length === 0) {
+      throw new Error('音乐库中没有本地歌曲。请先通过 iTunes/Finder 同步音乐到设备');
+    }
     try {
       const lite = tracks.map(t => ({ ...t, artwork: t.artwork ? '<<HAS>>' : undefined }));
       await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
@@ -152,9 +164,13 @@ export const playTrack = createAsyncThunk(
         try { await TrackPlayer.reset(); } catch {}
       }
 
-      await TrackPlayer.add(sub.map(t => ({
-        id: t.id, url: t.url, title: t.title, artist: t.artist, artwork: t.artwork,
-      })));
+      // iOS iPod library 歌曲需要导出为本地文件才能被 TrackPlayer 播放
+      const resolvedTracks = await Promise.all(sub.map(async t => {
+        const url = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+        return { id: t.id, url, title: t.title, artist: t.artist, artwork: t.artwork };
+      }));
+
+      await TrackPlayer.add(resolvedTracks);
       if (si > 0) await TrackPlayer.skip(si);
 
       // Apply saved playback speed

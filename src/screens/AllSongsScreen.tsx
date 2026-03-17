@@ -297,6 +297,18 @@ const AllSongsScreen: React.FC = () => {
           }}>
           {Platform.OS === 'ios' ? '未找到音乐' : '未找到本地音乐'}
         </Text>
+        {scanError ? (
+          <Text
+            style={{
+              fontSize: sizes.sm,
+              color: colors.textMuted,
+              marginTop: 12,
+              paddingHorizontal: 32,
+              textAlign: 'center',
+            }}>
+            {scanError}
+          </Text>
+        ) : null}
         {Platform.OS === 'ios' ? (
           <TouchableOpacity
             style={[styles.retryBtn, {backgroundColor: colors.accent}]}

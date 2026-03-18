@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, Modal, ActivityIndicator, Text, NativeModules } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator, Text, NativeModules } from 'react-native';
 
 NativeModules.DevLoadingView?.hide?.();
 import { Provider } from 'react-redux';
@@ -27,6 +27,7 @@ import { DARK_COLORS, SIZES } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
 const PlaylistStack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
 
 function PlaylistStackScreen() {
   return (
@@ -37,9 +38,41 @@ function PlaylistStackScreen() {
   );
 }
 
+function TabsWithMiniPlayer() {
+  const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
+  const { colors, isDark } = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarStyle: { backgroundColor: colors.bgElevated, borderTopColor: colors.border, height: SIZES.tabBarHeight, paddingBottom: 6, paddingTop: 4 },
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.textMuted,
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+            const icons: Record<string, string> = {
+              AllSongs: 'musical-notes', Playlists: 'albums', Favorites: 'heart',
+              History: 'time', Settings: 'settings',
+            };
+            return <Icon name={icons[route.name] || 'ellipse'} size={size - 2} color={color} />;
+          },
+        })}>
+        <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '歌曲' }} />
+        <Tab.Screen name="Playlists" component={PlaylistStackScreen} options={{ tabBarLabel: '歌单' }} />
+        <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '喜欢' }} />
+        <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: '历史' }} />
+        <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '设置' }} />
+      </Tab.Navigator>
+      {currentTrack && !showFullPlayer && <MiniPlayer />}
+    </View>
+  );
+}
+
 function MainApp() {
   const dispatch = useAppDispatch();
-  const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
   const { colors, isDark } = useTheme();
 
   useEffect(() => {
@@ -49,38 +82,23 @@ function MainApp() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <NavigationContainer
         theme={{
           dark: isDark,
           colors: { primary: colors.accent, background: colors.bg, card: colors.bgCard, text: colors.textPrimary, border: colors.border, notification: colors.accent },
         }}>
-        <Tab.Navigator
-          screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarStyle: { backgroundColor: colors.bgElevated, borderTopColor: colors.border, height: SIZES.tabBarHeight, paddingBottom: 6, paddingTop: 4 },
-            tabBarActiveTintColor: colors.accent,
-            tabBarInactiveTintColor: colors.textMuted,
-            tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
-            tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-              const icons: Record<string, string> = {
-                AllSongs: 'musical-notes', Playlists: 'albums', Favorites: 'heart',
-                History: 'time', Settings: 'settings',
-              };
-              return <Icon name={icons[route.name] || 'ellipse'} size={size - 2} color={color} />;
-            },
-          })}>
-          <Tab.Screen name="AllSongs" component={AllSongsScreen} options={{ tabBarLabel: '歌曲' }} />
-          <Tab.Screen name="Playlists" component={PlaylistStackScreen} options={{ tabBarLabel: '歌单' }} />
-          <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: '喜欢' }} />
-          <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: '历史' }} />
-          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: '设置' }} />
-        </Tab.Navigator>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Main" component={TabsWithMiniPlayer} />
+          <RootStack.Screen
+            name="FullPlayer"
+            component={FullPlayerScreen}
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+        </RootStack.Navigator>
       </NavigationContainer>
-      {currentTrack && !showFullPlayer && <MiniPlayer />}
-      <Modal visible={showFullPlayer} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
-        <FullPlayerScreen />
-      </Modal>
     </View>
   );
 }

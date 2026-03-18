@@ -17,6 +17,7 @@ import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
 import FolderPickerScreen from './FolderPickerScreen';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import {useAppSelector, useAppDispatch} from '../store';
 import {
   scanMusic,
@@ -349,12 +350,14 @@ const AllSongsScreen: React.FC = () => {
           </Text>
         )}
         <Modal visible={showFolderPicker} animationType="slide">
-          <FolderPickerScreen
-            onConfirm={handleFolderConfirm}
-            onCancel={() => setShowFolderPicker(false)}
-            initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
-            onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
-          />
+          <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
+            <FolderPickerScreen
+              onConfirm={handleFolderConfirm}
+              onCancel={() => setShowFolderPicker(false)}
+              initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
+              onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
+            />
+          </SwipeBackWrapper>
         </Modal>
       </View>
     );
@@ -573,12 +576,14 @@ const AllSongsScreen: React.FC = () => {
       />
 
       <Modal visible={showFolderPicker} animationType="slide">
-        <FolderPickerScreen
-          onConfirm={handleFolderConfirm}
-          onCancel={() => setShowFolderPicker(false)}
-          initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
-          onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
-        />
+        <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
+          <FolderPickerScreen
+            onConfirm={handleFolderConfirm}
+            onCancel={() => setShowFolderPicker(false)}
+            initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
+            onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
+          />
+        </SwipeBackWrapper>
       </Modal>
       <TrackMenu
         track={menuTrack}

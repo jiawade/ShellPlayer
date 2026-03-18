@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar } from 
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { RepeatMode as TPRepeatMode } from 'react-native-track-player';
+import { useNavigation } from '@react-navigation/native';
 import CoverArt from '../components/CoverArt';
 import ProgressBar from '../components/ProgressBar';
 import LyricsView from '../components/LyricsView';
@@ -27,6 +28,7 @@ const PLAY_MODES: { mode: RepeatMode; icon: string; label: string }[] = [
 
 const FullPlayerScreen: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const { currentTrack, isPlaying, showLyrics, repeatMode, lyrics, playbackSpeed, sleepTimerEnd } = useAppSelector(s => s.music);
   const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
   const { position, duration } = usePlayerSync();
@@ -45,6 +47,13 @@ const FullPlayerScreen: React.FC = () => {
       } catch {}
     })();
   }, [dispatch]);
+
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', () => {
+      dispatch(setShowFullPlayer(false));
+    });
+    return unsub;
+  }, [navigation, dispatch]);
 
   if (!currentTrack) return null;
 
@@ -79,7 +88,7 @@ const FullPlayerScreen: React.FC = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch(setShowFullPlayer(false))} style={styles.hBtn} hitSlop={12}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.hBtn} hitSlop={12}>
           <Icon name="chevron-down" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.hCenter}>

@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store';
 import { scanMusic, setThemeMode, importiOSMediaLibrary } from '../store/musicSlice';
 import FolderPickerScreen from './FolderPickerScreen';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeMode } from '../types';
 
@@ -186,7 +187,9 @@ const SettingsScreen: React.FC = () => {
 
       <View style={{ height: 140 }} />
       <Modal visible={showFolderPicker} animationType="slide">
-        <FolderPickerScreen onConfirm={handleFolderConfirm} onCancel={() => setShowFolderPicker(false)} initialSelected={scanDirectories} />
+        <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
+          <FolderPickerScreen onConfirm={handleFolderConfirm} onCancel={() => setShowFolderPicker(false)} initialSelected={scanDirectories} />
+        </SwipeBackWrapper>
       </Modal>
     </ScrollView>
   );

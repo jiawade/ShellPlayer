@@ -9,6 +9,7 @@ import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
 import PlaylistCover from '../components/PlaylistCover';
+import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useAppSelector, useAppDispatch } from '../store';
 import {
   renamePlaylist, deletePlaylist,
@@ -380,6 +381,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
+      <SwipeBackWrapper onSwipeBack={handleClose}>
       <SafeAreaView style={[styles.importRoot, { backgroundColor: colors.bg }]}>
         <View style={styles.importHeader}>
           <TouchableOpacity onPress={handleClose} hitSlop={12}>
@@ -420,6 +422,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
           getItemLayout={getItemLayout}
         />
       </SafeAreaView>
+      </SwipeBackWrapper>
     </Modal>
   );
 };

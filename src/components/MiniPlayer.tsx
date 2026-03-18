@@ -2,6 +2,7 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import CoverArt from './CoverArt';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setShowFullPlayer } from '../store/musicSlice';
@@ -10,6 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const MiniPlayer: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const { currentTrack, isPlaying } = useAppSelector(s => s.music);
   const { togglePlayPause, skipToNext } = usePlayerControls();
   const { position, duration } = usePlayerSync();
@@ -18,11 +20,16 @@ const MiniPlayer: React.FC = () => {
   if (!currentTrack) return null;
   const progress = duration > 0 ? position / duration : 0;
 
+  const openFullPlayer = () => {
+    dispatch(setShowFullPlayer(true));
+    navigation.navigate('FullPlayer');
+  };
+
   return (
     <TouchableOpacity
       style={{ backgroundColor: colors.bgElevated, borderTopWidth: 1, borderTopColor: colors.border, overflow: 'hidden' }}
       activeOpacity={0.9}
-      onPress={() => dispatch(setShowFullPlayer(true))}>
+      onPress={openFullPlayer}>
       <View style={{ height: 2, backgroundColor: colors.border }}>
         <View style={{ height: '100%', backgroundColor: colors.accent, width: `${progress * 100}%` }} />
       </View>

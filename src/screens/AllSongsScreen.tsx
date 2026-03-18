@@ -35,6 +35,7 @@ import {
   selectAllBatch,
   clearBatchSelect,
   importiOSMediaLibrary,
+  IOSImportOptions,
 } from '../store/musicSlice';
 import {Track, SortMode} from '../types';
 import {useTheme} from '../contexts/ThemeContext';
@@ -66,38 +67,43 @@ const AllSongsScreen: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userTriggeredImport, setUserTriggeredImport] = useState(false);
   const prevScanningRef = React.useRef(false);
   const [prevTrackCount, setPrevTrackCount] = useState(0);
 
   useEffect(() => {
-    if (
-      prevScanningRef.current &&
-      !isScanning &&
-      !loading &&
-      prevTrackCount === 0 &&
-      tracks.length > 0
-    ) {
-      Alert.alert('导入完成', `成功导入了 ${tracks.length} 首歌曲`);
+    if (prevScanningRef.current && !isScanning && !loading) {
+      setUserTriggeredImport(false);
+      const newCount = tracks.length - prevTrackCount;
+      if (prevTrackCount === 0 && tracks.length > 0) {
+        Alert.alert('导入完成', `成功导入了 ${tracks.length} 首歌曲`);
+      } else if (newCount > 0) {
+        Alert.alert('导入完成', `新增了 ${newCount} 首歌曲，共 ${tracks.length} 首`);
+      } else if (userTriggeredImport && tracks.length > 0) {
+        Alert.alert('导入完成', `共 ${tracks.length} 首歌曲，没有新增`);
+      }
     }
     prevScanningRef.current = isScanning;
-  }, [isScanning, loading, tracks.length, prevTrackCount]);
+  }, [isScanning, loading, tracks.length, prevTrackCount, userTriggeredImport]);
 
   useEffect(() => {
     const init = async () => {
-      await dispatch(loadFavorites());
-      await dispatch(loadHiddenTracks());
-      const cacheResult = await dispatch(loadCachedTracks());
+      // 并行加载所有缓存数据，加速启动
+      const [, , cacheResult] = await Promise.all([
+        dispatch(loadFavorites()),
+        dispatch(loadHiddenTracks()),
+        dispatch(loadCachedTracks()),
+      ]);
       const cachedCount = ((cacheResult as any).payload || []).length;
 
       if (Platform.OS === 'ios') {
-        // iOS: 直接从媒体库导入
         setLoading(false);
         setPrevTrackCount(cachedCount);
         if (cachedCount === 0) {
-          dispatch(importiOSMediaLibrary());
+          setShowFolderPicker(true);
         } else {
           prevScanningRef.current = false;
-          dispatch(importiOSMediaLibrary());
+          dispatch(importiOSMediaLibrary(undefined));
           setTimeout(() => {
             prevScanningRef.current = false;
           }, 100);
@@ -181,19 +187,31 @@ const AllSongsScreen: React.FC = () => {
     setMenuTrack(null);
   }, []);
   const handleRefresh = useCallback(() => {
+    setUserTriggeredImport(true);
+    setPrevTrackCount(tracks.length);
     if (Platform.OS === 'ios') {
-      dispatch(importiOSMediaLibrary());
+      dispatch(importiOSMediaLibrary(undefined));
     } else if (scanDirectories.length > 0) {
       dispatch(scanMusic(scanDirectories));
     }
-  }, [dispatch, scanDirectories]);
+  }, [dispatch, scanDirectories, tracks.length]);
   const handleFolderConfirm = useCallback(
     (dirs: string[]) => {
       setShowFolderPicker(false);
       setPrevTrackCount(0);
+      setUserTriggeredImport(true);
       dispatch(scanMusic(dirs));
     },
     [dispatch],
+  );
+  const handleIOSImport = useCallback(
+    (opts: IOSImportOptions) => {
+      setShowFolderPicker(false);
+      setPrevTrackCount(tracks.length);
+      setUserTriggeredImport(true);
+      dispatch(importiOSMediaLibrary(opts));
+    },
+    [dispatch, tracks.length],
   );
 
   const renderItem = useCallback(
@@ -224,7 +242,7 @@ const AllSongsScreen: React.FC = () => {
     return <View style={[styles.root, {backgroundColor: colors.bg}]} />;
   }
 
-  if (isScanning && tracks.length === 0) {
+  if (isScanning && (tracks.length === 0 || userTriggeredImport)) {
     const p = scanProgress;
     const pct = p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
     return (
@@ -309,44 +327,33 @@ const AllSongsScreen: React.FC = () => {
             {scanError}
           </Text>
         ) : null}
-        {Platform.OS === 'ios' ? (
-          <>
-            <TouchableOpacity
-              style={[styles.retryBtn, {backgroundColor: colors.accent}]}
-              onPress={() => dispatch(importiOSMediaLibrary())}>
-              <Icon name="musical-notes" size={18} color={colors.bg} />
-              <Text
-                style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-                从音乐库导入
-              </Text>
-            </TouchableOpacity>
-            <Text
-              style={{
-                fontSize: sizes.xs,
-                color: colors.textMuted,
-                marginTop: 16,
-                textAlign: 'center',
-                paddingHorizontal: 32,
-              }}>
-              将自动导入 iTunes/iPod 音乐库和 Documents 目录中的音乐文件。{'\n'}
-              可通过 iTunes/Finder 或「文件」应用将音乐传入 Documents 目录。
-            </Text>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={[styles.retryBtn, {backgroundColor: colors.accent}]}
-            onPress={() => setShowFolderPicker(true)}>
-            <Text
-              style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-              选择扫描目录
-            </Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.retryBtn, {backgroundColor: colors.accent}]}
+          onPress={() => setShowFolderPicker(true)}>
+          <Icon name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'} size={18} color={colors.bg} />
+          <Text
+            style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
+            {Platform.OS === 'ios' ? '选择导入来源' : '选择扫描目录'}
+          </Text>
+        </TouchableOpacity>
+        {Platform.OS === 'ios' && (
+          <Text
+            style={{
+              fontSize: sizes.xs,
+              color: colors.textMuted,
+              marginTop: 16,
+              textAlign: 'center',
+              paddingHorizontal: 32,
+            }}>
+            可导入 iTunes/iPod 音乐库，或将音乐文件放入 Documents/music 目录后导入。
+          </Text>
         )}
         <Modal visible={showFolderPicker} animationType="slide">
           <FolderPickerScreen
             onConfirm={handleFolderConfirm}
             onCancel={() => setShowFolderPicker(false)}
-            initialSelected={scanDirectories}
+            initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
+            onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
           />
         </Modal>
       </View>
@@ -393,27 +400,15 @@ const AllSongsScreen: React.FC = () => {
               color={colors.textSecondary}
             />
           </TouchableOpacity>
-          {Platform.OS === 'ios' ? (
-            <TouchableOpacity
-              onPress={() => dispatch(importiOSMediaLibrary())}
-              hitSlop={8}>
-              <Icon
-                name="refresh-outline"
-                size={22}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setShowFolderPicker(true)}
-              hitSlop={8}>
-              <Icon
-                name="folder-outline"
-                size={22}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => setShowFolderPicker(true)}
+            hitSlop={8}>
+            <Icon
+              name="folder-outline"
+              size={22}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -581,7 +576,8 @@ const AllSongsScreen: React.FC = () => {
         <FolderPickerScreen
           onConfirm={handleFolderConfirm}
           onCancel={() => setShowFolderPicker(false)}
-          initialSelected={scanDirectories}
+          initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
+          onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
         />
       </Modal>
       <TrackMenu

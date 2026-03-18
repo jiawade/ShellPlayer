@@ -13,8 +13,9 @@ import {
   setLyrics, setCurrentIndex, playTrack,
 } from '../store/musicSlice';
 import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
-import { readLrcFile } from '../utils/scanner';
+import { readLrcFile, findMatchingLrcInDir } from '../utils/scanner';
 import { getLyricsForUrl } from '../utils/mediaLibrary';
+import { getDefaultLrcDir } from '../utils/defaultDirs';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
@@ -56,6 +57,14 @@ export function usePlayerSync() {
           if (lines.length === 0) {
             lines = parseTextLyrics(native, matched.duration);
           }
+        }
+      }
+      // Fallback: search the default lrc directory for a matching .lrc file
+      if (lines.length === 0) {
+        const lrcDir = getDefaultLrcDir();
+        const matchedLrc = await findMatchingLrcInDir(matched, lrcDir);
+        if (matchedLrc) {
+          lines = parseLRC(await readLrcFile(matchedLrc));
         }
       }
       dispatch(setLyrics(lines));

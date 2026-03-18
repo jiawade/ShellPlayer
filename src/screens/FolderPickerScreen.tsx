@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {listSubDirectories} from '../utils/scanner';
 import {useTheme} from '../contexts/ThemeContext';
+import {IOS_HIDDEN_DIR_NAMES} from '../utils/defaultDirs';
+import {SUPPORTED_FORMATS} from '../utils/theme';
 import RNFS from 'react-native-fs';
-import {Platform} from 'react-native';
 
 const STORAGE_ROOT =
   Platform.OS === 'android'
@@ -32,56 +33,181 @@ const COMMON_DIRS =
         {name: '酷狗音乐', path: `${STORAGE_ROOT}/kugou/download`},
       ]
     : [
-        {name: 'App Documents', path: RNFS.DocumentDirectoryPath},
-        {name: 'App Library', path: RNFS.LibraryDirectoryPath},
-        {name: 'App Cache', path: RNFS.CachesDirectoryPath},
+        {name: 'music', path: `${RNFS.DocumentDirectoryPath}/music`},
       ];
 
 export {STORAGE_ROOT, COMMON_DIRS};
+
+interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+}
 
 interface Props {
   onConfirm: (dirs: string[]) => void;
   onCancel: () => void;
   initialSelected?: string[];
+  /** iOS only: callback when user selects files/dirs + iPod option */
+  onIOSImport?: (opts: {includeIPod: boolean; localDirs: string[]; localFiles: string[]}) => void;
+}
+
+async function listDirEntries(
+  dirPath: string,
+  showFiles: boolean,
+): Promise<DirEntry[]> {
+  const entries: DirEntry[] = [];
+  try {
+    if (!(await RNFS.exists(dirPath))) return entries;
+    const items = await RNFS.readDir(dirPath);
+    for (const item of items) {
+      if (item.name.startsWith('.')) continue;
+      if (item.isDirectory()) {
+        if (
+          Platform.OS === 'ios' &&
+          IOS_HIDDEN_DIR_NAMES.includes(item.name)
+        ) {
+          continue;
+        }
+        entries.push({name: item.name, path: item.path, isDir: true});
+      } else if (showFiles && item.isFile()) {
+        const ext = item.name
+          .substring(item.name.lastIndexOf('.'))
+          .toLowerCase();
+        if (SUPPORTED_FORMATS.includes(ext)) {
+          entries.push({name: item.name, path: item.path, isDir: false});
+        }
+      }
+    }
+  } catch {}
+  entries.sort((a, b) => {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  return entries;
 }
 
 const FolderPickerScreen: React.FC<Props> = ({
   onConfirm,
   onCancel,
   initialSelected = [],
+  onIOSImport,
 }) => {
   const {colors, sizes} = useTheme();
+  const isIOS = Platform.OS === 'ios';
+
   const [selectedDirs, setSelectedDirs] = useState<Set<string>>(
     new Set(initialSelected),
   );
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [browsePath, setBrowsePath] = useState<string | null>(null);
-  const [subDirs, setSubDirs] = useState<string[]>([]);
+  const [browseEntries, setBrowseEntries] = useState<DirEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [includeIPod, setIncludeIPod] = useState(isIOS);
+  const [iosDocEntries, setIosDocEntries] = useState<DirEntry[]>([]);
+  const [iosDocLoading, setIosDocLoading] = useState(isIOS);
 
   useEffect(() => {
-    if (!browsePath) {
-      return;
-    }
+    if (!isIOS) return;
+    setIosDocLoading(true);
+    listDirEntries(RNFS.DocumentDirectoryPath, true).then(entries => {
+      setIosDocEntries(entries);
+      setIosDocLoading(false);
+    });
+  }, [isIOS]);
+
+  useEffect(() => {
+    if (!browsePath) return;
     setLoading(true);
-    listSubDirectories(browsePath).then(dirs => {
-      setSubDirs(dirs);
+    listDirEntries(browsePath, isIOS).then(entries => {
+      setBrowseEntries(entries);
       setLoading(false);
     });
-  }, [browsePath]);
+  }, [browsePath, isIOS]);
 
   const toggleDir = useCallback((dir: string) => {
     setSelectedDirs(prev => {
       const next = new Set(prev);
-      if (next.has(dir)) {
-        next.delete(dir);
-      } else {
-        next.add(dir);
-      }
+      if (next.has(dir)) next.delete(dir);
+      else next.add(dir);
       return next;
     });
   }, []);
 
+  const toggleFile = useCallback((file: string) => {
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(file)) next.delete(file);
+      else next.add(file);
+      return next;
+    });
+  }, []);
+
+  const selectAllDocEntries = useCallback(() => {
+    const dirs = iosDocEntries.filter(e => e.isDir).map(e => e.path);
+    const files = iosDocEntries.filter(e => !e.isDir).map(e => e.path);
+    const allDirsSelected = dirs.every(d => selectedDirs.has(d));
+    const allFilesSelected = files.every(f => selectedFiles.has(f));
+    const allSelected = allDirsSelected && allFilesSelected;
+    if (allSelected) {
+      setSelectedDirs(prev => {
+        const next = new Set(prev);
+        dirs.forEach(d => next.delete(d));
+        return next;
+      });
+      setSelectedFiles(prev => {
+        const next = new Set(prev);
+        files.forEach(f => next.delete(f));
+        return next;
+      });
+    } else {
+      setSelectedDirs(prev => {
+        const next = new Set(prev);
+        dirs.forEach(d => next.add(d));
+        return next;
+      });
+      setSelectedFiles(prev => {
+        const next = new Set(prev);
+        files.forEach(f => next.add(f));
+        return next;
+      });
+    }
+  }, [iosDocEntries, selectedDirs, selectedFiles]);
+
+  const isAllDocSelected = iosDocEntries.length > 0 &&
+    iosDocEntries.filter(e => e.isDir).every(e => selectedDirs.has(e.path)) &&
+    iosDocEntries.filter(e => !e.isDir).every(e => selectedFiles.has(e.path));
+
+  const selectAllFiles = useCallback(() => {
+    const files = browseEntries.filter(e => !e.isDir).map(e => e.path);
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      const allSelected = files.every(f => next.has(f));
+      if (allSelected) {
+        files.forEach(f => next.delete(f));
+      } else {
+        files.forEach(f => next.add(f));
+      }
+      return next;
+    });
+  }, [browseEntries]);
+
+  const totalSelected = selectedDirs.size + selectedFiles.size + (isIOS && includeIPod ? 1 : 0);
+
   const handleConfirm = () => {
+    if (isIOS && onIOSImport) {
+      if (!includeIPod && selectedDirs.size === 0 && selectedFiles.size === 0) {
+        Alert.alert('提示', '请至少选择一个导入来源');
+        return;
+      }
+      onIOSImport({
+        includeIPod,
+        localDirs: Array.from(selectedDirs),
+        localFiles: Array.from(selectedFiles),
+      });
+      return;
+    }
+
     const dirs = Array.from(selectedDirs);
     if (dirs.length === 0) {
       Alert.alert('提示', '请至少选择一个目录');
@@ -91,18 +217,32 @@ const FolderPickerScreen: React.FC<Props> = ({
   };
 
   const handleScanAll = () => {
+    if (isIOS && onIOSImport) {
+      onIOSImport({includeIPod: true, localDirs: [RNFS.DocumentDirectoryPath], localFiles: []});
+      return;
+    }
     onConfirm(COMMON_DIRS.map(d => d.path));
   };
+
   const dirName = (path: string) => path.substring(path.lastIndexOf('/') + 1);
+  const navigateUp = () => {
+    if (!browsePath) return;
+    const parent = browsePath.substring(0, browsePath.lastIndexOf('/'));
+    if (parent.length >= STORAGE_ROOT.length) {
+      setBrowsePath(parent);
+    } else {
+      setBrowsePath(null);
+    }
+  };
 
   // ---- 浏览子目录模式 ----
   if (browsePath) {
+    const fileEntries = browseEntries.filter(e => !e.isDir);
+
     return (
       <View style={[styles.root, {backgroundColor: colors.bg}]}>
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => setBrowsePath(null)}
-            style={styles.backBtn}>
+          <TouchableOpacity onPress={navigateUp} style={styles.backBtn}>
             <Icon name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -115,11 +255,7 @@ const FolderPickerScreen: React.FC<Props> = ({
               选择文件夹
             </Text>
             <Text
-              style={{
-                fontSize: sizes.xs,
-                color: colors.textMuted,
-                marginTop: 2,
-              }}
+              style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}
               numberOfLines={1}>
               {browsePath.replace(STORAGE_ROOT, '📱')}
             </Text>
@@ -137,107 +273,97 @@ const FolderPickerScreen: React.FC<Props> = ({
           <Icon
             name={selectedDirs.has(browsePath) ? 'checkbox' : 'square-outline'}
             size={22}
-            color={
-              selectedDirs.has(browsePath) ? colors.accent : colors.textMuted
-            }
+            color={selectedDirs.has(browsePath) ? colors.accent : colors.textMuted}
           />
           <Text
-            style={{
-              fontSize: sizes.md,
-              color: colors.textPrimary,
-              fontWeight: '600',
-            }}>
+            style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
             选择此目录
           </Text>
         </TouchableOpacity>
 
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            color={colors.accent}
-            style={{marginTop: 40}}
-          />
+          <ActivityIndicator size="large" color={colors.accent} style={{marginTop: 40}} />
         ) : (
           <FlatList
-            data={subDirs}
-            keyExtractor={item => item}
+            data={browseEntries}
+            keyExtractor={item => item.path}
             contentContainerStyle={{paddingBottom: 100}}
-            renderItem={({item}) => (
-              <View
-                style={[styles.browseRow, {borderBottomColor: colors.border}]}>
+            renderItem={({item}) =>
+              item.isDir ? (
+                <View style={[styles.browseRow, {borderBottomColor: colors.border}]}>
+                  <TouchableOpacity
+                    onPress={() => toggleDir(item.path)}
+                    style={[
+                      styles.checkArea,
+                      selectedDirs.has(item.path) && {backgroundColor: colors.accentDim},
+                    ]}>
+                    <Icon
+                      name={selectedDirs.has(item.path) ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={selectedDirs.has(item.path) ? colors.accent : colors.textMuted}
+                    />
+                    <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 10}} />
+                    <Text
+                      style={{flex: 1, fontSize: sizes.md, color: colors.textPrimary, marginLeft: 10}}
+                      numberOfLines={1}>
+                      {dirName(item.path)}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setBrowsePath(item.path)} style={styles.enterBtn}>
+                    <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
                 <TouchableOpacity
-                  onPress={() => toggleDir(item)}
                   style={[
-                    styles.checkArea,
-                    selectedDirs.has(item) && {
-                      backgroundColor: colors.accentDim,
-                    },
-                  ]}>
+                    styles.fileRow,
+                    {borderBottomColor: colors.border},
+                    selectedFiles.has(item.path) && {backgroundColor: colors.accentDim},
+                  ]}
+                  onPress={() => toggleFile(item.path)}>
                   <Icon
-                    name={
-                      selectedDirs.has(item) ? 'checkbox' : 'square-outline'
-                    }
+                    name={selectedFiles.has(item.path) ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={
-                      selectedDirs.has(item) ? colors.accent : colors.textMuted
-                    }
+                    color={selectedFiles.has(item.path) ? colors.accent : colors.textMuted}
                   />
-                  <Icon
-                    name="folder"
-                    size={20}
-                    color={colors.secondary}
-                    style={{marginLeft: 10}}
-                  />
+                  <Icon name="musical-note" size={18} color={colors.accent} style={{marginLeft: 10}} />
                   <Text
-                    style={{
-                      flex: 1,
-                      fontSize: sizes.md,
-                      color: colors.textPrimary,
-                      marginLeft: 10,
-                    }}
+                    style={{flex: 1, fontSize: sizes.sm, color: colors.textPrimary, marginLeft: 10}}
                     numberOfLines={1}>
-                    {dirName(item)}
+                    {item.name}
                   </Text>
                 </TouchableOpacity>
+              )
+            }
+            ListHeaderComponent={
+              isIOS && fileEntries.length > 0 ? (
                 <TouchableOpacity
-                  onPress={() => setBrowsePath(item)}
-                  style={styles.enterBtn}>
-                  <Icon
-                    name="chevron-forward"
-                    size={20}
-                    color={colors.textMuted}
-                  />
+                  style={[styles.selectAllRow, {borderBottomColor: colors.border}]}
+                  onPress={selectAllFiles}>
+                  <Icon name="checkmark-done" size={20} color={colors.accent} />
+                  <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600', marginLeft: 8}}>
+                    {fileEntries.every(e => selectedFiles.has(e.path)) ? '取消全选文件' : '全选文件'} ({fileEntries.length})
+                  </Text>
                 </TouchableOpacity>
-              </View>
-            )}
+              ) : null
+            }
             ListEmptyComponent={
-              <Text
-                style={{
-                  fontSize: sizes.md,
-                  color: colors.textMuted,
-                  textAlign: 'center',
-                  marginTop: 40,
-                }}>
-                此目录下没有子文件夹
+              <Text style={{fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 40}}>
+                此目录下没有{isIOS ? '子文件夹或音乐文件' : '子文件夹'}
               </Text>
             }
           />
         )}
 
-        <View
-          style={[
-            styles.bottomBar,
-            {backgroundColor: colors.bgElevated, borderTopColor: colors.border},
-          ]}>
+        <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
           <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
-            已选 {selectedDirs.size} 个目录
+            已选 {selectedDirs.size} 目录{isIOS && selectedFiles.size > 0 ? `，${selectedFiles.size} 文件` : ''}
           </Text>
           <TouchableOpacity
             style={[styles.confirmBtn, {backgroundColor: colors.accent}]}
             onPress={handleConfirm}>
-            <Text
-              style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-              开始扫描
+            <Text style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
+              开始导入
             </Text>
           </TouchableOpacity>
         </View>
@@ -253,159 +379,223 @@ const FolderPickerScreen: React.FC<Props> = ({
           <Icon name="close" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text
-          style={{
-            flex: 1,
-            fontSize: sizes.xl,
-            fontWeight: '700',
-            color: colors.textPrimary,
-            textAlign: 'center',
-          }}>
-          选择扫描目录
+          style={{flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center'}}>
+          {isIOS ? '选择导入来源' : '选择扫描目录'}
         </Text>
         <View style={{width: 40}} />
       </View>
 
-      <ScrollView
-        style={styles.scrollBody}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={[styles.scanAllBtn, {backgroundColor: colors.accent}]}
           onPress={handleScanAll}
           activeOpacity={0.7}>
-          <Icon name="scan" size={20} color={colors.bg} />
-          <Text
-            style={{fontSize: sizes.lg, fontWeight: '700', color: colors.bg}}>
-            扫描全部常用目录
+          <Icon name={isIOS ? 'cloud-download' : 'scan'} size={20} color={colors.bg} />
+          <Text style={{fontSize: sizes.lg, fontWeight: '700', color: colors.bg}}>
+            {isIOS ? '导入全部（音乐库 + 本地文件）' : '扫描全部常用目录'}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>
-          常用目录
-        </Text>
-
-        {COMMON_DIRS.map(dir => (
-          <TouchableOpacity
-            key={dir.path}
-            style={[
-              styles.commonRow,
-              {borderBottomColor: colors.border},
-              selectedDirs.has(dir.path) && {backgroundColor: colors.accentDim},
-            ]}
-            onPress={() => toggleDir(dir.path)}>
-            <Icon
-              name={selectedDirs.has(dir.path) ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={
-                selectedDirs.has(dir.path) ? colors.accent : colors.textMuted
-              }
-            />
-            <Icon
-              name="folder"
-              size={20}
-              color={colors.secondary}
-              style={{marginLeft: 12}}
-            />
-            <View style={{flex: 1, marginLeft: 10}}>
-              <Text
-                style={{
-                  fontSize: sizes.md,
-                  color: colors.textPrimary,
-                  fontWeight: '600',
-                }}>
-                {dir.name}
-              </Text>
-              <Text
-                style={{
-                  fontSize: sizes.xs,
-                  color: colors.textMuted,
-                  marginTop: 2,
-                }}>
-                {dir.path.replace(STORAGE_ROOT + '/', '')}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        <Text
-          style={[
-            styles.sectionLabel,
-            {color: colors.textMuted, marginTop: 24},
-          ]}>
-          自定义
-        </Text>
-        <TouchableOpacity
-          style={styles.browseStartBtn}
-          onPress={() => setBrowsePath(STORAGE_ROOT)}>
-          <Icon name="folder-open-outline" size={20} color={colors.accent} />
-          <Text
-            style={{
-              fontSize: sizes.md,
-              color: colors.accent,
-              fontWeight: '600',
-            }}>
-            浏览文件夹...
-          </Text>
-        </TouchableOpacity>
-
-        {Array.from(selectedDirs)
-          .filter(d => !COMMON_DIRS.some(c => c.path === d))
-          .map(dir => (
-            <View
-              key={dir}
+        {isIOS && (
+          <>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>音乐库</Text>
+            <TouchableOpacity
               style={[
                 styles.commonRow,
-                {
-                  borderBottomColor: colors.border,
-                  backgroundColor: colors.accentDim,
-                },
-              ]}>
-              <Icon name="checkbox" size={22} color={colors.accent} />
+                {borderBottomColor: colors.border},
+                includeIPod && {backgroundColor: colors.accentDim},
+              ]}
+              onPress={() => setIncludeIPod(!includeIPod)}>
               <Icon
-                name="folder"
-                size={20}
-                color={colors.secondary}
-                style={{marginLeft: 12}}
+                name={includeIPod ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={includeIPod ? colors.accent : colors.textMuted}
               />
-              <Text
-                style={{
-                  flex: 1,
-                  marginLeft: 10,
-                  fontSize: sizes.md,
-                  color: colors.textPrimary,
-                  fontWeight: '600',
-                }}
-                numberOfLines={1}>
-                {dir.replace(STORAGE_ROOT + '/', '')}
+              <Icon name="musical-notes" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+              <View style={{flex: 1, marginLeft: 10}}>
+                <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                  iTunes/iPod 音乐库
+                </Text>
+                <Text style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}>
+                  导入通过 iTunes/Finder 同步的音乐
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {isIOS ? (
+          <>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginHorizontal: 20, marginBottom: 8}}>
+              <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 0, marginHorizontal: 0, marginBottom: 0}]}>
+                本地目录（Documents）
               </Text>
-              <TouchableOpacity onPress={() => toggleDir(dir)} hitSlop={8}>
+              {iosDocEntries.length > 0 && (
+                <TouchableOpacity onPress={selectAllDocEntries} hitSlop={8}>
+                  <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600'}}>
+                    {isAllDocSelected ? '取消全选' : '全选'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {iosDocLoading ? (
+              <ActivityIndicator size="small" color={colors.accent} style={{marginTop: 16, marginBottom: 16}} />
+            ) : (
+              <>
+                {iosDocEntries.filter(e => e.isDir).map(entry => (
+                  <View
+                    key={entry.path}
+                    style={[styles.browseRow, {borderBottomColor: colors.border}]}>
+                    <TouchableOpacity
+                      onPress={() => toggleDir(entry.path)}
+                      style={[
+                        styles.checkArea,
+                        selectedDirs.has(entry.path) && {backgroundColor: colors.accentDim},
+                      ]}>
+                      <Icon
+                        name={selectedDirs.has(entry.path) ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={selectedDirs.has(entry.path) ? colors.accent : colors.textMuted}
+                      />
+                      <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+                      <Text
+                        style={{flex: 1, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600', marginLeft: 10}}
+                        numberOfLines={1}>
+                        {entry.name}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setBrowsePath(entry.path)} style={styles.enterBtn}>
+                      <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {iosDocEntries.filter(e => !e.isDir).map(entry => (
+                  <TouchableOpacity
+                    key={entry.path}
+                    style={[
+                      styles.fileRow,
+                      {borderBottomColor: colors.border},
+                      selectedFiles.has(entry.path) && {backgroundColor: colors.accentDim},
+                    ]}
+                    onPress={() => toggleFile(entry.path)}>
+                    <Icon
+                      name={selectedFiles.has(entry.path) ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={selectedFiles.has(entry.path) ? colors.accent : colors.textMuted}
+                    />
+                    <Icon name="musical-note" size={18} color={colors.accent} style={{marginLeft: 10}} />
+                    <Text
+                      style={{flex: 1, fontSize: sizes.sm, color: colors.textPrimary, marginLeft: 10}}
+                      numberOfLines={1}>
+                      {entry.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                {iosDocEntries.length === 0 && (
+                  <Text style={{fontSize: sizes.sm, color: colors.textMuted, textAlign: 'center', paddingVertical: 16}}>
+                    Documents 目录下暂无文件夹或音乐文件
+                  </Text>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>常用目录</Text>
+            {COMMON_DIRS.map(dir => (
+              <TouchableOpacity
+                key={dir.path}
+                style={[
+                  styles.commonRow,
+                  {borderBottomColor: colors.border},
+                  selectedDirs.has(dir.path) && {backgroundColor: colors.accentDim},
+                ]}
+                onPress={() => toggleDir(dir.path)}>
+                <Icon
+                  name={selectedDirs.has(dir.path) ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={selectedDirs.has(dir.path) ? colors.accent : colors.textMuted}
+                />
+                <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+                <View style={{flex: 1, marginLeft: 10}}>
+                  <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                    {dir.name}
+                  </Text>
+                  <Text style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}>
+                    {dir.path.replace(STORAGE_ROOT + '/', '')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>自定义</Text>
+            <TouchableOpacity
+              style={styles.browseStartBtn}
+              onPress={() => setBrowsePath(STORAGE_ROOT)}>
+              <Icon name="folder-open-outline" size={20} color={colors.accent} />
+              <Text style={{fontSize: sizes.md, color: colors.accent, fontWeight: '600'}}>
+                浏览文件夹...
+              </Text>
+            </TouchableOpacity>
+            {Array.from(selectedDirs)
+              .filter(d => !COMMON_DIRS.some(c => c.path === d))
+              .map(dir => (
+                <View
+                  key={dir}
+                  style={[
+                    styles.commonRow,
+                    {borderBottomColor: colors.border, backgroundColor: colors.accentDim},
+                  ]}>
+                  <Icon name="checkbox" size={22} color={colors.accent} />
+                  <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+                  <Text
+                    style={{flex: 1, marginLeft: 10, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}
+                    numberOfLines={1}>
+                    {dir.replace(STORAGE_ROOT + '/', '')}
+                  </Text>
+                  <TouchableOpacity onPress={() => toggleDir(dir)} hitSlop={8}>
+                    <Icon name="close-circle" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+          </>
+        )}
+
+        {selectedFiles.size > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>
+              已选文件
+            </Text>
+            <View style={[styles.commonRow, {borderBottomColor: colors.border, backgroundColor: colors.accentDim}]}>
+              <Icon name="musical-note" size={20} color={colors.accent} />
+              <Text style={{flex: 1, marginLeft: 10, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                {selectedFiles.size} 个音乐文件
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedFiles(new Set())} hitSlop={8}>
                 <Icon name="close-circle" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-          ))}
+          </>
+        )}
 
         <View style={{height: 100}} />
       </ScrollView>
 
-      <View
-        style={[
-          styles.bottomBar,
-          {backgroundColor: colors.bgElevated, borderTopColor: colors.border},
-        ]}>
+      <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
         <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
-          已选 {selectedDirs.size} 个目录
+          {isIOS
+            ? `已选 ${totalSelected} 项`
+            : `已选 ${selectedDirs.size} 个目录`}
         </Text>
         <TouchableOpacity
           style={[
             styles.confirmBtn,
             {backgroundColor: colors.accent},
-            selectedDirs.size === 0 && {opacity: 0.4},
+            totalSelected === 0 && !isIOS && {opacity: 0.4},
           ]}
           onPress={handleConfirm}
-          disabled={selectedDirs.size === 0}>
-          <Text
-            style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-            开始扫描
+          disabled={!isIOS && selectedDirs.size === 0}>
+          <Text style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
+            开始{isIOS ? '导入' : '扫描'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -460,6 +650,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   browseRow: {flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1},
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  selectAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
   checkArea: {
     flex: 1,
     flexDirection: 'row',

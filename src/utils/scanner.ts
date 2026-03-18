@@ -125,6 +125,85 @@ export async function readLrcFile(lrcPath: string): Promise<string> {
   }
 }
 
+/**
+ * Search the lrc directory for a .lrc file that best matches the given track.
+ * Matching priority:
+ *   1. Exact filename base (e.g. "周杰伦 - 晴天.lrc" matches "周杰伦 - 晴天.mp3")
+ *   2. Exact title match (e.g. "晴天.lrc")
+ *   3. Artist–title combos ("周杰伦 - 晴天.lrc" or "晴天 - 周杰伦.lrc")
+ *   4. Partial: lrc filename contains the title as a component
+ */
+export async function findMatchingLrcInDir(
+  track: {title: string; artist: string; fileName: string},
+  lrcDir: string,
+): Promise<string | undefined> {
+  try {
+    if (!(await RNFS.exists(lrcDir))) return undefined;
+    const items = await RNFS.readDir(lrcDir);
+    const lrcFiles = items.filter(
+      i => i.isFile() && i.name.toLowerCase().endsWith('.lrc'),
+    );
+    if (lrcFiles.length === 0) return undefined;
+
+    const title = track.title.trim();
+    const artist = track.artist.trim();
+    const hasArtist = artist && artist !== '未知歌手';
+    const dot = track.fileName.lastIndexOf('.');
+    const fileBase = (dot > 0 ? track.fileName.substring(0, dot) : track.fileName).trim();
+
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+    const lrcMap = lrcFiles.map(f => {
+      const d = f.name.lastIndexOf('.');
+      return {path: f.path, base: normalize(d > 0 ? f.name.substring(0, d) : f.name)};
+    });
+
+    const match = (candidate: string): string | undefined => {
+      const n = normalize(candidate);
+      if (!n) return undefined;
+      return lrcMap.find(l => l.base === n)?.path;
+    };
+
+    // Priority 1: exact filename base
+    let found = match(fileBase);
+    if (found) return found;
+
+    // Priority 2: exact title
+    found = match(title);
+    if (found) return found;
+
+    // Priority 3: artist-title combos
+    if (hasArtist) {
+      found = match(`${artist} - ${title}`);
+      if (found) return found;
+      found = match(`${title} - ${artist}`);
+      if (found) return found;
+    }
+
+    // Priority 4: for tracks named "artist - title" or "title - artist",
+    // extract parts from filename and try reversed combos
+    const parts = fileBase.split(/\s*-\s*/);
+    if (parts.length === 2) {
+      const [a, b] = parts;
+      found = match(a) || match(b) || match(`${b} - ${a}`);
+      if (found) return found;
+    }
+
+    // Priority 5: partial match – lrc contains the title as a dash-separated component
+    if (title) {
+      const nt = normalize(title);
+      for (const lrc of lrcMap) {
+        const lrcParts = lrc.base.split(/\s*-\s*/);
+        if (lrcParts.some(p => p.trim() === nt)) return lrc.path;
+      }
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function listSubDirectories(
   parentPath: string,
 ): Promise<string[]> {

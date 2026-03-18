@@ -21,9 +21,18 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     case 'music/scan/fulfilled':
     case 'music/importiOS/fulfilled':
       AsyncStorage.setItem('@scanDirs', JSON.stringify(m.scanDirectories)).catch(() => {});
+      {
+        const lite = m.tracks.map((t: any) => ({
+          ...t,
+          artwork: t.artwork ? (t.artwork.startsWith('file://') ? t.artwork : '<<HAS>>') : undefined,
+        }));
+        AsyncStorage.setItem('@trackCache', JSON.stringify(lite)).catch(() => {});
+      }
       break;
     case 'music/hideTrack':
     case 'music/batchHide':
+    case 'music/scan/pending':
+    case 'music/importiOS/pending':
       AsyncStorage.setItem('@hiddenTracks', JSON.stringify(m.hiddenTrackIds)).catch(() => {});
       break;
     case 'music/setSortMode':

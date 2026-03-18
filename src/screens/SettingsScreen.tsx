@@ -44,7 +44,7 @@ const SettingsScreen: React.FC = () => {
     if (Platform.OS === 'ios') {
       Alert.alert('重新导入', '将从 iTunes/iPod 音乐库和 Documents 目录重新导入音乐', [
         { text: '取消', style: 'cancel' },
-        { text: '导入', onPress: () => dispatch(importiOSMediaLibrary()) },
+        { text: '导入', onPress: () => dispatch(importiOSMediaLibrary(undefined)) },
       ]);
     } else if (scanDirectories.length > 0) {
       Alert.alert('重新扫描', '确定要重新扫描本地音乐吗？', [

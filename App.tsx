@@ -1,6 +1,8 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, Modal, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, StatusBar, Modal, ActivityIndicator, Text, NativeModules } from 'react-native';
+
+NativeModules.DevLoadingView?.hide?.();
 import { Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,6 +21,7 @@ import FullPlayerScreen from './src/screens/FullPlayerScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
+import { ensureDefaultDirs } from './src/utils/defaultDirs';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { DARK_COLORS, SIZES } from './src/utils/theme';
 
@@ -90,6 +93,7 @@ export default function App() {
       if (ok) {
         await initEqualizer();
       }
+      await ensureDefaultDirs();
       setReady(ok);
     })();
   }, []);

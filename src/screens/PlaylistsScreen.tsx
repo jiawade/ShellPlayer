@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, Modal, Pressable,
 } from 'react-native';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../store';
 import { loadPlaylists, createPlaylist } from '../store/playlistSlice';
 import { useTheme } from '../contexts/ThemeContext';
+import PlaylistCover from '../components/PlaylistCover';
 import { Playlist } from '../types';
 
 const PlaylistsScreen: React.FC = () => {
@@ -17,6 +18,22 @@ const PlaylistsScreen: React.FC = () => {
   const { colors, sizes } = useTheme();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
+
+  const trackMap = useMemo(() => new Map(tracks.map(t => [t.id, t])), [tracks]);
+
+  const playlistArtworks = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const pl of playlists) {
+      const arts: string[] = [];
+      for (const id of pl.trackIds) {
+        const t = trackMap.get(id);
+        if (t?.artwork) arts.push(t.artwork);
+        if (arts.length >= 9) break;
+      }
+      map.set(pl.id, arts);
+    }
+    return map;
+  }, [playlists, trackMap]);
 
   useEffect(() => {
     dispatch(loadPlaylists());
@@ -39,27 +56,21 @@ const PlaylistsScreen: React.FC = () => {
 
   const renderItem = useCallback(({ item }: { item: Playlist }) => {
     const count = item.trackIds.length;
-    const firstTrack = count > 0 ? tracks.find(t => t.id === item.trackIds[0]) : null;
+    const artworks = playlistArtworks.get(item.id) ?? [];
     return (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
         onPress={() => handleOpen(item)}
         activeOpacity={0.7}
       >
-        <View style={[styles.cardCover, { backgroundColor: colors.bgElevated }]}>
-          {firstTrack?.artwork ? (
-            <View style={styles.cardCoverInner}>
-              <Icon name="musical-notes" size={32} color={colors.accent} />
-            </View>
-          ) : (
-            <Icon name="musical-notes" size={32} color={colors.textMuted} />
-          )}
+        <View style={styles.cardCover}>
+          <PlaylistCover artworks={artworks} borderRadius={12} />
         </View>
         <Text style={[styles.cardName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
         <Text style={[styles.cardCount, { color: colors.textMuted }]}>{count} 首</Text>
       </TouchableOpacity>
     );
-  }, [tracks, colors, handleOpen]);
+  }, [playlistArtworks, colors, handleOpen]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -157,12 +168,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: 16, padding: 12, borderWidth: 1, maxWidth: '50%',
   },
   cardCover: {
-    width: '100%', aspectRatio: 1, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
-  },
-  cardCoverInner: {
-    width: '100%', height: '100%', borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
   },
   cardName: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
   cardCount: { fontSize: 12 },

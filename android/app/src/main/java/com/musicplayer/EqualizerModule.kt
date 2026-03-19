@@ -60,18 +60,11 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * 尝试检测当前活跃的音频 session ID
-     * ExoPlayer (react-native-track-player) 在播放时会生成一个 session
+     * 使用全局音频输出混音 (session 0)
+     * generateAudioSessionId() 会创建一个新的空 session，EQ 绑定上去无效
+     * session 0 = 全局输出，对所有音频生效
      */
     private fun detectAudioSession(): Int {
-        try {
-            val am = reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            if (am != null) {
-                // 通过反射获取 generateAudioSessionId (API 21+)
-                val sessionId = am.generateAudioSessionId()
-                if (sessionId > 0) return sessionId
-            }
-        } catch (_: Exception) {}
         return 0
     }
 

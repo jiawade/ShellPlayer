@@ -18,6 +18,7 @@ import PlaylistDetailScreen from './src/screens/PlaylistDetailScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import FullPlayerScreen from './src/screens/FullPlayerScreen';
+import RhythmLightScreen from './src/screens/RhythmLightScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
@@ -92,6 +93,14 @@ function MainApp() {
           <RootStack.Screen
             name="FullPlayer"
             component={FullPlayerScreen}
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+          <RootStack.Screen
+            name="RhythmLight"
+            component={RhythmLightScreen}
             options={{
               gestureEnabled: true,
               animation: 'slide_from_right',

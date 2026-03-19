@@ -1,6 +1,6 @@
 // src/screens/FullPlayerScreen.tsx
 import React, { memo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { RepeatMode as TPRepeatMode } from 'react-native-track-player';
@@ -37,6 +37,7 @@ const FullPlayerScreen: React.FC = () => {
   const [showSleep, setShowSleep] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [showModeToast, setShowModeToast] = useState('');
 
   useEffect(() => {
@@ -135,6 +136,9 @@ const FullPlayerScreen: React.FC = () => {
           <TouchableOpacity onPress={() => setShowQueue(true)} style={styles.funcBtn}>
             <Icon name="list-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowMore(true)} style={styles.funcBtn}>
+            <Icon name="ellipsis-horizontal" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {showSpeed && (
@@ -176,6 +180,35 @@ const FullPlayerScreen: React.FC = () => {
       <Equalizer visible={showEQ} onClose={() => setShowEQ(false)} />
       <SleepTimer visible={showSleep} onClose={() => setShowSleep(false)} />
       <PlayQueueView visible={showQueue} onClose={() => setShowQueue(false)} />
+
+      {/* More menu */}
+      {showMore && (
+        <Modal visible={showMore} transparent animationType="fade" onRequestClose={() => setShowMore(false)}>
+          <Pressable style={[styles.moreOverlay, { backgroundColor: colors.overlay }]} onPress={() => setShowMore(false)}>
+            <Pressable style={[styles.moreSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+              <View style={styles.moreHeader}>
+                <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>更多功能</Text>
+                <TouchableOpacity onPress={() => setShowMore(false)} hitSlop={12}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.6}
+                onPress={() => { setShowMore(false); navigation.navigate('RhythmLight' as never); }}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
+                  <Icon name="pulse-outline" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>律动灯</Text>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>音乐节奏可视化</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -208,6 +241,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   modeToast: { position: 'absolute', bottom: 90, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, elevation: 6 },
+  moreOverlay: { flex: 1, justifyContent: 'flex-end' },
+  moreSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
+  moreHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  moreItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  moreItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default memo(FullPlayerScreen);

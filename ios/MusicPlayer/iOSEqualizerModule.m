@@ -3,7 +3,71 @@
 #import <React/RCTLog.h>
 #import <AVFoundation/AVFoundation.h>
 #import <MediaToolbox/MediaToolbox.h>
+#import <objc/runtime.h>
 #import <math.h>
+
+// Declared in AudioLevelModule.m
+extern void AudioMeter_ProcessSamples(const float *samples, UInt32 sampleCount, UInt32 channels, BOOL nonInterleaved, float sampleRate);
+
+#pragma mark - Shared AVPlayer Capture via Method Swizzling
+
+static __weak AVPlayer *sCapturedAVPlayer = nil;
+static NSString *const kPlayerItemChangedNote = @"ShellPlayerItemDidChange";
+
+@interface AVPlayer (ShellPlayerCapture)
+- (instancetype)sp_initWithPlayerItem:(AVPlayerItem *)item __attribute__((objc_method_family(none)));
+- (void)sp_replaceCurrentItemWithPlayerItem:(AVPlayerItem *)item;
+@end
+
+@implementation AVPlayer (ShellPlayerCapture)
+
++ (void)load {
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    Method m1 = class_getInstanceMethod(self, @selector(replaceCurrentItemWithPlayerItem:));
+    Method s1 = class_getInstanceMethod(self, @selector(sp_replaceCurrentItemWithPlayerItem:));
+    if (m1 && s1) method_exchangeImplementations(m1, s1);
+
+    Method m2 = class_getInstanceMethod(self, @selector(initWithPlayerItem:));
+    Method s2 = class_getInstanceMethod(self, @selector(sp_initWithPlayerItem:));
+    if (m2 && s2) method_exchangeImplementations(m2, s2);
+  });
+}
+
+- (instancetype)sp_initWithPlayerItem:(AVPlayerItem *)item __attribute__((objc_method_family(none))) {
+  AVPlayer *player = [self sp_initWithPlayerItem:item];
+  if (player) {
+    sCapturedAVPlayer = player;
+    if (item) {
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter]
+            postNotificationName:kPlayerItemChangedNote
+                          object:player
+                        userInfo:@{@"item": item}];
+      });
+    }
+  }
+  return player;
+}
+
+- (void)sp_replaceCurrentItemWithPlayerItem:(AVPlayerItem *)item {
+  sCapturedAVPlayer = self;
+  [self sp_replaceCurrentItemWithPlayerItem:item];
+  if (item) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [[NSNotificationCenter defaultCenter]
+          postNotificationName:kPlayerItemChangedNote
+                        object:self
+                      userInfo:@{@"item": item}];
+    });
+  }
+}
+
+@end
+
+AVPlayer * _Nullable GetCapturedAVPlayer(void) {
+  return sCapturedAVPlayer;
+}
 
 #pragma mark - Biquad Filter Types
 
@@ -16,7 +80,7 @@ typedef struct {
 
 typedef struct {
   BiquadCoeffs coeffs[EQ_NUM_BANDS];
-  float state[EQ_MAX_CHANNELS][EQ_NUM_BANDS][4]; // x1, x2, y1, y2
+  float state[EQ_MAX_CHANNELS][EQ_NUM_BANDS][4];
   BOOL enabled;
   volatile BOOL needsUpdate;
   float pendingGains[EQ_NUM_BANDS];
@@ -27,12 +91,20 @@ typedef struct {
 
 static EQProcessorContext *sEQCtx = NULL;
 
+__attribute__((constructor)) static void initEQContext(void) {
+  if (!sEQCtx) {
+    sEQCtx = calloc(1, sizeof(EQProcessorContext));
+    sEQCtx->sampleRate = 44100.0f;
+    sEQCtx->enabled = NO;
+  }
+}
+
 static const float sFreqs[EQ_NUM_BANDS] = {
   32.0f, 64.0f, 125.0f, 250.0f, 500.0f,
   1000.0f, 2000.0f, 4000.0f, 8000.0f, 16000.0f
 };
 
-#pragma mark - Biquad Coefficient Computation (Peaking EQ)
+#pragma mark - Biquad Coefficient Computation
 
 static BiquadCoeffs computePeakingEQ(float freq, float gainDB, float Q, float sr) {
   BiquadCoeffs c = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
@@ -51,11 +123,8 @@ static BiquadCoeffs computePeakingEQ(float freq, float gainDB, float Q, float sr
   float a1 = -2.0f * cosw0;
   float a2 = 1.0f - alpha / A;
 
-  c.b0 = b0 / a0;
-  c.b1 = b1 / a0;
-  c.b2 = b2 / a0;
-  c.a1 = a1 / a0;
-  c.a2 = a2 / a0;
+  c.b0 = b0 / a0; c.b1 = b1 / a0; c.b2 = b2 / a0;
+  c.a1 = a1 / a0; c.a2 = a2 / a0;
   return c;
 }
 
@@ -67,12 +136,16 @@ static void recalcCoefficients(EQProcessorContext *ctx) {
   ctx->needsUpdate = NO;
 }
 
+static BOOL isBypassCoeffs(BiquadCoeffs *c) {
+  return fabsf(c->b0 - 1.0f) < 0.0001f && fabsf(c->b1) < 0.0001f &&
+         fabsf(c->b2) < 0.0001f && fabsf(c->a1) < 0.0001f && fabsf(c->a2) < 0.0001f;
+}
+
 #pragma mark - MTAudioProcessingTap Callbacks
 
 static void eqTapInit(MTAudioProcessingTapRef tap, void *clientInfo, void **tapStorageOut) {
   *tapStorageOut = clientInfo;
 }
-
 static void eqTapFinalize(MTAudioProcessingTapRef tap) {}
 
 static void eqTapPrepare(MTAudioProcessingTapRef tap, CMItemCount maxFrames,
@@ -82,8 +155,8 @@ static void eqTapPrepare(MTAudioProcessingTapRef tap, CMItemCount maxFrames,
   ctx->sampleRate = fmt->mSampleRate;
   ctx->isNonInterleaved = (fmt->mFormatFlags & kAudioFormatFlagIsNonInterleaved) != 0;
   ctx->channelsPerFrame = fmt->mChannelsPerFrame;
-  recalcCoefficients(ctx);
-  RCTLogInfo(@"[EQ] Tap prepared: sr=%.0f ch=%u nonInterleaved=%d",
+  if (ctx->enabled) recalcCoefficients(ctx);
+  RCTLogInfo(@"[EQ] Tap prepared: sr=%.0f ch=%u ni=%d",
              fmt->mSampleRate, (unsigned)fmt->mChannelsPerFrame, ctx->isNonInterleaved);
 }
 
@@ -98,15 +171,21 @@ static void eqTapProcess(MTAudioProcessingTapRef tap, CMItemCount numberFrames,
       tap, numberFrames, bufferListInOut, flagsOut, NULL, numberFramesOut);
   if (status != noErr) return;
 
-  EQProcessorContext *ctx = sEQCtx;
-  if (!ctx || !ctx->enabled) return;
-
-  if (ctx->needsUpdate) {
-    recalcCoefficients(ctx);
+  // ALWAYS feed samples to meter (regardless of EQ state)
+  if (bufferListInOut->mNumberBuffers > 0) {
+    float *mdata = (float *)bufferListInOut->mBuffers[0].mData;
+    UInt32 mcount = bufferListInOut->mBuffers[0].mDataByteSize / sizeof(float);
+    BOOL mni = bufferListInOut->mNumberBuffers > 1;
+    float msr = sEQCtx ? sEQCtx->sampleRate : 44100.0f;
+    AudioMeter_ProcessSamples(mdata, mcount, mni ? 1 : 2, mni, msr);
   }
 
-  UInt32 numBuffers = bufferListInOut->mNumberBuffers;
+  // EQ processing (only when enabled)
+  EQProcessorContext *ctx = sEQCtx;
+  if (!ctx || !ctx->enabled) return;
+  if (ctx->needsUpdate) recalcCoefficients(ctx);
 
+  UInt32 numBuffers = bufferListInOut->mNumberBuffers;
   for (UInt32 bufIdx = 0; bufIdx < numBuffers && bufIdx < EQ_MAX_CHANNELS; bufIdx++) {
     float *data = (float *)bufferListInOut->mBuffers[bufIdx].mData;
     UInt32 numSamples = bufferListInOut->mBuffers[bufIdx].mDataByteSize / sizeof(float);
@@ -114,27 +193,17 @@ static void eqTapProcess(MTAudioProcessingTapRef tap, CMItemCount numberFrames,
     if (ctx->isNonInterleaved) {
       for (int band = 0; band < EQ_NUM_BANDS; band++) {
         BiquadCoeffs *c = &ctx->coeffs[band];
-        if (fabsf(c->b0 - 1.0f) < 0.0001f && fabsf(c->b1) < 0.0001f &&
-            fabsf(c->b2) < 0.0001f && fabsf(c->a1) < 0.0001f && fabsf(c->a2) < 0.0001f)
-          continue;
-
-        float x1 = ctx->state[bufIdx][band][0];
-        float x2 = ctx->state[bufIdx][band][1];
-        float y1 = ctx->state[bufIdx][band][2];
-        float y2 = ctx->state[bufIdx][band][3];
-
+        if (isBypassCoeffs(c)) continue;
+        float x1 = ctx->state[bufIdx][band][0], x2 = ctx->state[bufIdx][band][1];
+        float y1 = ctx->state[bufIdx][band][2], y2 = ctx->state[bufIdx][band][3];
         for (UInt32 i = 0; i < numSamples; i++) {
           float x = data[i];
           float y = c->b0 * x + c->b1 * x1 + c->b2 * x2 - c->a1 * y1 - c->a2 * y2;
-          x2 = x1; x1 = x;
-          y2 = y1; y1 = y;
+          x2 = x1; x1 = x; y2 = y1; y1 = y;
           data[i] = y;
         }
-
-        ctx->state[bufIdx][band][0] = x1;
-        ctx->state[bufIdx][band][1] = x2;
-        ctx->state[bufIdx][band][2] = y1;
-        ctx->state[bufIdx][band][3] = y2;
+        ctx->state[bufIdx][band][0] = x1; ctx->state[bufIdx][band][1] = x2;
+        ctx->state[bufIdx][band][2] = y1; ctx->state[bufIdx][band][3] = y2;
       }
     } else {
       UInt32 ch = ctx->channelsPerFrame;
@@ -143,53 +212,42 @@ static void eqTapProcess(MTAudioProcessingTapRef tap, CMItemCount numberFrames,
       for (UInt32 c_idx = 0; c_idx < ch && c_idx < EQ_MAX_CHANNELS; c_idx++) {
         for (int band = 0; band < EQ_NUM_BANDS; band++) {
           BiquadCoeffs *coeff = &ctx->coeffs[band];
-          if (fabsf(coeff->b0 - 1.0f) < 0.0001f && fabsf(coeff->b1) < 0.0001f &&
-              fabsf(coeff->b2) < 0.0001f && fabsf(coeff->a1) < 0.0001f &&
-              fabsf(coeff->a2) < 0.0001f)
-            continue;
-
-          float x1 = ctx->state[c_idx][band][0];
-          float x2 = ctx->state[c_idx][band][1];
-          float y1 = ctx->state[c_idx][band][2];
-          float y2 = ctx->state[c_idx][band][3];
-
+          if (isBypassCoeffs(coeff)) continue;
+          float x1 = ctx->state[c_idx][band][0], x2 = ctx->state[c_idx][band][1];
+          float y1 = ctx->state[c_idx][band][2], y2 = ctx->state[c_idx][band][3];
           for (UInt32 i = 0; i < frames; i++) {
             UInt32 idx = i * ch + c_idx;
             float x = data[idx];
             float y = coeff->b0 * x + coeff->b1 * x1 + coeff->b2 * x2
                     - coeff->a1 * y1 - coeff->a2 * y2;
-            x2 = x1; x1 = x;
-            y2 = y1; y1 = y;
+            x2 = x1; x1 = x; y2 = y1; y1 = y;
             data[idx] = y;
           }
-
-          ctx->state[c_idx][band][0] = x1;
-          ctx->state[c_idx][band][1] = x2;
-          ctx->state[c_idx][band][2] = y1;
-          ctx->state[c_idx][band][3] = y2;
+          ctx->state[c_idx][band][0] = x1; ctx->state[c_idx][band][1] = x2;
+          ctx->state[c_idx][band][2] = y1; ctx->state[c_idx][band][3] = y2;
         }
       }
     }
   }
 }
 
-#pragma mark - EQ Preset Definitions (10-band gains in dB)
+#pragma mark - EQ Preset Definitions
 
 typedef struct { float g[EQ_NUM_BANDS]; } EQPreset;
 
 static EQPreset getIOSPreset(int pid) {
   switch (pid) {
-    case 1:  return (EQPreset){{3,  4,  2,  0, -1,  0,  1,  3,  5,  6}};   // 3D丽音
-    case 2:  return (EQPreset){{3,  4,  3,  5,  4,  3,  2,  2,  3,  2}};   // 爵士
-    case 3:  return (EQPreset){{-1, 0,  1,  3,  5,  6,  5,  3,  1, -1}};   // 流行
-    case 4:  return (EQPreset){{5,  6,  4,  2, -1,  0,  2,  4,  6,  7}};   // 摇滚
-    case 5:  return (EQPreset){{4,  5,  3,  1,  0,  0,  1,  3,  5,  6}};   // 古典
-    case 6:  return (EQPreset){{7,  8,  6,  4,  1,  0,  1,  2,  3,  3}};   // 嘻哈
-    case 7:  return (EQPreset){{6,  7,  4,  2, -1,  0,  1,  3,  6,  8}};   // 电子
-    case 8:  return (EQPreset){{4,  5,  7,  6,  3,  2,  1,  0, -1, -1}};   // R&B
-    case 9:  return (EQPreset){{-3,-2,  0,  2,  5,  8,  6,  3,  0, -1}};   // 人声
-    case 10: return (EQPreset){{10, 9,  7,  4,  1,  0, -1, -1, -2, -2}};   // 重低音
-    case 11: return (EQPreset){{4,  5,  3,  1,  0,  0,  1,  3,  5,  6}};   // 现场
+    case 1:  return (EQPreset){{3,  4,  2,  0, -1,  0,  1,  3,  5,  6}};
+    case 2:  return (EQPreset){{3,  4,  3,  5,  4,  3,  2,  2,  3,  2}};
+    case 3:  return (EQPreset){{-1, 0,  1,  3,  5,  6,  5,  3,  1, -1}};
+    case 4:  return (EQPreset){{5,  6,  4,  2, -1,  0,  2,  4,  6,  7}};
+    case 5:  return (EQPreset){{4,  5,  3,  1,  0,  0,  1,  3,  5,  6}};
+    case 6:  return (EQPreset){{7,  8,  6,  4,  1,  0,  1,  2,  3,  3}};
+    case 7:  return (EQPreset){{6,  7,  4,  2, -1,  0,  1,  3,  6,  8}};
+    case 8:  return (EQPreset){{4,  5,  7,  6,  3,  2,  1,  0, -1, -1}};
+    case 9:  return (EQPreset){{-3,-2,  0,  2,  5,  8,  6,  3,  0, -1}};
+    case 10: return (EQPreset){{10, 9,  7,  4,  1,  0, -1, -1, -2, -2}};
+    case 11: return (EQPreset){{4,  5,  3,  1,  0,  0,  1,  3,  5,  6}};
     default: return (EQPreset){{0,  0,  0,  0,  0,  0,  0,  0,  0,  0}};
   }
 }
@@ -197,8 +255,6 @@ static EQPreset getIOSPreset(int pid) {
 #pragma mark - iOSEqualizerModule
 
 @interface iOSEqualizerModule ()
-@property (nonatomic, weak) AVPlayer *observedPlayer;
-@property (nonatomic, assign) BOOL isObserving;
 @property (nonatomic, assign) int currentPresetId;
 @end
 
@@ -214,85 +270,34 @@ RCT_EXPORT_MODULE(EqualizerModule);
   self = [super init];
   if (self) {
     _currentPresetId = 0;
-    if (!sEQCtx) {
-      sEQCtx = calloc(1, sizeof(EQProcessorContext));
-      sEQCtx->sampleRate = 44100.0f;
-      sEQCtx->enabled = NO;
-    }
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(onPlayerItemChanged:)
+                                                 name:kPlayerItemChangedNote
+                                               object:nil];
   }
   return self;
 }
 
 - (void)dealloc {
-  [self stopObservingPlayer];
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-#pragma mark - AVPlayer Discovery
+#pragma mark - Player Item Change Notification
 
-- (AVPlayer *)findAVPlayer {
-  @try {
-    id module = [self.bridge moduleForName:@"TrackPlayer"];
-    if (!module) return nil;
-
-    AVPlayer *player = nil;
-    @try { player = [module valueForKeyPath:@"player.avPlayer"]; } @catch(NSException *e) {}
-    if (!player) {
-      @try { player = [module valueForKeyPath:@"player.wrapper.avPlayer"]; } @catch(NSException *e) {}
-    }
-    if (player && [player isKindOfClass:[AVPlayer class]]) {
-      return player;
-    }
-  } @catch (NSException *e) {
-    RCTLogInfo(@"[EQ] Could not find AVPlayer: %@", e.reason);
-  }
-  return nil;
-}
-
-#pragma mark - KVO on AVPlayer.currentItem
-
-- (void)startObservingPlayer {
-  if (self.isObserving) return;
-
-  AVPlayer *player = [self findAVPlayer];
-  if (!player) return;
-
-  self.observedPlayer = player;
-  [player addObserver:self
-           forKeyPath:@"currentItem"
-              options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionInitial
-              context:NULL];
-  self.isObserving = YES;
-  RCTLogInfo(@"[EQ] Started observing AVPlayer.currentItem");
-}
-
-- (void)stopObservingPlayer {
-  if (self.isObserving && self.observedPlayer) {
-    @try {
-      [self.observedPlayer removeObserver:self forKeyPath:@"currentItem"];
-    } @catch(NSException *e) {}
-    self.isObserving = NO;
+- (void)onPlayerItemChanged:(NSNotification *)note {
+  AVPlayerItem *item = note.userInfo[@"item"];
+  if (item && [item isKindOfClass:[AVPlayerItem class]]) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      [self applyTapToItem:item];
+    });
   }
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(id)object
-                        change:(NSDictionary *)change
-                       context:(void *)context {
-  if ([keyPath isEqualToString:@"currentItem"]) {
-    AVPlayerItem *item = change[NSKeyValueChangeNewKey];
-    if (item && [item isKindOfClass:[AVPlayerItem class]] && sEQCtx && sEQCtx->enabled) {
-      dispatch_async(dispatch_get_main_queue(), ^{
-        [self applyTapToItem:item];
-      });
-    }
-  }
-}
-
-#pragma mark - Apply Audio Processing Tap
+#pragma mark - Apply Audio Processing Tap (ALWAYS for both EQ and metering)
 
 - (void)applyTapToItem:(AVPlayerItem *)item {
-  if (!sEQCtx || !sEQCtx->enabled) return;
   if (!item || item.status == AVPlayerItemStatusFailed) return;
+  if (item.audioMix != nil) return;
 
   NSArray<AVAssetTrack *> *tracks = [item.asset tracksWithMediaType:AVMediaTypeAudio];
   if (tracks.count == 0) return;
@@ -309,11 +314,11 @@ RCT_EXPORT_MODULE(EqualizerModule);
   callbacks.finalize = eqTapFinalize;
 
   MTAudioProcessingTapRef tap;
-  OSStatus status = MTAudioProcessingTapCreate(
+  OSStatus tapStatus = MTAudioProcessingTapCreate(
       kCFAllocatorDefault, &callbacks,
       kMTAudioProcessingTapCreationFlag_PreEffects, &tap);
-  if (status != noErr) {
-    RCTLogInfo(@"[EQ] Failed to create tap: %d", (int)status);
+  if (tapStatus != noErr) {
+    RCTLogInfo(@"[EQ] Failed to create tap: %d", (int)tapStatus);
     return;
   }
 
@@ -323,20 +328,10 @@ RCT_EXPORT_MODULE(EqualizerModule);
 
   AVMutableAudioMix *audioMix = [AVMutableAudioMix audioMix];
   audioMix.inputParameters = @[params];
-
   item.audioMix = audioMix;
 
   CFRelease(tap);
-  RCTLogInfo(@"[EQ] Applied EQ tap to player item (preset %d)", self.currentPresetId);
-}
-
-- (void)ensureObservingAndApply {
-  if (!self.isObserving) {
-    [self startObservingPlayer];
-  }
-  if (self.observedPlayer.currentItem && sEQCtx->enabled) {
-    [self applyTapToItem:self.observedPlayer.currentItem];
-  }
+  RCTLogInfo(@"[EQ] Tap installed (preset=%d, enabled=%d)", self.currentPresetId, sEQCtx->enabled);
 }
 
 #pragma mark - React Native Bridge Methods
@@ -346,13 +341,13 @@ RCT_EXPORT_METHOD(init:(int)sessionId
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
-    [self startObservingPlayer];
-
+    AVPlayer *player = sCapturedAVPlayer;
+    if (player && player.currentItem) {
+      [self applyTapToItem:player.currentItem];
+    }
     if (self.currentPresetId > 0 && sEQCtx) {
       sEQCtx->enabled = YES;
-      [self ensureObservingAndApply];
     }
-
     resolve(@{
       @"success": @YES,
       @"sessionId": @(0),
@@ -370,25 +365,20 @@ RCT_EXPORT_METHOD(applyPreset:(int)presetId
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
   self.currentPresetId = presetId;
-
   if (presetId == 0) {
     sEQCtx->enabled = NO;
-    dispatch_async(dispatch_get_main_queue(), ^{
-      if (self.observedPlayer.currentItem) {
-        self.observedPlayer.currentItem.audioMix = nil;
-      }
-      resolve(@YES);
-    });
+    resolve(@YES);
     return;
   }
-
   EQPreset preset = getIOSPreset(presetId);
   memcpy(sEQCtx->pendingGains, preset.g, sizeof(float) * EQ_NUM_BANDS);
   sEQCtx->enabled = YES;
   sEQCtx->needsUpdate = YES;
-
   dispatch_async(dispatch_get_main_queue(), ^{
-    [self ensureObservingAndApply];
+    AVPlayer *player = sCapturedAVPlayer;
+    if (player && player.currentItem && player.currentItem.audioMix == nil) {
+      [self applyTapToItem:player.currentItem];
+    }
     resolve(@YES);
   });
 }
@@ -416,7 +406,6 @@ RCT_EXPORT_METHOD(release:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
   if (sEQCtx) sEQCtx->enabled = NO;
-  [self stopObservingPlayer];
   resolve(@YES);
 }
 

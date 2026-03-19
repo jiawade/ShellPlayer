@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, memo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
   TextInput, Modal, Pressable, SafeAreaView,
@@ -18,6 +18,9 @@ import {
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
 import { Track, SortMode } from '../types';
+import AlphabetIndex from '../components/AlphabetIndex';
+import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
 
 const SORT_OPTIONS: { mode: SortMode; label: string; icon: string }[] = [
   { mode: 'title', label: '按名称', icon: 'text-outline' },
@@ -55,11 +58,28 @@ const PlaylistDetailScreen: React.FC = () => {
   const [showImport, setShowImport] = useState(false);
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const locateRef = useRef<LocatePlayingRef>(null);
 
-  const playlistTracks = useMemo(() => {
+  // Base filtered tracks (without pinyin sort)
+  const baseTracks = useMemo(() => {
     if (!playlist) return [];
     const idSet = new Set(playlist.trackIds);
-    let list = tracks.filter(t => idSet.has(t.id));
+    return tracks.filter(t => idSet.has(t.id));
+  }, [playlist, tracks]);
+
+  const {
+    sortedTracks: pinyinSorted,
+    letters,
+    indexVisible,
+    onSelectLetter,
+    onIndexTouchStart,
+    onIndexTouchEnd,
+    onScroll: onAlphabetScroll,
+  } = useAlphabetIndex(baseTracks, flatListRef);
+
+  const playlistTracks = useMemo(() => {
+    let list = sortMode === 'title' ? [...pinyinSorted] : [...baseTracks];
     if (sortMode === 'artist') {
       list.sort((a, b) => a.artist.localeCompare(b.artist, 'zh-CN'));
     }
@@ -72,7 +92,7 @@ const PlaylistDetailScreen: React.FC = () => {
       );
     }
     return list;
-  }, [playlist, tracks, sortMode, searchQuery]);
+  }, [baseTracks, pinyinSorted, sortMode, searchQuery]);
 
   const handlePlay = useCallback((t: Track) => {
     dispatch(playTrack({ track: t, queue: playlistTracks, shuffle: repeatMode === 'queue' }));
@@ -228,16 +248,37 @@ const PlaylistDetailScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={playlistTracks}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ paddingBottom: 140 }}
-          showsVerticalScrollIndicator
-          initialNumToRender={20}
-          maxToRenderPerBatch={15}
-          removeClippedSubviews
-        />
+        <View style={{flex: 1}}>
+          <FlatList
+            ref={flatListRef}
+            data={playlistTracks}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ paddingBottom: 140 }}
+            showsVerticalScrollIndicator
+            onScrollBeginDrag={() => {
+              if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
+              locateRef.current?.show();
+            }}
+            initialNumToRender={20}
+            maxToRenderPerBatch={15}
+          />
+          {sortMode === 'title' && !searchQuery && (
+            <AlphabetIndex
+              letters={letters}
+              visible={indexVisible}
+              onSelectLetter={onSelectLetter}
+              onTouchStart={onIndexTouchStart}
+              onTouchEnd={onIndexTouchEnd}
+            />
+          )}
+          <LocatePlayingButton
+            ref={locateRef}
+            flatListRef={flatListRef}
+            tracks={playlistTracks}
+            currentTrack={currentTrack}
+          />
+        </View>
       )}
 
       {/* Rename Modal */}
@@ -279,6 +320,39 @@ const PlaylistDetailScreen: React.FC = () => {
   );
 };
 
+// ---- Import Row (memoized to prevent re-render on sibling selection changes) ----
+interface ImportRowProps {
+  item: Track;
+  isSelected: boolean;
+  isExisting: boolean;
+  onToggle: (id: string) => void;
+  colors: any;
+  sizes: any;
+}
+
+const ImportRow = memo<ImportRowProps>(({ item, isSelected, isExisting, onToggle, colors, sizes }) => (
+  <TouchableOpacity
+    style={[styles.importRow, isExisting && { opacity: 0.4 }]}
+    onPress={() => { if (!isExisting) onToggle(item.id); }}
+    activeOpacity={0.7}
+    disabled={isExisting}
+  >
+    <Icon
+      name={isExisting ? 'checkmark-circle' : isSelected ? 'checkbox' : 'square-outline'}
+      size={22}
+      color={isExisting ? colors.textMuted : isSelected ? colors.accent : colors.textMuted}
+      style={{ marginRight: 12 }}
+    />
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }} numberOfLines={1}>{item.title}</Text>
+      <Text style={{ fontSize: sizes.sm, color: colors.textSecondary }} numberOfLines={1}>{item.artist}</Text>
+    </View>
+    {isExisting && (
+      <Text style={{ fontSize: 10, color: colors.textMuted }}>已添加</Text>
+    )}
+  </TouchableOpacity>
+));
+
 // ---- Import Songs Modal ----
 
 interface ImportProps {
@@ -293,8 +367,6 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
   const { tracks } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const selectedRef = useRef(selected);
-  selectedRef.current = selected;
   const [search, setSearch] = useState('');
 
   const existingSet = useMemo(() => new Set(existingTrackIds), [existingTrackIds]);
@@ -316,28 +388,25 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      selectedRef.current = next;
       return next;
     });
   }, []);
 
   const handleSelectAll = useCallback(() => {
     const nonExisting = filtered.filter(t => !existingSet.has(t.id));
-    const newSet = new Set(nonExisting.map(t => t.id));
-    selectedRef.current = newSet;
-    setSelected(newSet);
+    setSelected(new Set(nonExisting.map(t => t.id)));
   }, [filtered, existingSet]);
 
   const handleConfirm = useCallback(() => {
-    if (selectedRef.current.size === 0) {
+    if (selected.size === 0) {
       Alert.alert('提示', '请至少选择一首歌曲');
       return;
     }
-    dispatch(addTracksToPlaylist({ playlistId, trackIds: Array.from(selectedRef.current) }));
+    dispatch(addTracksToPlaylist({ playlistId, trackIds: Array.from(selected) }));
     setSelected(new Set());
     setSearch('');
     onClose();
-  }, [dispatch, playlistId, onClose]);
+  }, [dispatch, playlistId, selected, onClose]);
 
   const handleClose = useCallback(() => {
     setSelected(new Set());
@@ -345,32 +414,16 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
     onClose();
   }, [onClose]);
 
-  const renderItem = useCallback(({ item }: { item: Track }) => {
-    const isExisting = existingSet.has(item.id);
-    const isSelected = selectedRef.current.has(item.id);
-    return (
-      <TouchableOpacity
-        style={[styles.importRow, isExisting && { opacity: 0.4 }]}
-        onPress={() => { if (!isExisting) toggleSelect(item.id); }}
-        activeOpacity={0.7}
-        disabled={isExisting}
-      >
-        <Icon
-          name={isExisting ? 'checkmark-circle' : isSelected ? 'checkbox' : 'square-outline'}
-          size={22}
-          color={isExisting ? colors.textMuted : isSelected ? colors.accent : colors.textMuted}
-          style={{ marginRight: 12 }}
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }} numberOfLines={1}>{item.title}</Text>
-          <Text style={{ fontSize: sizes.sm, color: colors.textSecondary }} numberOfLines={1}>{item.artist}</Text>
-        </View>
-        {isExisting && (
-          <Text style={{ fontSize: 10, color: colors.textMuted }}>已添加</Text>
-        )}
-      </TouchableOpacity>
-    );
-  }, [existingSet, toggleSelect, colors, sizes]);
+  const renderItem = useCallback(({ item }: { item: Track }) => (
+    <ImportRow
+      item={item}
+      isSelected={selected.has(item.id)}
+      isExisting={existingSet.has(item.id)}
+      onToggle={toggleSelect}
+      colors={colors}
+      sizes={sizes}
+    />
+  ), [selected, existingSet, toggleSelect, colors, sizes]);
 
   const ITEM_HEIGHT = 58;
   const getItemLayout = useCallback((_: any, i: number) => ({
@@ -412,13 +465,11 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
           data={filtered}
           renderItem={renderItem}
           keyExtractor={item => item.id}
-          extraData={selected.size}
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator
           initialNumToRender={20}
           maxToRenderPerBatch={20}
           windowSize={11}
-          removeClippedSubviews
           getItemLayout={getItemLayout}
         />
       </SafeAreaView>

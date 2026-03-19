@@ -10,7 +10,7 @@ import {parseLRC, parseTextLyrics} from '../utils/lrcParser';
 import {getDefaultLrcDir, ensureDefaultDirs} from '../utils/defaultDirs';
 import {requestStoragePermission} from '../utils/permissions';
 import {logCrash, logInfo} from '../utils/crashLogger';
-import {saveArtworkFile, getCachedArtwork} from '../utils/artworkCache';
+import {saveArtworkFile, getCachedArtwork, batchGetCachedArtworks} from '../utils/artworkCache';
 import {importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile, getLyricsForUrl} from '../utils/mediaLibrary';
 
 interface MusicState {
@@ -239,12 +239,12 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
       artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork?.startsWith('file://') ? t.artwork : undefined,
     }));
     try {
-      for (const t of tracks) {
-        if (!t.artwork) {
-          const a = await getCachedArtwork(t.id);
-          if (a) {
-            t.artwork = a;
-          }
+      const noArt = tracks.filter(t => !t.artwork);
+      if (noArt.length > 0) {
+        const artMap = await batchGetCachedArtworks(noArt.map(t => t.id));
+        for (const t of noArt) {
+          const a = artMap.get(t.id);
+          if (a) t.artwork = a;
         }
       }
     } catch {}

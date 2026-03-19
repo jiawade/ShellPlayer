@@ -1,5 +1,5 @@
 // src/screens/AllSongsScreen.tsx
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,9 @@ import {
 } from '../store/musicSlice';
 import {Track, SortMode} from '../types';
 import {useTheme} from '../contexts/ThemeContext';
+import AlphabetIndex from '../components/AlphabetIndex';
+import {useAlphabetIndex} from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, {LocatePlayingRef} from '../components/LocatePlayingButton';
 
 const SORT_OPTIONS: {mode: SortMode; label: string; icon: string}[] = [
   {mode: 'title', label: '按名称', icon: 'text-outline'},
@@ -63,6 +66,8 @@ const AllSongsScreen: React.FC = () => {
     batchSelectedIds,
   } = useAppSelector(s => s.music);
   const {colors, sizes} = useTheme();
+  const flatListRef = useRef<FlatList>(null);
+  const locateRef = useRef<LocatePlayingRef>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -131,8 +136,18 @@ const AllSongsScreen: React.FC = () => {
     init();
   }, [dispatch]);
 
+  const {
+    sortedTracks: pinyinSorted,
+    letters,
+    indexVisible,
+    onSelectLetter,
+    onIndexTouchStart,
+    onIndexTouchEnd,
+    onScroll: onAlphabetScroll,
+  } = useAlphabetIndex(tracks, flatListRef);
+
   const filteredTracks = useMemo(() => {
-    let list = [...tracks];
+    let list = sortMode === 'title' ? [...pinyinSorted] : [...tracks];
     if (sortMode === 'artist') {
       list.sort((a, b) => a.artist.localeCompare(b.artist, 'zh-CN'));
     } else if (sortMode === 'recent') {
@@ -148,7 +163,7 @@ const AllSongsScreen: React.FC = () => {
       );
     }
     return list;
-  }, [tracks, searchQuery, sortMode]);
+  }, [tracks, pinyinSorted, searchQuery, sortMode]);
 
   const handlePlay = useCallback(
     (t: Track) => {
@@ -539,41 +554,64 @@ const AllSongsScreen: React.FC = () => {
           : `共 ${tracks.length} 首`}
       </Text>
 
-      <FlatList
-        data={filteredTracks}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={{paddingBottom: 140}}
-        showsVerticalScrollIndicator={true}
-        refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={handleRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+      <View style={{flex: 1}}>
+        <FlatList
+          ref={flatListRef}
+          data={filteredTracks}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={{paddingBottom: 140}}
+          showsVerticalScrollIndicator={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={handleRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          }
+          onScrollBeginDrag={() => {
+            if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
+            locateRef.current?.show();
+          }}
+          initialNumToRender={20}
+          maxToRenderPerBatch={15}
+          windowSize={11}
+          removeClippedSubviews={true}
+          getItemLayout={(_, i) => ({length: 76, offset: 76 * i, index: i})}
+          ListEmptyComponent={
+            searchQuery ? (
+              <View style={styles.noResult}>
+                <Icon name="search-outline" size={48} color={colors.textMuted} />
+                <Text
+                  style={{
+                    fontSize: sizes.md,
+                    color: colors.textMuted,
+                    marginTop: 12,
+                  }}>
+                  没有找到匹配的歌曲
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+        {sortMode === 'title' && !searchQuery && (
+          <AlphabetIndex
+            letters={letters}
+            visible={indexVisible}
+            onSelectLetter={onSelectLetter}
+            onTouchStart={onIndexTouchStart}
+            onTouchEnd={onIndexTouchEnd}
           />
-        }
-        initialNumToRender={20}
-        maxToRenderPerBatch={15}
-        windowSize={11}
-        removeClippedSubviews={true}
-        getItemLayout={(_, i) => ({length: 76, offset: 76 * i, index: i})}
-        ListEmptyComponent={
-          searchQuery ? (
-            <View style={styles.noResult}>
-              <Icon name="search-outline" size={48} color={colors.textMuted} />
-              <Text
-                style={{
-                  fontSize: sizes.md,
-                  color: colors.textMuted,
-                  marginTop: 12,
-                }}>
-                没有找到匹配的歌曲
-              </Text>
-            </View>
-          ) : null
-        }
-      />
+        )}
+        <LocatePlayingButton
+          ref={locateRef}
+          flatListRef={flatListRef}
+          tracks={filteredTracks}
+          currentTrack={currentTrack}
+          itemHeight={76}
+        />
+      </View>
 
       <Modal visible={showFolderPicker} animationType="slide">
         <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>

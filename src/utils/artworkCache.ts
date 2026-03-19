@@ -61,3 +61,26 @@ export async function getCachedArtwork(trackId: string): Promise<string | undefi
   }
   return undefined;
 }
+
+/**
+ * 批量查找缓存封面：读一次目录，返回 trackId -> file:// URI 的 Map
+ */
+export async function batchGetCachedArtworks(trackIds: string[]): Promise<Map<string, string>> {
+  await ensureDir();
+  const result = new Map<string, string>();
+  try {
+    const files = await RNFS.readDir(CACHE_DIR);
+    const fileSet = new Set(files.map(f => f.name));
+    for (const id of trackIds) {
+      const h = hashKey(id);
+      for (const ext of ['jpg', 'png']) {
+        const name = `${h}.${ext}`;
+        if (fileSet.has(name)) {
+          result.set(id, `file://${CACHE_DIR}/${name}`);
+          break;
+        }
+      }
+    }
+  } catch {}
+  return result;
+}

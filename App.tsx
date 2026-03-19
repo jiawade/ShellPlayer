@@ -107,11 +107,13 @@ export default function App() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const ok = await setupPlayer();
+      const [ok] = await Promise.all([
+        setupPlayer(),
+        ensureDefaultDirs(),
+      ]);
       if (ok) {
-        await initEqualizer();
+        initEqualizer(); // fire-and-forget, non-blocking
       }
-      await ensureDefaultDirs();
       setReady(ok);
     })();
   }, []);

@@ -1,5 +1,5 @@
 // src/screens/FavoritesScreen.tsx
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackItem from '../components/TrackItem';
@@ -8,6 +8,9 @@ import { useAppSelector, useAppDispatch } from '../store';
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { Track } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import AlphabetIndex from '../components/AlphabetIndex';
+import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
 
 const FavoritesScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -15,12 +18,24 @@ const FavoritesScreen: React.FC = () => {
   const { colors, sizes } = useTheme();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const locateRef = useRef<LocatePlayingRef>(null);
 
   const favTracks = useMemo(() => tracks.filter(t => favoriteIds.includes(t.id)), [tracks, favoriteIds]);
 
+  const {
+    sortedTracks: sortedFavTracks,
+    letters,
+    indexVisible,
+    onSelectLetter,
+    onIndexTouchStart,
+    onIndexTouchEnd,
+    onScroll: onAlphabetScroll,
+  } = useAlphabetIndex(favTracks, flatListRef);
+
   const handlePlay = useCallback((t: Track) => {
-    dispatch(playTrack({ track: t, queue: favTracks, shuffle: repeatMode === 'queue' }));
-  }, [dispatch, favTracks, repeatMode]);
+    dispatch(playTrack({ track: t, queue: sortedFavTracks, shuffle: repeatMode === 'queue' }));
+  }, [dispatch, sortedFavTracks, repeatMode]);
 
   const handleFav = useCallback((id: string) => { dispatch(toggleFavorite(id)); }, [dispatch]);
   const handleOpenMenu = useCallback((t: Track) => { setMenuTrack(t); setShowMenu(true); }, []);
@@ -45,9 +60,25 @@ const FavoritesScreen: React.FC = () => {
         <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>我喜欢的</Text>
         <View style={[styles.badge, { backgroundColor: colors.heartDim }]}><Icon name="heart" size={14} color={colors.heart} /><Text style={{ fontSize: sizes.sm, color: colors.heart, fontWeight: '600' }}>{favTracks.length}</Text></View>
       </View>
-      <FlatList data={favTracks} renderItem={renderItem} keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
-        initialNumToRender={15} maxToRenderPerBatch={10} removeClippedSubviews={true} />
+      <View style={{flex: 1}}>
+        <FlatList ref={flatListRef} data={sortedFavTracks} renderItem={renderItem} keyExtractor={item => item.id}
+          contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
+          onScrollBeginDrag={() => { onAlphabetScroll(); locateRef.current?.show(); }}
+          initialNumToRender={15} maxToRenderPerBatch={10} />
+        <AlphabetIndex
+          letters={letters}
+          visible={indexVisible}
+          onSelectLetter={onSelectLetter}
+          onTouchStart={onIndexTouchStart}
+          onTouchEnd={onIndexTouchEnd}
+        />
+        <LocatePlayingButton
+          ref={locateRef}
+          flatListRef={flatListRef}
+          tracks={sortedFavTracks}
+          currentTrack={currentTrack}
+        />
+      </View>
       <TrackMenu track={menuTrack} visible={showMenu} onClose={() => { setShowMenu(false); setMenuTrack(null); }} />
     </View>
   );

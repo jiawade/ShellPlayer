@@ -1,5 +1,5 @@
 // src/screens/HistoryScreen.tsx
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackItem from '../components/TrackItem';
@@ -8,6 +8,9 @@ import { useAppSelector, useAppDispatch } from '../store';
 import { playTrack, toggleFavorite, clearHistory } from '../store/musicSlice';
 import { Track } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import AlphabetIndex from '../components/AlphabetIndex';
+import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
 
 const HistoryScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -15,6 +18,8 @@ const HistoryScreen: React.FC = () => {
   const { colors, sizes } = useTheme();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const locateRef = useRef<LocatePlayingRef>(null);
 
   const historyTracks = useMemo(() => {
     return playHistory
@@ -22,9 +27,19 @@ const HistoryScreen: React.FC = () => {
       .filter((t): t is Track => t != null);
   }, [tracks, playHistory]);
 
+  const {
+    sortedTracks: sortedHistoryTracks,
+    letters,
+    indexVisible,
+    onSelectLetter,
+    onIndexTouchStart,
+    onIndexTouchEnd,
+    onScroll: onAlphabetScroll,
+  } = useAlphabetIndex(historyTracks, flatListRef);
+
   const handlePlay = useCallback((t: Track) => {
-    dispatch(playTrack({ track: t, queue: historyTracks, shuffle: repeatMode === 'queue' }));
-  }, [dispatch, historyTracks, repeatMode]);
+    dispatch(playTrack({ track: t, queue: sortedHistoryTracks, shuffle: repeatMode === 'queue' }));
+  }, [dispatch, sortedHistoryTracks, repeatMode]);
 
   const handleFav = useCallback((id: string) => { dispatch(toggleFavorite(id)); }, [dispatch]);
   const handleOpenMenu = useCallback((t: Track) => { setMenuTrack(t); setShowMenu(true); }, []);
@@ -65,9 +80,25 @@ const HistoryScreen: React.FC = () => {
       <Text style={{ fontSize: sizes.sm, color: colors.textMuted, paddingHorizontal: 20, paddingBottom: 8 }}>
         共 {historyTracks.length} 首
       </Text>
-      <FlatList data={historyTracks} renderItem={renderItem} keyExtractor={(item, idx) => `${item.id}-${idx}`}
-        contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
-        initialNumToRender={15} maxToRenderPerBatch={10} removeClippedSubviews={true} />
+      <View style={{flex: 1}}>
+        <FlatList ref={flatListRef} data={sortedHistoryTracks} renderItem={renderItem} keyExtractor={(item, idx) => `${item.id}-${idx}`}
+          contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={true}
+          onScrollBeginDrag={() => { onAlphabetScroll(); locateRef.current?.show(); }}
+          initialNumToRender={15} maxToRenderPerBatch={10} />
+        <AlphabetIndex
+          letters={letters}
+          visible={indexVisible}
+          onSelectLetter={onSelectLetter}
+          onTouchStart={onIndexTouchStart}
+          onTouchEnd={onIndexTouchEnd}
+        />
+        <LocatePlayingButton
+          ref={locateRef}
+          flatListRef={flatListRef}
+          tracks={sortedHistoryTracks}
+          currentTrack={currentTrack}
+        />
+      </View>
       <TrackMenu track={menuTrack} visible={showMenu} onClose={() => { setShowMenu(false); setMenuTrack(null); }} />
     </View>
   );

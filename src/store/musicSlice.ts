@@ -68,6 +68,12 @@ const initialState: MusicState = {
   batchSelectedIds: [],
 };
 
+const serializeArtworkForCache = (artwork?: string): string | undefined => {
+  if (!artwork) return undefined;
+  // Base64 artwork is too large for persisted store; keep a placeholder only for this case.
+  return artwork.startsWith('data:') ? '<<HAS>>' : artwork;
+};
+
 // --- Async thunks ---
 
 export interface IOSImportOptions {
@@ -188,7 +194,7 @@ export const importiOSMediaLibrary = createAsyncThunk(
     try {
       const lite = allTracks.map(t => ({
         ...t,
-        artwork: t.artwork ? (t.artwork.startsWith('file://') ? t.artwork : '<<HAS>>') : undefined,
+        artwork: serializeArtworkForCache(t.artwork),
       }));
       await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
     } catch (e) {
@@ -212,7 +218,7 @@ export const scanMusic = createAsyncThunk('music/scan', async (directories: stri
   try {
     const lite = tracks.map(t => ({
       ...t,
-      artwork: t.artwork ? (t.artwork.startsWith('file://') ? t.artwork : '<<HAS>>') : undefined,
+      artwork: serializeArtworkForCache(t.artwork),
     }));
     await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
   } catch (e) {
@@ -236,8 +242,21 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
     const cached = JSON.parse(data) as Track[];
     const tracks = cached.map(t => ({
       ...t,
-      artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork?.startsWith('file://') ? t.artwork : undefined,
+      artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
     }));
+
+    // App hot deploy may change app container path; stale file:// URIs must be invalidated.
+    try {
+      for (const t of tracks) {
+        if (!t.artwork || !t.artwork.startsWith('file://')) continue;
+        const path = t.artwork.replace('file://', '');
+        const exists = await RNFS.exists(path);
+        if (!exists) {
+          t.artwork = undefined;
+        }
+      }
+    } catch {}
+
     try {
       const noArt = tracks.filter(t => !t.artwork);
       if (noArt.length > 0) {
@@ -248,6 +267,59 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
         }
       }
     } catch {}
+
+    // iOS hot-reload/Command+R 场景下，历史缓存里可能只有 <<HAS>> 占位符，
+    // 但封面文件已丢失或未落地。这里做一次修复性回填，避免“重装才有封面”。
+    try {
+      const unresolved = tracks.filter(t => !t.artwork);
+      if (Platform.OS === 'ios' && unresolved.length > 0) {
+        const mediaTracks = await importFromMediaLibrary();
+        const byId = new Map(mediaTracks.map(m => [m.id, m]));
+        const byUrl = new Map(mediaTracks.map(m => [m.url, m]));
+
+        for (const t of unresolved) {
+          const m = byId.get(t.id) || byUrl.get(t.url);
+          if (!m?.artwork) continue;
+
+          if (m.artwork.startsWith('file://')) {
+            t.artwork = m.artwork;
+            continue;
+          }
+          if (m.artwork.startsWith('data:')) {
+            const saved = await saveArtworkFile(t.id, m.artwork);
+            if (saved) t.artwork = saved;
+            continue;
+          }
+          t.artwork = m.artwork;
+        }
+      }
+    } catch {}
+
+    // 本地文件补偿：仅处理仍无封面的曲目，逐个解析 ID3 并回写缓存文件
+    try {
+      const unresolvedLocal = tracks.filter(t => !t.artwork && !!t.filePath);
+      if (unresolvedLocal.length > 0) {
+        const {parseID3} = require('../utils/id3Parser');
+        for (const t of unresolvedLocal) {
+          try {
+            if (!(await RNFS.exists(t.filePath))) continue;
+            const id3 = await parseID3(t.filePath);
+            if (!id3?.artwork) continue;
+            const saved = await saveArtworkFile(t.id, id3.artwork);
+            if (saved) t.artwork = saved;
+          } catch {}
+        }
+      }
+    } catch {}
+
+    try {
+      const lite = tracks.map(t => ({
+        ...t,
+        artwork: serializeArtworkForCache(t.artwork),
+      }));
+      await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
+    } catch {}
+
     return tracks;
   } catch {
     return [];

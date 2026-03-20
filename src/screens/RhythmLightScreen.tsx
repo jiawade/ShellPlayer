@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
-  PanResponder,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useNavigation} from '@react-navigation/native';
@@ -38,13 +37,13 @@ const TAU = Math.PI * 2;
 
 type VisualizerMode = 'classic' | 'mirror' | 'radial' | 'particles' | 'neon' | 'matrix';
 
-const VISUALIZER_MODES: Array<{key: VisualizerMode; label: string}> = [
-  {key: 'classic', label: '经典灯柱'},
-  {key: 'mirror', label: '中轴波形'},
-  {key: 'radial', label: '圆环脉冲'},
-  {key: 'particles', label: '粒子光效'},
-  {key: 'neon', label: '霓虹曲线'},
-  {key: 'matrix', label: '流光方阵'},
+const VISUALIZER_MODES: Array<{key: VisualizerMode; label: string; icon: string}> = [
+  {key: 'classic', label: '经典灯柱', icon: 'apps-outline'},
+  {key: 'mirror', label: '中轴波形', icon: 'swap-vertical-outline'},
+  {key: 'radial', label: '圆环脉冲', icon: 'radio-outline'},
+  {key: 'particles', label: '粒子光效', icon: 'sparkles-outline'},
+  {key: 'neon', label: '霓虹曲线', icon: 'pulse-outline'},
+  {key: 'matrix', label: '流光方阵', icon: 'grid-outline'},
 ];
 
 /** LED color gradient: green (bottom) → yellow → orange → red (top) */
@@ -93,7 +92,6 @@ const RhythmLightScreen: React.FC = () => {
   const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
   const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
-  const [sensitivity, setSensitivity] = useState(0.45);
   const [mode, setMode] = useState<VisualizerMode>('classic');
   const [motionPhase, setMotionPhase] = useState(0);
 
@@ -103,32 +101,6 @@ const RhythmLightScreen: React.FC = () => {
   const animRef = useRef(0);
   const frameRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
-  const sensitivityRef = useRef(0.45);
-  const sliderTrackWidthRef = useRef(1);
-
-  const setSensitivityValue = (value: number) => {
-    const clamped = Math.max(0, Math.min(1, value));
-    sensitivityRef.current = clamped;
-    setSensitivity(clamped);
-  };
-
-  const updateSensitivityByX = (x: number) => {
-    const width = Math.max(1, sliderTrackWidthRef.current);
-    setSensitivityValue(x / width);
-  };
-
-  const sensitivityResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: evt => {
-        updateSensitivityByX(evt.nativeEvent.locationX);
-      },
-      onPanResponderMove: evt => {
-        updateSensitivityByX(evt.nativeEvent.locationX);
-      },
-    }),
-  ).current;
 
   // Subscribe to real audio levels from native module (with simulation fallback)
   useEffect(() => {
@@ -184,7 +156,7 @@ const RhythmLightScreen: React.FC = () => {
   useEffect(() => {
     const animate = () => {
       const curr = currentRef.current;
-      const gain = 1 + sensitivityRef.current * 39;
+      const gain = 1;
       const targets = rawTargetsRef.current.map(v => Math.min(1, Math.max(0, v * gain)));
       const peaks = peaksRef.current;
 
@@ -469,40 +441,6 @@ const RhythmLightScreen: React.FC = () => {
         <View style={styles.headerSide} />
       </View>
 
-      {/* LED Grid */}
-      <View style={styles.sensitivityRow}>
-        <Icon name="pulse-outline" size={16} color="rgba(255,255,255,0.7)" />
-        <Text style={styles.sensitivityText}>灵敏度</Text>
-        <View
-          style={styles.sliderTrackWrap}
-          onLayout={e => {
-            sliderTrackWidthRef.current = e.nativeEvent.layout.width;
-          }}
-          {...sensitivityResponder.panHandlers}>
-          <View style={styles.sliderTrack} />
-          <View style={[styles.sliderFill, {width: `${sensitivity * 100}%`}]} />
-          <View style={[styles.sliderThumb, {left: `${sensitivity * 100}%`}]} />
-        </View>
-        <Text style={styles.sensitivityValue}>{(1 + sensitivity * 39).toFixed(1)}x</Text>
-      </View>
-
-      <View style={styles.modeRow}>
-        {VISUALIZER_MODES.map(item => {
-          const selected = mode === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              activeOpacity={0.85}
-              onPress={() => setMode(item.key)}
-              style={[styles.modeChip, selected && styles.modeChipActive]}>
-              <Text style={[styles.modeChipText, selected && styles.modeChipTextActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
       <View style={styles.gridWrap}>
         {mode === 'classic' ? renderClassic() : null}
         {mode === 'mirror' ? renderMirror() : null}
@@ -517,6 +455,33 @@ const RhythmLightScreen: React.FC = () => {
             <Text style={styles.pauseHint}>播放音乐以查看律动效果</Text>
           </View>
         )}
+      </View>
+
+      <View style={styles.bottomPanel}>
+        <View style={styles.modeRowBottom}>
+          {VISUALIZER_MODES.map(item => {
+            const selected = mode === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.85}
+                onPress={() => setMode(item.key)}
+                style={[styles.modeChipBottom, selected && styles.modeChipBottomActive]}>
+                <Icon
+                  name={item.icon}
+                  size={18}
+                  color={selected ? '#fff' : 'rgba(255,255,255,0.72)'}
+                  style={styles.modeChipIcon}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.modeChipBottomText, selected && styles.modeChipBottomTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Current track info */}
@@ -571,77 +536,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  sensitivityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginTop: 4,
-  },
-  sensitivityText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
-  },
-  sliderTrackWrap: {
-    flex: 1,
-    height: 26,
-    justifyContent: 'center',
-  },
-  sliderTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  sliderFill: {
-    position: 'absolute',
-    left: 0,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.65)',
-  },
-  sliderThumb: {
-    position: 'absolute',
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#fff',
-    transform: [{translateX: -7}],
-  },
-  sensitivityValue: {
-    width: 38,
-    textAlign: 'right',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.72)',
-  },
-  modeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginTop: 8,
-  },
-  modeChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  modeChipActive: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
-  modeChipText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
-  },
-  modeChipTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
   gridWrap: {
     flex: 1,
     justifyContent: 'center',
@@ -664,6 +558,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pauseHint: {fontSize: 13, color: 'rgba(255,255,255,0.35)'},
+  bottomPanel: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 6,
+    gap: 8,
+  },
+  modeRowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  modeChipBottom: {
+    flex: 1,
+    minWidth: 0,
+    height: 62,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  modeChipBottomActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  modeChipIcon: {
+    marginBottom: 3,
+  },
+  modeChipBottomText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.75)',
+    fontWeight: '600',
+  },
+  modeChipBottomTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   mirrorWrap: {
     flexDirection: 'row',
     alignItems: 'stretch',

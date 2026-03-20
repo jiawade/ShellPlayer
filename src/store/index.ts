@@ -7,6 +7,11 @@ import TrackPlayer from 'react-native-track-player';
 import musicReducer from './musicSlice';
 import playlistReducer from './playlistSlice';
 
+const serializeArtworkForCache = (artwork?: string): string | undefined => {
+  if (!artwork) return undefined;
+  return artwork.startsWith('data:') ? '<<HAS>>' : artwork;
+};
+
 const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
   const result = next(action);
   const state = storeApi.getState() as RootState;
@@ -24,7 +29,7 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
       {
         const lite = m.tracks.map((t: any) => ({
           ...t,
-          artwork: t.artwork ? (t.artwork.startsWith('file://') ? t.artwork : '<<HAS>>') : undefined,
+          artwork: serializeArtworkForCache(t.artwork),
         }));
         AsyncStorage.setItem('@trackCache', JSON.stringify(lite)).catch(() => {});
       }

@@ -362,8 +362,13 @@ export const loadUserPrefs = createAsyncThunk('music/loadPrefs', async () => {
   }
 });
 
+// Generation counter to cancel stale background queue-add tasks
+let playTrackGeneration = 0;
+
 export const playTrack = createAsyncThunk('music/playTrack', async ({track, queue, shuffle}: {track: Track; queue: Track[]; shuffle?: boolean}, {dispatch, getState}) => {
   try {
+    const gen = ++playTrackGeneration;
+
     let idx = queue.findIndex(t => t.id === track.id);
     if (idx < 0) {
       idx = 0;
@@ -385,6 +390,7 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
 
     // 先导出并添加当前歌曲，立即开始播放
     const currentUrl = track.url.startsWith('ipod-library://') ? await exportTrackToFile(track.url) : track.url;
+    if (gen !== playTrackGeneration) return {track, index: idx};
     await TrackPlayer.add({
       id: track.id,
       url: currentUrl,
@@ -404,7 +410,9 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
     const after = sub.slice(si + 1);
     const addAfter = async () => {
       for (const t of after) {
+        if (gen !== playTrackGeneration) return;
         const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+        if (gen !== playTrackGeneration) return;
         try {
           await TrackPlayer.add({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork});
         } catch {}
@@ -413,10 +421,13 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
     const addBefore = async () => {
       const items = [];
       for (const t of before) {
+        if (gen !== playTrackGeneration) return;
         const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+        if (gen !== playTrackGeneration) return;
         items.unshift({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork});
       }
       for (const item of items) {
+        if (gen !== playTrackGeneration) return;
         try {
           await TrackPlayer.add(item, 0);
         } catch {}

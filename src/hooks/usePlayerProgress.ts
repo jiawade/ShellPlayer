@@ -96,7 +96,7 @@ export function usePlayerSync() {
 
 export function usePlayerControls() {
   const dispatch = useAppDispatch();
-  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playHistory } = useAppSelector(s => s.music);
+  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playHistory, playQueue } = useAppSelector(s => s.music);
 
   const togglePlayPause = useCallback(async () => {
     const s = await TrackPlayer.getPlaybackState();
@@ -111,35 +111,74 @@ export function usePlayerControls() {
    * 下一曲：随机模式下从全部歌曲中随机选一首
    */
   const skipToNext = useCallback(async () => {
-    if (repeatMode === 'queue' && tracks.length > 1) {
+    const queue = playQueue.length > 0 ? playQueue : tracks;
+
+    if (repeatMode === 'queue' && queue.length > 1) {
       // 随机模式：从列表中随机选一首（排除当前歌曲）
-      const candidates = tracks.filter(t => t.id !== currentTrack?.id);
+      const candidates = queue.filter(t => t.id !== currentTrack?.id);
       if (candidates.length > 0) {
         const random = candidates[Math.floor(Math.random() * candidates.length)];
-        dispatch(playTrack({ track: random, queue: tracks, shuffle: false }));
+        dispatch(playTrack({ track: random, queue }));
         return;
       }
     }
-    try { await TrackPlayer.skipToNext(); } catch {}
-  }, [repeatMode, tracks, currentTrack, dispatch]);
+
+    // 非随机：检查 TP 队列是否有下一首
+    try {
+      const activeIdx = await TrackPlayer.getActiveTrackIndex();
+      const tpQueue = await TrackPlayer.getQueue();
+      if (activeIdx != null && activeIdx < tpQueue.length - 1) {
+        await TrackPlayer.skipToNext();
+        return;
+      }
+    } catch {}
+
+    // TP 队列耗尽 - 从完整播放队列中找下一首
+    if (queue.length > 0 && currentTrack) {
+      const currentIdx = queue.findIndex(t => t.id === currentTrack.id);
+      if (currentIdx >= 0) {
+        const nextIdx = (currentIdx + 1) % queue.length;
+        dispatch(playTrack({ track: queue[nextIdx], queue }));
+      }
+    }
+  }, [repeatMode, tracks, currentTrack, playQueue, dispatch]);
 
   /**
    * 上一曲：随机模式下播放上一次播放的歌曲（从播放历史中获取）
    */
   const skipToPrevious = useCallback(async () => {
-    if (repeatMode === 'queue' && tracks.length > 1) {
+    const queue = playQueue.length > 0 ? playQueue : tracks;
+
+    if (repeatMode === 'queue' && queue.length > 1) {
       // playHistory[0] is the current track, [1] is the one before
       if (playHistory.length >= 2) {
         const prevEntry = playHistory[1];
-        const prevTrack = tracks.find(t => t.id === prevEntry.trackId);
+        const prevTrack = queue.find(t => t.id === prevEntry.trackId);
         if (prevTrack) {
-          dispatch(playTrack({ track: prevTrack, queue: tracks, shuffle: false }));
+          dispatch(playTrack({ track: prevTrack, queue }));
           return;
         }
       }
     }
-    try { await TrackPlayer.skipToPrevious(); } catch {}
-  }, [repeatMode, tracks, playHistory, dispatch]);
+
+    // 非随机：检查 TP 队列是否有上一首
+    try {
+      const activeIdx = await TrackPlayer.getActiveTrackIndex();
+      if (activeIdx != null && activeIdx > 0) {
+        await TrackPlayer.skipToPrevious();
+        return;
+      }
+    } catch {}
+
+    // TP 队列耗尽 - 从完整播放队列中找上一首
+    if (queue.length > 0 && currentTrack) {
+      const currentIdx = queue.findIndex(t => t.id === currentTrack.id);
+      if (currentIdx >= 0) {
+        const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
+        dispatch(playTrack({ track: queue[prevIdx], queue }));
+      }
+    }
+  }, [repeatMode, tracks, playHistory, playQueue, currentTrack, dispatch]);
 
   /** 播放指定歌词行，到该行结束自动暂停 */
   const seekAndStop = useCallback(async (lyricIdx: number) => {

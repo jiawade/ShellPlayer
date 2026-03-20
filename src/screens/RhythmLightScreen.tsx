@@ -1,5 +1,5 @@
 // src/screens/RhythmLightScreen.tsx
-import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
+import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  AppState,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useNavigation} from '@react-navigation/native';
@@ -101,16 +102,22 @@ const RhythmLightScreen: React.FC = () => {
   const animRef = useRef(0);
   const frameRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
+  const appActiveRef = useRef(true);
+  const monitoringActiveRef = useRef(false);
+  const listenerRemoverRef = useRef<(() => void) | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const useNativeRef = useRef(false);
 
-  // Subscribe to real audio levels from native module (with simulation fallback)
-  useEffect(() => {
-    let removeListener: (() => void) | null = null;
-    let simInterval: ReturnType<typeof setInterval> | null = null;
+  // Helper: start audio monitoring + animation
+  const startMonitoring = useCallback(() => {
+    if (monitoringActiveRef.current) return;
+    monitoringActiveRef.current = true;
 
     startAudioLevelMonitoring().then(ok => {
+      if (!monitoringActiveRef.current) return; // stopped while awaiting
+      useNativeRef.current = ok;
       if (ok) {
-        // Real native audio data
-        removeListener = addAudioLevelListener(event => {
+        listenerRemoverRef.current = addAudioLevelListener(event => {
           if (event.levels && event.levels.length >= NUM_COLS) {
             rawTargetsRef.current = event.levels
               .slice(0, NUM_COLS)
@@ -124,25 +131,51 @@ const RhythmLightScreen: React.FC = () => {
           }
         });
       } else {
-        // Fallback: simulation based on isPlaying
-        simInterval = setInterval(() => {
+        simIntervalRef.current = setInterval(() => {
           if (isPlayingRef.current) {
             rawTargetsRef.current = Array.from({length: NUM_COLS}, () => Math.random() * 0.6 + 0.1);
           }
         }, 80);
       }
     });
-
-    return () => {
-      if (removeListener) {
-        removeListener();
-      }
-      if (simInterval) {
-        clearInterval(simInterval);
-      }
-      stopAudioLevelMonitoring();
-    };
   }, []);
+
+  // Helper: stop audio monitoring
+  const stopMonitoring = useCallback(() => {
+    if (!monitoringActiveRef.current) return;
+    monitoringActiveRef.current = false;
+    if (listenerRemoverRef.current) {
+      listenerRemoverRef.current();
+      listenerRemoverRef.current = null;
+    }
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+    stopAudioLevelMonitoring();
+    rawTargetsRef.current = new Array(NUM_COLS).fill(0);
+  }, []);
+
+  // Start/stop monitoring on mount/unmount
+  useEffect(() => {
+    startMonitoring();
+    return () => stopMonitoring();
+  }, [startMonitoring, stopMonitoring]);
+
+  // Pause monitoring when app goes to background, resume on foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const isActive = nextState === 'active';
+      appActiveRef.current = isActive;
+      if (isActive) {
+        startMonitoring();
+      } else {
+        stopMonitoring();
+        cancelAnimationFrame(animRef.current);
+      }
+    });
+    return () => sub.remove();
+  }, [startMonitoring, stopMonitoring]);
 
   // When paused, fade targets to zero
   useEffect(() => {
@@ -155,6 +188,8 @@ const RhythmLightScreen: React.FC = () => {
   // Animation loop – smooth interpolation with peak hold
   useEffect(() => {
     const animate = () => {
+      if (!appActiveRef.current) return; // stop loop when backgrounded
+
       const curr = currentRef.current;
       const gain = 1;
       const targets = rawTargetsRef.current.map(v => Math.min(1, Math.max(0, v * gain)));

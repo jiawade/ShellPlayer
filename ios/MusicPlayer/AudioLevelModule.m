@@ -79,6 +79,7 @@ void AudioMeter_ProcessSamples(const float *samples, UInt32 sampleCount, UInt32 
 @property (nonatomic, strong) NSTimer *emitTimer;
 @property (nonatomic, assign) BOOL isMonitoring;
 @property (nonatomic, assign) BOOL hasListeners;
+@property (nonatomic, assign) BOOL wasPausedByBackground;
 @end
 
 @implementation AudioLevelModule
@@ -88,6 +89,21 @@ void AudioMeter_ProcessSamples(const float *samples, UInt32 sampleCount, UInt32 
 RCT_EXPORT_MODULE(AudioLevelModule);
 
 + (BOOL)requiresMainQueueSetup { return NO; }
+
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(appDidEnterBackground)
+                                                 name:UIApplicationDidEnterBackgroundNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(appWillEnterForeground)
+                                                 name:UIApplicationWillEnterForegroundNotification
+                                               object:nil];
+  }
+  return self;
+}
 
 - (NSArray<NSString *> *)supportedEvents {
   return @[@"onAudioLevels"];
@@ -152,6 +168,25 @@ RCT_EXPORT_METHOD(stopMonitoring:(RCTPromiseResolveBlock)resolve
 
 - (void)dealloc {
   [self stopEmitting];
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+#pragma mark - App Lifecycle
+
+- (void)appDidEnterBackground {
+  if (self.isMonitoring && self.emitTimer) {
+    self.wasPausedByBackground = YES;
+    [self stopEmitting];
+  }
+}
+
+- (void)appWillEnterForeground {
+  if (self.wasPausedByBackground && self.isMonitoring) {
+    self.wasPausedByBackground = NO;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self startEmitting];
+    });
+  }
 }
 
 @end

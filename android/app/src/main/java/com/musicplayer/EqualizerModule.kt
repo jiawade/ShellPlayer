@@ -7,7 +7,6 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
-import android.util.Log
 import com.facebook.react.bridge.*
 
 class EqualizerModule(reactContext: ReactApplicationContext) :
@@ -23,25 +22,48 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
 
     private var currentSessionId: Int = 0
     private var lastPresetId: Int = 0
+    private var hasBassBoost = false
+    private var hasVirtualizer = false
 
-    /**
-     * 初始化音效引擎，绑定到 audioSessionId
-     * 如果传 0，会尝试自动获取当前活跃的音频 session
-     */
     @ReactMethod
     fun init(audioSessionId: Int, promise: Promise) {
         try {
             val sessionId = if (audioSessionId > 0) audioSessionId else detectAudioSession()
+
+            if (sessionId == currentSessionId && equalizer != null) {
+                val result = Arguments.createMap().apply {
+                    putBoolean("success", true)
+                    putInt("sessionId", sessionId)
+                    putInt("bands", equalizer?.numberOfBands?.toInt() ?: 0)
+                    putBoolean("hasBassBoost", hasBassBoost)
+                    putBoolean("hasVirtualizer", hasVirtualizer)
+                    putBoolean("hasLoudness", loudnessEnhancer != null)
+                    putBoolean("hasReverb", presetReverb != null)
+                }
+                promise.resolve(result)
+                return
+            }
+
             releaseAll()
             currentSessionId = sessionId
 
-            // 使用 priority=0（普通优先级），让系统和其他 app 的音效可以共存
-            // 对于 sessionId=0 的情况，创建全局音效
-            equalizer = Equalizer(0, sessionId).apply { enabled = false }
-            bassBoost = BassBoost(0, sessionId).apply { enabled = false }
-            virtualizer = Virtualizer(0, sessionId).apply { enabled = false }
+            equalizer = try {
+                Equalizer(0, sessionId).apply { enabled = false }
+            } catch (_: Exception) { null }
+
+            bassBoost = try {
+                BassBoost(0, sessionId).apply { enabled = false }
+            } catch (_: Exception) { null }
+            hasBassBoost = bassBoost != null
+
+            virtualizer = try {
+                Virtualizer(0, sessionId).apply { enabled = false }
+            } catch (_: Exception) { null }
+            hasVirtualizer = virtualizer != null
+
             try { loudnessEnhancer = LoudnessEnhancer(sessionId).apply { enabled = false } }
             catch (_: Exception) { loudnessEnhancer = null }
+
             try { presetReverb = PresetReverb(0, sessionId).apply { enabled = false } }
             catch (_: Exception) { presetReverb = null }
 
@@ -49,8 +71,8 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
                 putBoolean("success", true)
                 putInt("sessionId", sessionId)
                 putInt("bands", equalizer?.numberOfBands?.toInt() ?: 0)
-                putBoolean("hasBassBoost", bassBoost != null)
-                putBoolean("hasVirtualizer", virtualizer != null)
+                putBoolean("hasBassBoost", hasBassBoost)
+                putBoolean("hasVirtualizer", hasVirtualizer)
                 putBoolean("hasLoudness", loudnessEnhancer != null)
                 putBoolean("hasReverb", presetReverb != null)
             }
@@ -67,7 +89,6 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
      */
     private fun detectAudioSession(): Int {
         val discovered = AudioSessionHelper.getTrackPlayerSessionId(reactApplicationContext)
-        Log.d("Equalizer", "detectAudioSession: discovered=$discovered")
         return if (discovered > 0) discovered else 0
     }
 
@@ -108,11 +129,27 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
 
         val preset = getPresetConfig(presetId)
 
+        // 当 BassBoost 不可用时，通过加强 EQ 低频段补偿
+        val bassCompensation = if (!hasBassBoost && preset.bassStrength > 0) {
+            // bassStrength 0-1000 映射到 EQ 补偿 0-4 dB
+            (preset.bassStrength * 4 / 1000)
+        } else 0
+
+        // 当 Virtualizer 不可用时，通过加强 EQ 高频段补偿空间感
+        val spatialCompensation = if (!hasVirtualizer && preset.virtualizerStrength > 0) {
+            (preset.virtualizerStrength * 3 / 1000)
+        } else 0
+
         // 应用均衡器频段增益
         eq.enabled = true
         val gains = preset.eqGains
         for (i in 0 until minOf(numBands, gains.size)) {
-            val targetMb = gains[i] * 100
+            var gain = gains[i]
+            // 补偿低频段 (60Hz, 230Hz)
+            if (i <= 1) gain += bassCompensation
+            // 补偿高频段 (3600Hz, 14000Hz)
+            if (i >= numBands - 2) gain += spatialCompensation
+            val targetMb = gain * 100
             val clamped = targetMb.coerceIn(minLevel, maxLevel)
             eq.setBandLevel(i.toShort(), clamped.toShort())
         }
@@ -133,10 +170,14 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
             } else virt.enabled = false
         }
 
-        // 应用响度增强
+        // 应用响度增强（当 BassBoost 不可用时额外加强）
         loudnessEnhancer?.let { le ->
-            if (preset.loudnessGain > 0) {
-                le.setTargetGain(preset.loudnessGain)
+            var gain = preset.loudnessGain
+            if (!hasBassBoost && preset.bassStrength > 0) {
+                gain += (preset.bassStrength * 300 / 1000) // 额外补偿最多 300mB
+            }
+            if (gain > 0) {
+                le.setTargetGain(gain)
                 le.enabled = true
             } else le.enabled = false
         }
@@ -213,6 +254,7 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
         virtualizer = null
         loudnessEnhancer = null
         presetReverb = null
+        currentSessionId = 0
     }
 
     // ---- 预设定义 ----

@@ -11,6 +11,7 @@ import {
   Modal,
   Alert,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackItem from '../components/TrackItem';
@@ -18,7 +19,7 @@ import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
 import FolderPickerScreen from './FolderPickerScreen';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
-import {useAppSelector, useAppDispatch} from '../store';
+import {useAppSelector, useAppDispatch, store} from '../store';
 import {
   scanMusic,
   loadFavorites,
@@ -107,16 +108,21 @@ const AllSongsScreen: React.FC = () => {
         dispatch(loadCachedTracks()),
       ]);
       const cachedCount = ((cacheResult as any).payload || []).length;
+      // 二次校验：Redux state 中的 tracks（reducer 已在 dispatch 返回前写入）
+      const storeTrackCount = store.getState().music.tracks.length;
+      const hasTracks = cachedCount > 0 || storeTrackCount > 0;
 
-      // 后台修复封面（不阻塞歌曲列表显示）
-      if (cachedCount > 0) {
-        dispatch(repairCachedArtwork());
+      // 后台修复封面（延迟执行，不阻塞 UI 交互）
+      if (hasTracks) {
+        InteractionManager.runAfterInteractions(() => {
+          dispatch(repairCachedArtwork());
+        });
       }
 
       if (Platform.OS === 'ios') {
         setLoading(false);
         setPrevTrackCount(cachedCount);
-        if (cachedCount === 0) {
+        if (!hasTracks) {
           setShowFolderPicker(true);
         }
       } else {
@@ -125,7 +131,7 @@ const AllSongsScreen: React.FC = () => {
         const dirs = (dirsAction as any).payload || [];
         setLoading(false);
         setPrevTrackCount(cachedCount);
-        if (cachedCount === 0) {
+        if (!hasTracks) {
           if (dirs.length > 0) {
             dispatch(scanMusic(dirs));
           } else {

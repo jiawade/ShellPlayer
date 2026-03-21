@@ -3,7 +3,6 @@ package com.musicplayer
 import android.media.AudioManager
 import android.media.audiofx.Visualizer
 import android.content.Context
-import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.util.Timer
@@ -38,7 +37,6 @@ class AudioLevelModule(private val reactContext: ReactApplicationContext) :
             if (sid <= 0) {
                 sid = AudioSessionHelper.getTrackPlayerSessionId(reactContext)
             }
-            Log.d("AudioLevel", "startMonitoring: requested=$sessionId, resolved=$sid")
             val vis = createVisualizer(sid)
 
             vis.captureSize = Visualizer.getCaptureSizeRange()[1]
@@ -79,13 +77,8 @@ class AudioLevelModule(private val reactContext: ReactApplicationContext) :
     private fun createVisualizer(sessionId: Int): Visualizer {
         if (sessionId > 0) {
             try {
-                Log.d("AudioLevel", "Creating Visualizer with ExoPlayer sessionId=$sessionId")
                 return Visualizer(sessionId)
-            } catch (e: Exception) {
-                Log.w("AudioLevel", "ExoPlayer session failed: ${e.message}, falling back to session 0")
-            }
-        } else {
-            Log.d("AudioLevel", "No ExoPlayer session available, using session 0 (global)")
+            } catch (_: Exception) {}
         }
         return Visualizer(0)
     }

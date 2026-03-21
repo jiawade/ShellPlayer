@@ -8,6 +8,7 @@ const EQ_STORAGE_KEY = '@eq_preset_id';
 
 let activePresetId = 0;
 let isInitialized = false;
+let currentSessionId = 0;
 
 async function getAndroidSessionId(): Promise<number> {
   if (Platform.OS !== 'android' || !TrackPlayerModule) return 0;
@@ -25,13 +26,12 @@ export async function initEqualizer(): Promise<void> {
     const sessionId = await getAndroidSessionId();
     const result = await EqualizerModule.init(sessionId);
     isInitialized = true;
-    console.log('[EQ] Initialized:', JSON.stringify(result));
+    currentSessionId = result?.sessionId || sessionId;
 
     const savedId = await getSavedPresetId();
     if (savedId > 0) {
       await EqualizerModule.applyPreset(savedId);
       activePresetId = savedId;
-      console.log(`[EQ] Restored preset: ${savedId}`);
     }
   } catch (e) {
     console.warn('[EQ] Init failed:', e);
@@ -45,13 +45,14 @@ export async function rebindEqualizer(): Promise<void> {
 
   try {
     const sessionId = await getAndroidSessionId();
+    // 如果 sessionId 没变，native 层会跳过重复初始化
     const result = await EqualizerModule.init(sessionId);
     isInitialized = true;
+    currentSessionId = result?.sessionId || sessionId;
 
     if (activePresetId > 0) {
       await EqualizerModule.applyPreset(activePresetId);
     }
-    console.log(`[EQ] Rebound with preset ${activePresetId}, session: ${result?.sessionId}`);
   } catch (e) {
     console.warn('[EQ] Rebind failed:', e);
   }
@@ -79,7 +80,6 @@ export async function applyEQPreset(presetId: number): Promise<void> {
 
   try {
     await EqualizerModule.applyPreset(presetId);
-    console.log(`[EQ] Applied preset: ${presetId}`);
   } catch (e) {
     console.warn('[EQ] Apply failed:', e);
   }

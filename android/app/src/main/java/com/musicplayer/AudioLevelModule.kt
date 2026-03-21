@@ -147,6 +147,16 @@ class AudioLevelModule(private val reactContext: ReactApplicationContext) :
         params.putArray("levels", levels)
         params.putDouble("overall", overallLevel.toDouble())
 
+        // System music volume (0..1)
+        try {
+            val am = reactContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            params.putDouble("volume", if (max > 0) cur.toDouble() / max.toDouble() else 0.0)
+        } catch (_: Exception) {
+            params.putDouble("volume", 1.0)
+        }
+
         try {
             reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)

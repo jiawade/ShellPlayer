@@ -15,6 +15,7 @@ function getEmitter(): NativeEventEmitter {
 export interface AudioLevelEvent {
   levels: number[]; // 16 band levels, each 0..1
   overall: number;  // overall RMS level 0..1
+  volume: number;   // system output volume 0..1
 }
 
 async function requestAndroidAudioPermission(): Promise<boolean> {

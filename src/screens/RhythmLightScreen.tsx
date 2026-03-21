@@ -8,6 +8,7 @@ import {
   StatusBar,
   Dimensions,
   AppState,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useNavigation} from '@react-navigation/native';
@@ -19,6 +20,12 @@ import {
   stopAudioLevelMonitoring,
   addAudioLevelListener,
 } from '../utils/audioLevel';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const SPEAKER_IMAGES = [
+  require('../assets/fg2.jpeg'),
+  require('../assets/fg4.jpeg'),
+];
 
 const NUM_COLS = 16;
 const NUM_ROWS = 28;
@@ -36,13 +43,12 @@ const COLS_ARR = Array.from({length: NUM_COLS}, (_, i) => i);
 const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
 const TAU = Math.PI * 2;
 
-type VisualizerMode = 'classic' | 'mirror' | 'radial' | 'particles' | 'neon' | 'matrix';
+type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'particles' | 'neon' | 'matrix';
 
 const VISUALIZER_MODES: Array<{key: VisualizerMode; label: string; icon: string}> = [
   {key: 'classic', label: '经典灯柱', icon: 'apps-outline'},
   {key: 'mirror', label: '中轴波形', icon: 'swap-vertical-outline'},
-  {key: 'radial', label: '圆环脉冲', icon: 'radio-outline'},
-  {key: 'particles', label: '粒子光效', icon: 'sparkles-outline'},
+  {key: 'speaker', label: '音响节律', icon: 'volume-high-outline'},
   {key: 'neon', label: '霓虹曲线', icon: 'pulse-outline'},
   {key: 'matrix', label: '流光方阵', icon: 'grid-outline'},
 ];
@@ -94,6 +100,7 @@ const RhythmLightScreen: React.FC = () => {
   const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [mode, setMode] = useState<VisualizerMode>('classic');
+  const [speakerImgIdx, setSpeakerImgIdx] = useState(() => Math.floor(Math.random() * SPEAKER_IMAGES.length));
   const [motionPhase, setMotionPhase] = useState(0);
 
   const rawTargetsRef = useRef(new Array(NUM_COLS).fill(0));
@@ -107,6 +114,7 @@ const RhythmLightScreen: React.FC = () => {
   const listenerRemoverRef = useRef<(() => void) | null>(null);
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const useNativeRef = useRef(false);
+  const systemVolumeRef = useRef(1);
 
   // Helper: start audio monitoring + animation
   const startMonitoring = useCallback(() => {
@@ -118,6 +126,10 @@ const RhythmLightScreen: React.FC = () => {
       useNativeRef.current = ok;
       if (ok) {
         listenerRemoverRef.current = addAudioLevelListener(event => {
+          // 记录系统音量
+          if (typeof event.volume === 'number') {
+            systemVolumeRef.current = Math.max(0, Math.min(1, event.volume));
+          }
           if (event.levels && event.levels.length >= NUM_COLS) {
             rawTargetsRef.current = event.levels
               .slice(0, NUM_COLS)
@@ -264,7 +276,7 @@ const RhythmLightScreen: React.FC = () => {
       <View style={[styles.mirrorWrap, {height: mirrorHeight}]}>
         {COLS_ARR.map(i => {
           const lv = levels[i] || 0;
-          const barH = hasAudibleSignal ? Math.max(0, Math.round(lv * (halfHeight - 6))) : 0;
+          const barH = hasAudibleSignal ? Math.max(0, Math.round(lv * (halfHeight - 6))) : 2;
           const alpha = 0.25 + lv * 0.75;
           return (
             <View key={i} style={styles.mirrorCol}>
@@ -282,100 +294,102 @@ const RhythmLightScreen: React.FC = () => {
     );
   };
 
-  const renderRadial = () => {
-    const baseSize = Math.min(Math.floor(SCREEN_W * 0.62), Math.floor(LED_TARGET_H * 0.62));
-    const pulse = isPlaying ? overallLevel : 0;
-    const breathing = 0.04 + 0.04 * (Math.sin(motionPhase) + 1);
-    const idleOpacity = isPlaying && !hasAudibleSignal ? 0.14 + breathing : 0.08;
-    const ringAlpha = hasAudibleSignal ? 0.2 + pulse * 0.75 : idleOpacity;
+  // ---- Speaker + LED Bars effect ----
+  const SPKR_BAR_ROWS = 24;
+  const SPKR_BAR_ROWS_ARR = Array.from({length: SPKR_BAR_ROWS}, (_, i) => i);
 
-    return (
-      <View style={[styles.radialWrap, {width: baseSize, height: baseSize}]}>
-        <View
-          style={[
-            styles.radialRing,
-            {
-              width: baseSize,
-              height: baseSize,
-              borderRadius: baseSize / 2,
-              opacity: ringAlpha,
-              transform: [{scale: 1 + pulse * 0.55 + breathing * 0.18}],
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.radialRing,
-            {
-              width: baseSize * 0.78,
-              height: baseSize * 0.78,
-              borderRadius: (baseSize * 0.78) / 2,
-              opacity: ringAlpha * 0.8,
-              transform: [{scale: 1 + pulse * 0.38 + breathing * 0.24}],
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.radialRing,
-            {
-              width: baseSize * 0.56,
-              height: baseSize * 0.56,
-              borderRadius: (baseSize * 0.56) / 2,
-              opacity: ringAlpha * 0.9,
-              transform: [{scale: 1 + pulse * 0.2 + breathing * 0.28}],
-            },
-          ]}
-        />
-
-        <View style={styles.radialCenterCover}>
-          {currentTrack ? (
-            <CoverArt artwork={currentTrack.artwork} size={84} borderRadius={14} />
-          ) : (
-            <Icon name="musical-notes" size={40} color="rgba(255,255,255,0.72)" />
-          )}
-        </View>
-      </View>
-    );
+  const getBarCellColor = (rowFromBottom: number): string => {
+    const ratio = rowFromBottom / SPKR_BAR_ROWS;
+    if (ratio <= 0.28) return '#00FF44';
+    if (ratio <= 0.46) return '#55FF00';
+    if (ratio <= 0.60) return '#AAFF00';
+    if (ratio <= 0.73) return '#FFD700';
+    if (ratio <= 0.84) return '#FF8C00';
+    if (ratio <= 0.92) return '#FF4500';
+    return '#FF0000';
   };
 
-  const renderParticles = () => {
-    const pWidth = SCREEN_W - GRID_H_PAD * 2;
-    const pHeight = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.5));
-    const particleCount = hasAudibleSignal ? Math.min(84, Math.floor(10 + overallLevel * 110)) : 0;
+  const renderSpeaker = () => {
+    const areaW = SCREEN_W - 24;
+    const areaH = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.52));
+    // Use average of low/mid bands for uniform bar level
+    const rawBarLevel = hasAudibleSignal
+      ? Math.min(1, (levels.slice(0, 8).reduce((s, v) => s + v, 0) / 8) * 1.3)
+      : 0;
+
+    // 用系统音量作为灯柱最大高度上限，音量0时灯柱不动，音量越大上限越高
+    // ±20% 浮动：基于 motionPhase 产生周期性浮动
+    const vol = systemVolumeRef.current;
+    const flutter = vol > 0 ? (Math.sin(motionPhase * 3.7) * 0.5 + 0.5) * 0.3 * vol : 0;
+    const ceiling = Math.max(0, Math.min(1, vol + flutter));
+    const barLevel = rawBarLevel * ceiling;
+
+    const barW = 14;
+    const barGap = 6;
+    const barGroupW = barW * 2 + barGap;
+    const speakerAreaW = areaW - barGroupW * 2 - 24;
+    const barH = Math.min(areaH - 16, 340);
+    const cellH = Math.floor((barH - ROW_GAP * (SPKR_BAR_ROWS - 1)) / SPKR_BAR_ROWS);
+
+    const litCount = Math.max(1, Math.round(barLevel * SPKR_BAR_ROWS));
+
+    const renderBar = (keyPrefix: string) => (
+      <View style={{gap: barGap, flexDirection: 'row'}}>
+        {[0, 1].map(bi => (
+          <View key={`${keyPrefix}-${bi}`} style={{gap: ROW_GAP}}>
+            {SPKR_BAR_ROWS_ARR.map(rowIdx => {
+              const fromBottom = SPKR_BAR_ROWS - 1 - rowIdx;
+              const isLit = fromBottom < litCount;
+              return (
+                <View
+                  key={rowIdx}
+                  style={{
+                    width: barW,
+                    height: cellH,
+                    borderRadius: 2,
+                    backgroundColor: isLit ? getBarCellColor(fromBottom) : 'rgba(40,40,40,0.35)',
+                  }}
+                />
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
 
     return (
-      <View style={[styles.particleWrap, {width: pWidth, height: pHeight}]}>
-        {Array.from({length: particleCount}, (_, idx) => {
-          const lane = idx % NUM_COLS;
-          const lv = levels[lane] || 0;
-          if (lv <= 0.01) {
-            return null;
-          }
-          const baseX = ((lane + 0.5) / NUM_COLS) * pWidth;
-          const driftX = Math.sin(motionPhase * 1.2 + idx * 0.77) * (2 + lv * 5);
-          const speed = 0.35 + lv * 1.9;
-          const progress = ((motionPhase * speed + idx * 0.13) % TAU) / TAU;
-          const y = pHeight - progress * pHeight;
-          const size = 2 + lv * 5;
-          const opacity = 0.24 + lv * 0.76;
-          return (
-            <View
-              key={idx}
-              style={[
-                styles.particle,
-                {
-                  left: baseX + driftX,
-                  top: y,
-                  width: size,
-                  height: size,
-                  borderRadius: size / 2,
-                  opacity,
-                },
-              ]}
-            />
-          );
-        })}
+      <View style={{width: areaW, height: areaH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12}}>
+        {/* Left bars */}
+        {renderBar('L')}
+
+        {/* Center: speaker image */}
+        <View style={{
+          flex: 1,
+          height: barH,
+          backgroundColor: '#0a0a0a',
+          borderRadius: 16,
+          borderWidth: 1.5,
+          borderColor: '#2a2a2a',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          shadowColor: '#000',
+          shadowOffset: {width: 0, height: 4},
+          shadowOpacity: 0.8,
+          shadowRadius: 12,
+        }}>
+          <Image
+            source={SPEAKER_IMAGES[speakerImgIdx]}
+            style={{
+              width: speakerAreaW,
+              height: barH,
+            }}
+            resizeMode="cover"
+          />
+        </View>
+
+        {/* Right bars */}
+        {renderBar('R')}
       </View>
     );
   };
@@ -395,8 +409,7 @@ const RhythmLightScreen: React.FC = () => {
 
     return (
       <View style={[styles.neonWrap, {width: lineWidth, height: lineHeight}]}>
-        {hasAudibleSignal
-          ? points.slice(0, -1).map((p1, i) => {
+        {points.slice(0, -1).map((p1, i) => {
               const p2 = points[i + 1];
               const dx = p2.left - p1.left;
               const dy = p2.top - p1.top;
@@ -417,11 +430,9 @@ const RhythmLightScreen: React.FC = () => {
                   ]}
                 />
               );
-            })
-          : null}
+            })}
 
-        {hasAudibleSignal
-          ? points.map((p, i) => (
+        {points.map((p, i) => (
               <View
                 key={`dot-${i}`}
                 style={[
@@ -433,8 +444,7 @@ const RhythmLightScreen: React.FC = () => {
                   },
                 ]}
               />
-            ))
-          : null}
+            ))}
       </View>
     );
   };
@@ -443,7 +453,7 @@ const RhythmLightScreen: React.FC = () => {
     <View style={styles.grid}>
       {COLS_ARR.map(colIdx => {
         const level = levels[colIdx] || 0;
-        const litCount = hasAudibleSignal ? Math.round(level * NUM_ROWS) : 0;
+        const litCount = Math.max(1, Math.round(level * NUM_ROWS));
         return (
           <View key={colIdx} style={styles.column}>
             {ROWS_ARR.map(rowIdx => {
@@ -479,17 +489,9 @@ const RhythmLightScreen: React.FC = () => {
       <View style={styles.gridWrap}>
         {mode === 'classic' ? renderClassic() : null}
         {mode === 'mirror' ? renderMirror() : null}
-        {mode === 'radial' ? renderRadial() : null}
-        {mode === 'particles' ? renderParticles() : null}
+        {mode === 'speaker' ? renderSpeaker() : null}
         {mode === 'neon' ? renderNeon() : null}
         {mode === 'matrix' ? renderMatrix() : null}
-
-        {!isPlaying && (
-          <View style={styles.pauseOverlay}>
-            <Icon name="musical-notes-outline" size={32} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.pauseHint}>播放音乐以查看律动效果</Text>
-          </View>
-        )}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -500,7 +502,12 @@ const RhythmLightScreen: React.FC = () => {
               <TouchableOpacity
                 key={item.key}
                 activeOpacity={0.85}
-                onPress={() => setMode(item.key)}
+                onPress={() => {
+                  if (item.key === 'speaker') {
+                    setSpeakerImgIdx(Math.floor(Math.random() * SPEAKER_IMAGES.length));
+                  }
+                  setMode(item.key);
+                }}
                 style={[styles.modeChipBottom, selected && styles.modeChipBottomActive]}>
                 <Icon
                   name={item.icon}
@@ -586,13 +593,6 @@ const styles = StyleSheet.create({
     height: CELL_H,
     borderRadius: 2,
   },
-  pauseOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  pauseHint: {fontSize: 13, color: 'rgba(255,255,255,0.35)'},
   bottomPanel: {
     paddingHorizontal: 16,
     paddingTop: 4,
@@ -726,6 +726,7 @@ const styles = StyleSheet.create({
   matrixCellDim: {
     backgroundColor: 'rgba(25,25,36,0.22)',
   },
+
   trackBar: {
     flexDirection: 'row',
     alignItems: 'center',

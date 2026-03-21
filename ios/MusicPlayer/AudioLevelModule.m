@@ -1,6 +1,7 @@
 #import "AudioLevelModule.h"
 #import <React/RCTBridge.h>
 #import <React/RCTLog.h>
+#import <AVFoundation/AVFoundation.h>
 #import <math.h>
 
 // Shared metering context (written from EQ tap, read by timer)
@@ -136,9 +137,13 @@ RCT_EXPORT_MODULE(AudioLevelModule);
   for (int i = 0; i < METER_NUM_BANDS; i++) {
     [bands addObject:@(sMeterCtx.bandLevels[i])];
   }
+
+  float vol = [[AVAudioSession sharedInstance] outputVolume];
+
   [self sendEventWithName:@"onAudioLevels" body:@{
     @"levels": bands,
     @"overall": @(sMeterCtx.overallLevel),
+    @"volume": @(vol),
   }];
 }
 

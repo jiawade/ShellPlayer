@@ -102,6 +102,7 @@ const RhythmLightScreen: React.FC = () => {
   const [mode, setMode] = useState<VisualizerMode>('classic');
   const [speakerImgIdx, setSpeakerImgIdx] = useState(() => Math.floor(Math.random() * SPEAKER_IMAGES.length));
   const [motionPhase, setMotionPhase] = useState(0);
+  const [spkBeatMode, setSpkBeatMode] = useState(true);
 
   const rawTargetsRef = useRef(new Array(NUM_COLS).fill(0));
   const currentRef = useRef(new Array(NUM_COLS).fill(0));
@@ -115,6 +116,10 @@ const RhythmLightScreen: React.FC = () => {
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const useNativeRef = useRef(false);
   const systemVolumeRef = useRef(1);
+  // Beat detection refs
+  const prevEnergyRef = useRef(0);
+  const fluxHistoryRef = useRef<number[]>([]);
+  const beatLevelRef = useRef(0);
 
   // Helper: start audio monitoring + animation
   const startMonitoring = useCallback(() => {
@@ -174,33 +179,10 @@ const RhythmLightScreen: React.FC = () => {
     return () => stopMonitoring();
   }, [startMonitoring, stopMonitoring]);
 
-  // Pause monitoring when app goes to background, resume on foreground
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState) => {
-      const isActive = nextState === 'active';
-      appActiveRef.current = isActive;
-      if (isActive) {
-        startMonitoring();
-      } else {
-        stopMonitoring();
-        cancelAnimationFrame(animRef.current);
-      }
-    });
-    return () => sub.remove();
-  }, [startMonitoring, stopMonitoring]);
-
-  // When paused, fade targets to zero
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-    if (!isPlaying) {
-      rawTargetsRef.current = new Array(NUM_COLS).fill(0);
-    }
-  }, [isPlaying]);
-
   // Animation loop – smooth interpolation with peak hold
-  useEffect(() => {
+  const startAnimLoop = useCallback(() => {
     const animate = () => {
-      if (!appActiveRef.current) return; // stop loop when backgrounded
+      if (!appActiveRef.current) return;
 
       const curr = currentRef.current;
       const gain = 1;
@@ -220,6 +202,22 @@ const RhythmLightScreen: React.FC = () => {
       currentRef.current = newLevels;
       peaksRef.current = newPeaks;
 
+      // Beat detection via spectral flux (frame-to-frame energy increase)
+      const rawLowEnergy = targets.slice(0, 6).reduce((s, v) => s + v, 0) / 6;
+      const flux = Math.max(0, rawLowEnergy - prevEnergyRef.current);
+      prevEnergyRef.current = rawLowEnergy;
+
+      const fluxHist = fluxHistoryRef.current;
+      fluxHist.push(flux);
+      if (fluxHist.length > 40) fluxHist.shift();
+      const avgFlux = fluxHist.reduce((s, v) => s + v, 0) / fluxHist.length;
+
+      if (flux > avgFlux * 1.5 && flux > 0.015) {
+        beatLevelRef.current = Math.min(1, rawLowEnergy * 2.5);
+      } else {
+        beatLevelRef.current = Math.max(0, beatLevelRef.current * 0.9);
+      }
+
       frameRef.current += 1;
       if (frameRef.current % 2 === 0) {
         setLevels(newLevels.slice());
@@ -230,8 +228,38 @@ const RhythmLightScreen: React.FC = () => {
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animRef.current);
   }, []);
+
+  useEffect(() => {
+    startAnimLoop();
+    return () => cancelAnimationFrame(animRef.current);
+  }, [startAnimLoop]);
+
+  // Pause monitoring when app goes to background, resume on foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        appActiveRef.current = true;
+        startMonitoring();
+        // Restart animation loop (it was cancelled on background)
+        cancelAnimationFrame(animRef.current);
+        startAnimLoop();
+      } else if (nextState === 'background') {
+        appActiveRef.current = false;
+        stopMonitoring();
+        cancelAnimationFrame(animRef.current);
+      }
+    });
+    return () => sub.remove();
+  }, [startMonitoring, stopMonitoring, startAnimLoop]);
+
+  // When paused, fade targets to zero
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+    if (!isPlaying) {
+      rawTargetsRef.current = new Array(NUM_COLS).fill(0);
+    }
+  }, [isPlaying]);
 
   const overallLevel = useMemo(
     () => levels.reduce((sum, v) => sum + v, 0) / Math.max(1, levels.length),
@@ -312,17 +340,17 @@ const RhythmLightScreen: React.FC = () => {
   const renderSpeaker = () => {
     const areaW = SCREEN_W - 24;
     const areaH = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.52));
-    // Use average of low/mid bands for uniform bar level
-    const rawBarLevel = hasAudibleSignal
-      ? Math.min(1, (levels.slice(0, 8).reduce((s, v) => s + v, 0) / 8) * 1.3)
-      : 0;
+    // 经典灯柱最矮那根
+    const minLevel = Math.min(...levels);
 
-    // 用系统音量作为灯柱最大高度上限，音量0时灯柱不动，音量越大上限越高
-    // ±20% 浮动：基于 motionPhase 产生周期性浮动
-    const vol = systemVolumeRef.current;
-    const flutter = vol > 0 ? (Math.sin(motionPhase * 3.7) * 0.5 + 0.5) * 0.3 * vol : 0;
-    const ceiling = Math.max(0, Math.min(1, vol + flutter));
-    const barLevel = rawBarLevel * ceiling;
+    let barLevel: number;
+    if (spkBeatMode) {
+      // 节律模式保持原逻辑
+      barLevel = beatLevelRef.current;
+    } else {
+      // 音量模式改为使用经典灯柱最低值，不再关联系统音量
+      barLevel = minLevel;
+    }
 
     const barW = 14;
     const barGap = 6;
@@ -495,6 +523,19 @@ const RhythmLightScreen: React.FC = () => {
       </View>
 
       <View style={styles.bottomPanel}>
+        {mode === 'speaker' && (
+          <TouchableOpacity
+            style={styles.beatSwitchRow}
+            activeOpacity={0.7}
+            onPress={() => setSpkBeatMode(prev => !prev)}>
+            <Text style={styles.beatSwitchLabel}>
+              {spkBeatMode ? '节律模式' : '音量模式'}
+            </Text>
+            <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
+              <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
+            </View>
+          </TouchableOpacity>
+        )}
         <View style={styles.modeRowBottom}>
           {VISUALIZER_MODES.map(item => {
             const selected = mode === item.key;
@@ -632,6 +673,40 @@ const styles = StyleSheet.create({
   modeChipBottomTextActive: {
     color: '#fff',
     fontWeight: '700',
+  },
+  beatSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 4,
+    height: 28,
+  },
+  beatSwitchLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '600',
+  },
+  beatSwitchTrack: {
+    width: 40,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  beatSwitchTrackOn: {
+    backgroundColor: 'rgba(0,255,68,0.5)',
+  },
+  beatSwitchThumb: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  beatSwitchThumbOn: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#fff',
   },
   mirrorWrap: {
     flexDirection: 'row',

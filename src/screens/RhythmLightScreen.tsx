@@ -20,6 +20,7 @@ import {
   stopAudioLevelMonitoring,
   addAudioLevelListener,
 } from '../utils/audioLevel';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SPEAKER_IMAGES = [
@@ -42,6 +43,7 @@ const CELL_H = Math.max(9, Math.min(16, BASE_CELL_H));
 const COLS_ARR = Array.from({length: NUM_COLS}, (_, i) => i);
 const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
 const TAU = Math.PI * 2;
+const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
 type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'particles' | 'neon' | 'matrix';
 
@@ -120,6 +122,46 @@ const RhythmLightScreen: React.FC = () => {
   const prevEnergyRef = useRef(0);
   const fluxHistoryRef = useRef<number[]>([]);
   const beatLevelRef = useRef(0);
+
+  // Restore last selected mode/beat switch/speaker image index after app relaunch.
+  useEffect(() => {
+    let cancelled = false;
+    const loadPrefs = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(RHYTHM_PREFS_KEY);
+        if (!raw || cancelled) return;
+        const parsed = JSON.parse(raw) as {
+          mode?: VisualizerMode;
+          spkBeatMode?: boolean;
+          speakerImgIdx?: number;
+        };
+
+        if (parsed.mode && VISUALIZER_MODES.some(v => v.key === parsed.mode)) {
+          setMode(parsed.mode);
+        }
+        if (typeof parsed.spkBeatMode === 'boolean') {
+          setSpkBeatMode(parsed.spkBeatMode);
+        }
+        if (typeof parsed.speakerImgIdx === 'number') {
+          const safeIdx = Math.max(0, Math.min(SPEAKER_IMAGES.length - 1, Math.floor(parsed.speakerImgIdx)));
+          setSpeakerImgIdx(safeIdx);
+        }
+      } catch {
+        // Ignore invalid persisted data and keep defaults.
+      }
+    };
+    loadPrefs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(
+      RHYTHM_PREFS_KEY,
+      JSON.stringify({mode, spkBeatMode, speakerImgIdx}),
+    ).catch(() => {});
+  }, [mode, spkBeatMode, speakerImgIdx]);
 
   // Helper: start audio monitoring + animation
   const startMonitoring = useCallback(() => {
@@ -266,12 +308,28 @@ const RhythmLightScreen: React.FC = () => {
     [levels],
   );
   const hasAudibleSignal = overallLevel > 0.015;
+  const minLevel = useMemo(() => Math.min(...levels), [levels]);
+  // 音量模式下保留频谱差异但向均值靠拢（40%自身 + 60%均值）
+  const volLevel = useMemo(
+    () =>
+      spkBeatMode
+        ? levels
+        : levels.map(v => v * 0.4 + overallLevel * 0.6),
+    [spkBeatMode, levels, overallLevel],
+  );
+  const volPeak = useMemo(
+    () =>
+      spkBeatMode
+        ? peakLevels
+        : peakLevels.map(v => v * 0.4 + overallLevel * 0.6),
+    [spkBeatMode, peakLevels, overallLevel],
+  );
 
   const renderClassic = () => (
     <View style={styles.grid}>
       {COLS_ARR.map(colIdx => {
-        const level = levels[colIdx] || 0;
-        const peak = peakLevels[colIdx] || 0;
+        const level = volLevel[colIdx] || 0;
+        const peak = volPeak[colIdx] || 0;
         const litCount = Math.max(1, Math.round(level * NUM_ROWS));
         const peakRow = Math.min(Math.round(peak * NUM_ROWS), NUM_ROWS - 1);
         return (
@@ -303,7 +361,7 @@ const RhythmLightScreen: React.FC = () => {
     return (
       <View style={[styles.mirrorWrap, {height: mirrorHeight}]}>
         {COLS_ARR.map(i => {
-          const lv = levels[i] || 0;
+          const lv = volLevel[i] || 0;
           const barH = hasAudibleSignal ? Math.max(0, Math.round(lv * (halfHeight - 6))) : 2;
           const alpha = 0.25 + lv * 0.75;
           return (
@@ -323,7 +381,7 @@ const RhythmLightScreen: React.FC = () => {
   };
 
   // ---- Speaker + LED Bars effect ----
-  const SPKR_BAR_ROWS = 24;
+  const SPKR_BAR_ROWS = 48;
   const SPKR_BAR_ROWS_ARR = Array.from({length: SPKR_BAR_ROWS}, (_, i) => i);
 
   const getBarCellColor = (rowFromBottom: number): string => {
@@ -340,9 +398,6 @@ const RhythmLightScreen: React.FC = () => {
   const renderSpeaker = () => {
     const areaW = SCREEN_W - 24;
     const areaH = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.52));
-    // 经典灯柱最矮那根
-    const minLevel = Math.min(...levels);
-
     let barLevel: number;
     if (spkBeatMode) {
       // 节律模式保持原逻辑
@@ -357,7 +412,7 @@ const RhythmLightScreen: React.FC = () => {
     const barGroupW = barW * 2 + barGap;
     const speakerAreaW = areaW - barGroupW * 2 - 24;
     const barH = Math.min(areaH - 16, 340);
-    const cellH = Math.floor((barH - ROW_GAP * (SPKR_BAR_ROWS - 1)) / SPKR_BAR_ROWS);
+    const cellH = Math.max(1, Math.floor((barH - ROW_GAP * (SPKR_BAR_ROWS - 1)) / SPKR_BAR_ROWS));
 
     const litCount = Math.max(1, Math.round(barLevel * SPKR_BAR_ROWS));
 
@@ -391,7 +446,10 @@ const RhythmLightScreen: React.FC = () => {
         {renderBar('L')}
 
         {/* Center: speaker image */}
-        <View style={{
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setSpeakerImgIdx(prev => (prev + 1) % SPEAKER_IMAGES.length)}
+          style={{
           flex: 1,
           height: barH,
           backgroundColor: '#0a0a0a',
@@ -414,7 +472,7 @@ const RhythmLightScreen: React.FC = () => {
             }}
             resizeMode="cover"
           />
-        </View>
+        </TouchableOpacity>
 
         {/* Right bars */}
         {renderBar('R')}
@@ -427,9 +485,9 @@ const RhythmLightScreen: React.FC = () => {
     const lineHeight = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.5));
     const points = COLS_ARR.map(i => {
       const left = (i / (NUM_COLS - 1)) * lineWidth;
-      const curr = levels[i] || 0;
-      const prev = levels[Math.max(0, i - 1)] || 0;
-      const next = levels[Math.min(NUM_COLS - 1, i + 1)] || 0;
+      const curr = volLevel[i] || 0;
+      const prev = volLevel[Math.max(0, i - 1)] || 0;
+      const next = volLevel[Math.min(NUM_COLS - 1, i + 1)] || 0;
       const smooth = (prev + curr * 2 + next) / 4;
       const top = lineHeight * (0.9 - smooth * 0.82);
       return {left, top};
@@ -453,7 +511,7 @@ const RhythmLightScreen: React.FC = () => {
                       top: p1.top,
                       width: len,
                       transform: [{rotate: `${angle}deg`}],
-                      opacity: 0.36 + (levels[i] || 0) * 0.64,
+                      opacity: 0.36 + (volLevel[i] || 0) * 0.64,
                     },
                   ]}
                 />
@@ -468,7 +526,7 @@ const RhythmLightScreen: React.FC = () => {
                   {
                     left: p.left - 2,
                     top: p.top - 2,
-                    opacity: 0.45 + (levels[i] || 0) * 0.55,
+                    opacity: 0.45 + (volLevel[i] || 0) * 0.55,
                   },
                 ]}
               />
@@ -480,7 +538,7 @@ const RhythmLightScreen: React.FC = () => {
   const renderMatrix = () => (
     <View style={styles.grid}>
       {COLS_ARR.map(colIdx => {
-        const level = levels[colIdx] || 0;
+        const level = volLevel[colIdx] || 0;
         const litCount = Math.max(1, Math.round(level * NUM_ROWS));
         return (
           <View key={colIdx} style={styles.column}>
@@ -523,19 +581,17 @@ const RhythmLightScreen: React.FC = () => {
       </View>
 
       <View style={styles.bottomPanel}>
-        {mode === 'speaker' && (
-          <TouchableOpacity
-            style={styles.beatSwitchRow}
-            activeOpacity={0.7}
-            onPress={() => setSpkBeatMode(prev => !prev)}>
-            <Text style={styles.beatSwitchLabel}>
-              {spkBeatMode ? '节律模式' : '音量模式'}
-            </Text>
-            <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
-              <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
-            </View>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.beatSwitchRow}
+          activeOpacity={0.7}
+          onPress={() => setSpkBeatMode(prev => !prev)}>
+          <Text style={styles.beatSwitchLabel}>
+            {spkBeatMode ? '节律模式' : '音量模式'}
+          </Text>
+          <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
+            <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
+          </View>
+        </TouchableOpacity>
         <View style={styles.modeRowBottom}>
           {VISUALIZER_MODES.map(item => {
             const selected = mode === item.key;
@@ -543,12 +599,7 @@ const RhythmLightScreen: React.FC = () => {
               <TouchableOpacity
                 key={item.key}
                 activeOpacity={0.85}
-                onPress={() => {
-                  if (item.key === 'speaker') {
-                    setSpeakerImgIdx(Math.floor(Math.random() * SPEAKER_IMAGES.length));
-                  }
-                  setMode(item.key);
-                }}
+                onPress={() => setMode(item.key)}
                 style={[styles.modeChipBottom, selected && styles.modeChipBottomActive]}>
                 <Icon
                   name={item.icon}

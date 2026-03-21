@@ -2,18 +2,28 @@
 import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { EqualizerModule } = NativeModules;
+const { EqualizerModule, TrackPlayerModule } = NativeModules;
 
 const EQ_STORAGE_KEY = '@eq_preset_id';
 
 let activePresetId = 0;
 let isInitialized = false;
 
+async function getAndroidSessionId(): Promise<number> {
+  if (Platform.OS !== 'android' || !TrackPlayerModule) return 0;
+  try {
+    return await TrackPlayerModule.getAudioSessionId();
+  } catch {
+    return 0;
+  }
+}
+
 export async function initEqualizer(): Promise<void> {
   if (!EqualizerModule) return;
 
   try {
-    const result = await EqualizerModule.init(0);
+    const sessionId = await getAndroidSessionId();
+    const result = await EqualizerModule.init(sessionId);
     isInitialized = true;
     console.log('[EQ] Initialized:', JSON.stringify(result));
 
@@ -34,7 +44,8 @@ export async function rebindEqualizer(): Promise<void> {
   if (activePresetId === 0) return;
 
   try {
-    const result = await EqualizerModule.init(0);
+    const sessionId = await getAndroidSessionId();
+    const result = await EqualizerModule.init(sessionId);
     isInitialized = true;
 
     if (activePresetId > 0) {
@@ -57,7 +68,8 @@ export async function applyEQPreset(presetId: number): Promise<void> {
 
   if (!isInitialized) {
     try {
-      await EqualizerModule.init(0);
+      const sessionId = await getAndroidSessionId();
+      await EqualizerModule.init(sessionId);
       isInitialized = true;
     } catch (e) {
       console.warn('[EQ] Re-init failed:', e);

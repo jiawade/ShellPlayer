@@ -25,6 +25,10 @@ import {
   loadScanDirs,
   loadHiddenTracks,
   loadCachedTracks,
+  repairCachedArtwork,
+  loadLastPlayback,
+  setCurrentTrack,
+  setCurrentIndex,
   playTrack,
   toggleFavorite,
   setSearchQuery,
@@ -38,6 +42,8 @@ import {
   importiOSMediaLibrary,
   IOSImportOptions,
 } from '../store/musicSlice';
+import TrackPlayer from 'react-native-track-player';
+import {exportTrackToFile} from '../utils/mediaLibrary';
 import {Track, SortMode} from '../types';
 import {useTheme} from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
@@ -102,17 +108,16 @@ const AllSongsScreen: React.FC = () => {
       ]);
       const cachedCount = ((cacheResult as any).payload || []).length;
 
+      // 后台修复封面（不阻塞歌曲列表显示）
+      if (cachedCount > 0) {
+        dispatch(repairCachedArtwork());
+      }
+
       if (Platform.OS === 'ios') {
         setLoading(false);
         setPrevTrackCount(cachedCount);
         if (cachedCount === 0) {
           setShowFolderPicker(true);
-        } else {
-          prevScanningRef.current = false;
-          dispatch(importiOSMediaLibrary(undefined));
-          setTimeout(() => {
-            prevScanningRef.current = false;
-          }, 100);
         }
       } else {
         // Android: 从扫描目录导入
@@ -120,21 +125,68 @@ const AllSongsScreen: React.FC = () => {
         const dirs = (dirsAction as any).payload || [];
         setLoading(false);
         setPrevTrackCount(cachedCount);
-        if (cachedCount > 0 && dirs.length > 0) {
-          prevScanningRef.current = false;
-          dispatch(scanMusic(dirs));
-          setTimeout(() => {
-            prevScanningRef.current = false;
-          }, 100);
-        } else if (dirs.length > 0 && cachedCount === 0) {
-          dispatch(scanMusic(dirs));
-        } else if (dirs.length === 0 && cachedCount === 0) {
-          setShowFolderPicker(true);
+        if (cachedCount === 0) {
+          if (dirs.length > 0) {
+            dispatch(scanMusic(dirs));
+          } else {
+            setShowFolderPicker(true);
+          }
         }
       }
     };
     init();
   }, [dispatch]);
+
+  // 恢复上次播放的歌曲和进度（不自动播放）
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (loading || tracks.length === 0 || restoredRef.current || currentTrack) return;
+    restoredRef.current = true;
+
+    const restore = async () => {
+      const result = await dispatch(loadLastPlayback());
+      const payload = (result as any).payload as {trackId: string; position: number} | null;
+      if (!payload?.trackId) return;
+
+      const track = tracks.find(t => t.id === payload.trackId);
+      if (!track) return;
+
+      // 设置 Redux 状态（显示 MiniPlayer、进度条等）
+      dispatch(setCurrentTrack(track));
+      dispatch(setCurrentIndex(tracks.findIndex(t => t.id === payload.trackId)));
+
+      // 将歌曲加入 TrackPlayer 并 seek 到上次位置，但不播放
+      try {
+        const url = track.url.startsWith('ipod-library://')
+          ? await exportTrackToFile(track.url)
+          : track.url;
+        await TrackPlayer.reset();
+        await TrackPlayer.add({
+          id: track.id,
+          url,
+          title: track.title,
+          artist: track.artist,
+          artwork: track.artwork,
+        });
+        if (payload.position > 0) {
+          await TrackPlayer.seekTo(payload.position);
+        }
+      } catch {}
+
+      // 延迟滚动到该歌曲位置（等待 FlatList 渲染完成）
+      setTimeout(() => {
+        if (!flatListRef.current) return;
+        const idx = filteredTracksRef.current.findIndex(t => t.id === payload.trackId);
+        if (idx >= 0) {
+          flatListRef.current.scrollToOffset({
+            offset: Math.max(0, idx * 76 - 76 * 2),
+            animated: false,
+          });
+        }
+      }, 300);
+    };
+    restore();
+  }, [loading, tracks, currentTrack, dispatch]);
 
   const {
     sortedTracks: pinyinSorted,
@@ -164,6 +216,9 @@ const AllSongsScreen: React.FC = () => {
     }
     return list;
   }, [tracks, pinyinSorted, searchQuery, sortMode]);
+
+  const filteredTracksRef = useRef(filteredTracks);
+  filteredTracksRef.current = filteredTracks;
 
   const handlePlay = useCallback(
     (t: Track) => {

@@ -233,6 +233,7 @@ export const scanMusic = createAsyncThunk('music/scan', async (directories: stri
   return {tracks, directories};
 });
 
+
 export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => {
   try {
     const data = await AsyncStorage.getItem('@trackCache');
@@ -240,64 +241,86 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
       return [];
     }
     const cached = JSON.parse(data) as Track[];
-    const tracks = cached.map(t => ({
+    // 快速返回：仅做最小处理，让歌曲列表立即显示
+    return cached.map(t => ({
       ...t,
       artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
     }));
+  } catch {
+    return [];
+  }
+});
 
-    // App hot deploy may change app container path; stale file:// URIs must be invalidated.
+// 后台修复封面：不阻塞歌曲列表显示
+export const repairCachedArtwork = createAsyncThunk(
+  'music/repairArtwork',
+  async (_: void, {getState}) => {
+    const state = getState() as {music: MusicState};
+    const tracks = state.music.tracks;
+    if (tracks.length === 0) return {} as Record<string, string>;
+
+    const updates: Record<string, string> = {};
+    let noArtIds: Set<string>;
+
+    // 1. 验证现有 file:// 封面是否存在
     try {
-      for (const t of tracks) {
-        if (!t.artwork || !t.artwork.startsWith('file://')) continue;
-        const path = t.artwork.replace('file://', '');
-        const exists = await RNFS.exists(path);
-        if (!exists) {
-          t.artwork = undefined;
-        }
+      const fileArtTracks = tracks.filter(t => t.artwork?.startsWith('file://'));
+      const invalidIds: string[] = [];
+      await Promise.all(
+        fileArtTracks.map(async t => {
+          const path = t.artwork!.replace('file://', '');
+          if (!(await RNFS.exists(path))) invalidIds.push(t.id);
+        }),
+      );
+      noArtIds = new Set([
+        ...tracks.filter(t => !t.artwork).map(t => t.id),
+        ...invalidIds,
+      ]);
+    } catch {
+      noArtIds = new Set(tracks.filter(t => !t.artwork).map(t => t.id));
+    }
+    if (noArtIds.size === 0) return updates;
+
+    // 2. 从封面缓存目录批量恢复
+    try {
+      const artMap = await batchGetCachedArtworks(Array.from(noArtIds));
+      for (const [id, uri] of artMap) {
+        updates[id] = uri;
+        noArtIds.delete(id);
       }
     } catch {}
 
+    // 3. iOS: 从媒体库恢复封面
     try {
-      const noArt = tracks.filter(t => !t.artwork);
-      if (noArt.length > 0) {
-        const artMap = await batchGetCachedArtworks(noArt.map(t => t.id));
-        for (const t of noArt) {
-          const a = artMap.get(t.id);
-          if (a) t.artwork = a;
-        }
-      }
-    } catch {}
-
-    // iOS hot-reload/Command+R 场景下，历史缓存里可能只有 <<HAS>> 占位符，
-    // 但封面文件已丢失或未落地。这里做一次修复性回填，避免“重装才有封面”。
-    try {
-      const unresolved = tracks.filter(t => !t.artwork);
-      if (Platform.OS === 'ios' && unresolved.length > 0) {
+      if (Platform.OS === 'ios' && noArtIds.size > 0) {
         const mediaTracks = await importFromMediaLibrary();
         const byId = new Map(mediaTracks.map(m => [m.id, m]));
         const byUrl = new Map(mediaTracks.map(m => [m.url, m]));
 
-        for (const t of unresolved) {
+        for (const t of tracks) {
+          if (!noArtIds.has(t.id)) continue;
           const m = byId.get(t.id) || byUrl.get(t.url);
           if (!m?.artwork) continue;
-
           if (m.artwork.startsWith('file://')) {
-            t.artwork = m.artwork;
-            continue;
-          }
-          if (m.artwork.startsWith('data:')) {
+            updates[t.id] = m.artwork;
+            noArtIds.delete(t.id);
+          } else if (m.artwork.startsWith('data:')) {
             const saved = await saveArtworkFile(t.id, m.artwork);
-            if (saved) t.artwork = saved;
-            continue;
+            if (saved) {
+              updates[t.id] = saved;
+              noArtIds.delete(t.id);
+            }
+          } else {
+            updates[t.id] = m.artwork;
+            noArtIds.delete(t.id);
           }
-          t.artwork = m.artwork;
         }
       }
     } catch {}
 
-    // 本地文件补偿：仅处理仍无封面的曲目，逐个解析 ID3 并回写缓存文件
+    // 4. 本地 ID3 补偿
     try {
-      const unresolvedLocal = tracks.filter(t => !t.artwork && !!t.filePath);
+      const unresolvedLocal = tracks.filter(t => noArtIds.has(t.id) && !!t.filePath);
       if (unresolvedLocal.length > 0) {
         const {parseID3} = require('../utils/id3Parser');
         for (const t of unresolvedLocal) {
@@ -306,26 +329,32 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
             const id3 = await parseID3(t.filePath);
             if (!id3?.artwork) continue;
             const saved = await saveArtworkFile(t.id, id3.artwork);
-            if (saved) t.artwork = saved;
+            if (saved) {
+              updates[t.id] = saved;
+              noArtIds.delete(t.id);
+            }
           } catch {}
         }
       }
     } catch {}
 
-    try {
-      const lite = tracks.map(t => ({
-        ...t,
-        artwork: serializeArtworkForCache(t.artwork),
-      }));
-      await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
-    } catch {}
+    // 5. 回写缓存
+    if (Object.keys(updates).length > 0) {
+      try {
+        const data = await AsyncStorage.getItem('@trackCache');
+        if (data) {
+          const cached = JSON.parse(data) as Track[];
+          for (const t of cached) {
+            if (updates[t.id]) t.artwork = serializeArtworkForCache(updates[t.id]);
+          }
+          await AsyncStorage.setItem('@trackCache', JSON.stringify(cached));
+        }
+      } catch {}
+    }
 
-    return tracks;
-  } catch {
-    return [];
-  }
-});
-
+    return updates;
+  },
+);
 export const loadFavorites = createAsyncThunk('music/loadFavorites', async () => {
   try {
     return JSON.parse((await AsyncStorage.getItem('@favorites')) || '[]');
@@ -359,6 +388,16 @@ export const loadUserPrefs = createAsyncThunk('music/loadPrefs', async () => {
     return JSON.parse((await AsyncStorage.getItem('@userPrefs')) || '{}');
   } catch {
     return {};
+  }
+});
+
+export const loadLastPlayback = createAsyncThunk('music/loadLastPlayback', async () => {
+  try {
+    const raw = await AsyncStorage.getItem('@lastPlayback');
+    if (!raw) return null;
+    return JSON.parse(raw) as {trackId: string; position: number};
+  } catch {
+    return null;
   }
 });
 
@@ -682,6 +721,14 @@ const musicSlice = createSlice({
           s.tracks = a.payload.filter(t => !s.hiddenTrackIds.includes(t.id));
           for (const t of s.tracks) {
             t.isFavorite = s.favoriteIds.includes(t.id);
+          }
+        }
+      })
+      .addCase(repairCachedArtwork.fulfilled, (s, a) => {
+        const updates = a.payload;
+        if (Object.keys(updates).length > 0) {
+          for (const t of s.tracks) {
+            if (updates[t.id]) t.artwork = updates[t.id];
           }
         }
       })

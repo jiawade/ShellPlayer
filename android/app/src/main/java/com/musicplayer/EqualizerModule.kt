@@ -7,6 +7,7 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
+import android.util.Log
 import com.facebook.react.bridge.*
 
 class EqualizerModule(reactContext: ReactApplicationContext) :
@@ -60,12 +61,14 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * 使用全局音频输出混音 (session 0)
-     * generateAudioSessionId() 会创建一个新的空 session，EQ 绑定上去无效
-     * session 0 = 全局输出，对所有音频生效
+     * 通过反射获取 ExoPlayer 的真实 audioSessionId。
+     * 绑定到应用自身的 audio session 才能可靠地施加音效。
+     * session 0（全局输出）在 Android 10+ 上被限制，大量设备上无效。
      */
     private fun detectAudioSession(): Int {
-        return 0
+        val discovered = AudioSessionHelper.getTrackPlayerSessionId(reactApplicationContext)
+        Log.d("Equalizer", "detectAudioSession: discovered=$discovered")
+        return if (discovered > 0) discovered else 0
     }
 
     /**

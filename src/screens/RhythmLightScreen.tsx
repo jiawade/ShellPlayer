@@ -9,6 +9,7 @@ import {
   Dimensions,
   AppState,
   Image,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useNavigation} from '@react-navigation/native';
@@ -115,8 +116,6 @@ const RhythmLightScreen: React.FC = () => {
   const appActiveRef = useRef(true);
   const monitoringActiveRef = useRef(false);
   const listenerRemoverRef = useRef<(() => void) | null>(null);
-  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const useNativeRef = useRef(false);
   const systemVolumeRef = useRef(1);
   // Beat detection refs
   const prevEnergyRef = useRef(0);
@@ -169,11 +168,9 @@ const RhythmLightScreen: React.FC = () => {
     monitoringActiveRef.current = true;
 
     startAudioLevelMonitoring().then(ok => {
-      if (!monitoringActiveRef.current) return; // stopped while awaiting
-      useNativeRef.current = ok;
+      if (!monitoringActiveRef.current) return;
       if (ok) {
         listenerRemoverRef.current = addAudioLevelListener(event => {
-          // 记录系统音量
           if (typeof event.volume === 'number') {
             systemVolumeRef.current = Math.max(0, Math.min(1, event.volume));
           }
@@ -189,13 +186,8 @@ const RhythmLightScreen: React.FC = () => {
             rawTargetsRef.current = padded.map(v => Math.max(0, Math.min(1, v)));
           }
         });
-      } else {
-        simIntervalRef.current = setInterval(() => {
-          if (isPlayingRef.current) {
-            rawTargetsRef.current = Array.from({length: NUM_COLS}, () => Math.random() * 0.6 + 0.1);
-          }
-        }, 80);
       }
+      // 不使用模拟数据，原生监听失败时灯柱保持静止
     });
   }, []);
 
@@ -206,10 +198,6 @@ const RhythmLightScreen: React.FC = () => {
     if (listenerRemoverRef.current) {
       listenerRemoverRef.current();
       listenerRemoverRef.current = null;
-    }
-    if (simIntervalRef.current) {
-      clearInterval(simIntervalRef.current);
-      simIntervalRef.current = null;
     }
     stopAudioLevelMonitoring();
     rawTargetsRef.current = new Array(NUM_COLS).fill(0);
@@ -261,7 +249,9 @@ const RhythmLightScreen: React.FC = () => {
       }
 
       frameRef.current += 1;
-      if (frameRef.current % 2 === 0) {
+      // Android Hermes JIT 需要预热，降频到 ~20fps 避免前 10 秒卡顿
+      const skipN = Platform.OS === 'android' ? 3 : 2;
+      if (frameRef.current % skipN === 0) {
         setLevels(newLevels.slice());
         setPeakLevels(newPeaks.slice());
         setMotionPhase(prev => (prev + 0.09) % TAU);
@@ -402,8 +392,13 @@ const RhythmLightScreen: React.FC = () => {
       // 节律模式保持原逻辑
       barLevel = beatLevelRef.current;
     } else {
-      // 音量模式改为使用经典灯柱最低值，不再关联系统音量
-      barLevel = minLevel;
+      // Android 音量模式：跟随经典灯柱中第二活跃的那条
+      if (levels.length >= 2) {
+        const sorted = [...levels].sort((a, b) => b - a);
+        barLevel = sorted[1];
+      } else {
+        barLevel = minLevel;
+      }
     }
 
     const barW = 14;

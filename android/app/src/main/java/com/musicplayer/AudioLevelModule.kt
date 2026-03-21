@@ -3,6 +3,7 @@ package com.musicplayer
 import android.media.AudioManager
 import android.media.audiofx.Visualizer
 import android.content.Context
+import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.util.Timer
@@ -26,13 +27,21 @@ class AudioLevelModule(private val reactContext: ReactApplicationContext) :
     @Volatile private var hasData = false
 
     @ReactMethod
-    fun startMonitoring(promise: Promise) {
+    fun startMonitoring(sessionId: Int, promise: Promise) {
         try {
             stopInternal()
 
-            // Use session 0 to capture global audio output
-            val vis = Visualizer(0)
-            vis.captureSize = Visualizer.getCaptureSizeRange()[1] // max capture size
+            // 优先使用 JS 传入的 ExoPlayer audioSessionId
+            // 若为 0 则尝试通过 AudioSessionHelper 获取
+            // 最终回退到 session 0（全局混音，需要 RECORD_AUDIO）
+            var sid = sessionId
+            if (sid <= 0) {
+                sid = AudioSessionHelper.getTrackPlayerSessionId(reactContext)
+            }
+            Log.d("AudioLevel", "startMonitoring: requested=$sessionId, resolved=$sid")
+            val vis = createVisualizer(sid)
+
+            vis.captureSize = Visualizer.getCaptureSizeRange()[1]
             vis.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
                     if (waveform == null) return
@@ -62,6 +71,23 @@ class AudioLevelModule(private val reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             promise.reject("AUDIO_LEVEL_ERROR", "Failed to start monitoring: ${e.message}", e)
         }
+    }
+
+    /**
+     * 尝试用 ExoPlayer 的 sessionId 创建 Visualizer，失败则回退到 session 0
+     */
+    private fun createVisualizer(sessionId: Int): Visualizer {
+        if (sessionId > 0) {
+            try {
+                Log.d("AudioLevel", "Creating Visualizer with ExoPlayer sessionId=$sessionId")
+                return Visualizer(sessionId)
+            } catch (e: Exception) {
+                Log.w("AudioLevel", "ExoPlayer session failed: ${e.message}, falling back to session 0")
+            }
+        } else {
+            Log.d("AudioLevel", "No ExoPlayer session available, using session 0 (global)")
+        }
+        return Visualizer(0)
     }
 
     @ReactMethod

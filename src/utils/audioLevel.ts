@@ -1,7 +1,7 @@
 // src/utils/audioLevel.ts
 import {NativeModules, NativeEventEmitter, Platform, PermissionsAndroid} from 'react-native';
 
-const {AudioLevelModule} = NativeModules;
+const {AudioLevelModule, TrackPlayerModule} = NativeModules;
 
 let emitter: NativeEventEmitter | null = null;
 
@@ -39,11 +39,14 @@ async function requestAndroidAudioPermission(): Promise<boolean> {
 export async function startAudioLevelMonitoring(): Promise<boolean> {
   try {
     if (Platform.OS === 'android') {
-      const hasPermission = await requestAndroidAudioPermission();
-      if (!hasPermission) {
-        console.warn('[AudioLevel] RECORD_AUDIO permission denied');
-        return false;
-      }
+      // 请求 RECORD_AUDIO 权限作为后备（使用 session 0 时需要）。
+      await requestAndroidAudioPermission().catch(() => {});
+      // 从 TrackPlayer 获取真实的 ExoPlayer audioSessionId
+      let sessionId = 0;
+      try {
+        sessionId = await TrackPlayerModule.getAudioSessionId();
+      } catch {}
+      return await AudioLevelModule.startMonitoring(sessionId);
     }
     return await AudioLevelModule.startMonitoring();
   } catch (e) {

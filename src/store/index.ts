@@ -51,6 +51,13 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     case 'music/clearHistory':
       AsyncStorage.setItem('@playHistory', JSON.stringify(m.playHistory)).catch(() => {});
       break;
+    case 'music/setCurrentTrack':
+      if (m.currentTrack) {
+        AsyncStorage.setItem('@lastPlayback', JSON.stringify({
+          trackId: m.currentTrack.id, position: 0,
+        })).catch(() => {});
+      }
+      break;
   }
 
   if (action.type.startsWith('playlist/') && action.type !== 'playlist/load/fulfilled'

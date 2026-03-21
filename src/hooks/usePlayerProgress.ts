@@ -7,6 +7,7 @@ import TrackPlayer, {
   useActiveTrack,
   State,
 } from 'react-native-track-player';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   setIsPlaying, setCurrentTrack, setCurrentLyricIndex,
@@ -90,6 +91,18 @@ export function usePlayerSync() {
       dispatch(setCurrentLyricIndex(idx));
     }
   }, [position, lyrics, dispatch]);
+
+  // 定期保存播放进度（每 3 秒）
+  const lastSaveRef = useRef(0);
+  useEffect(() => {
+    if (position < 1 || !activeTrack) return;
+    const now = Date.now();
+    if (now - lastSaveRef.current < 3000) return;
+    lastSaveRef.current = now;
+    AsyncStorage.setItem('@lastPlayback', JSON.stringify({
+      trackId: activeTrack.id, position,
+    })).catch(() => {});
+  }, [position, activeTrack]);
 
   return { position, duration };
 }

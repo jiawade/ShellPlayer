@@ -309,21 +309,20 @@ const RhythmLightScreen: React.FC = () => {
   );
   const hasAudibleSignal = overallLevel > 0.015;
   const minLevel = useMemo(() => Math.min(...levels), [levels]);
-  // 音量模式下保留频谱差异但向均值靠拢（40%自身 + 60%均值）
-  const volLevel = useMemo(
-    () =>
-      spkBeatMode
-        ? levels
-        : levels.map(v => v * 0.4 + overallLevel * 0.6),
-    [spkBeatMode, levels, overallLevel],
-  );
-  const volPeak = useMemo(
-    () =>
-      spkBeatMode
-        ? peakLevels
-        : peakLevels.map(v => v * 0.4 + overallLevel * 0.6),
-    [spkBeatMode, peakLevels, overallLevel],
-  );
+  // 非speaker模式：节律=按节拍缩放频谱形状，音量=原始频谱跟能量走
+  const volLevel = useMemo(() => {
+    if (!spkBeatMode) return levels; // 音量模式：原始频谱
+    // 节律模式：保留各列频谱形状，整体高度跟随节拍脉冲
+    const beat = beatLevelRef.current;
+    const scale = overallLevel > 0.01 ? beat / overallLevel : 0;
+    return levels.map(v => Math.min(1, v * scale));
+  }, [spkBeatMode, levels, overallLevel]);
+  const volPeak = useMemo(() => {
+    if (!spkBeatMode) return peakLevels;
+    const beat = beatLevelRef.current;
+    const scale = overallLevel > 0.01 ? beat / overallLevel : 0;
+    return peakLevels.map(v => Math.min(1, v * scale));
+  }, [spkBeatMode, peakLevels, overallLevel]);
 
   const renderClassic = () => (
     <View style={styles.grid}>

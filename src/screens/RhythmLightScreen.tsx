@@ -45,13 +45,13 @@ const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
-type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'particles' | 'neon' | 'matrix';
+type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'radar' | 'matrix';
 
 const VISUALIZER_MODES: Array<{key: VisualizerMode; label: string; icon: string}> = [
   {key: 'classic', label: '经典灯柱', icon: 'apps-outline'},
   {key: 'mirror', label: '中轴波形', icon: 'swap-vertical-outline'},
   {key: 'speaker', label: '音响节律', icon: 'volume-high-outline'},
-  {key: 'neon', label: '霓虹曲线', icon: 'pulse-outline'},
+  {key: 'radar', label: '雷达频谱', icon: 'scan-outline'},
   {key: 'matrix', label: '流光方阵', icon: 'grid-outline'},
 ];
 
@@ -479,57 +479,138 @@ const RhythmLightScreen: React.FC = () => {
     );
   };
 
-  const renderNeon = () => {
-    const lineWidth = SCREEN_W - GRID_H_PAD * 2;
-    const lineHeight = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.5));
-    const points = COLS_ARR.map(i => {
-      const left = (i / (NUM_COLS - 1)) * lineWidth;
-      const curr = volLevel[i] || 0;
-      const prev = volLevel[Math.max(0, i - 1)] || 0;
-      const next = volLevel[Math.min(NUM_COLS - 1, i + 1)] || 0;
-      const smooth = (prev + curr * 2 + next) / 4;
-      const top = lineHeight * (0.9 - smooth * 0.82);
-      return {left, top};
-    });
+  const renderRadar = () => {
+    const sz = Math.min(SCREEN_W - GRID_H_PAD * 2, Math.floor(SCREEN_H * 0.48));
+    const cx = sz / 2;
+    const cy = sz / 2;
+    const innerR = sz * 0.14;
+    const outerR = sz / 2 - 4;
+    const maxBarH = outerR - innerR;
+    const barW = 5;
+    const dotSz = 5;
 
     return (
-      <View style={[styles.neonWrap, {width: lineWidth, height: lineHeight}]}>
-        {points.slice(0, -1).map((p1, i) => {
-              const p2 = points[i + 1];
-              const dx = p2.left - p1.left;
-              const dy = p2.top - p1.top;
-              const len = Math.sqrt(dx * dx + dy * dy);
-              const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.neonSegment,
-                    {
-                      left: p1.left,
-                      top: p1.top,
-                      width: len,
-                      transform: [{rotate: `${angle}deg`}],
-                      opacity: 0.36 + (volLevel[i] || 0) * 0.64,
-                    },
-                  ]}
-                />
-              );
-            })}
+      <View style={{width: sz, height: sz}}>
+        {/* Guide rings */}
+        {[0.33, 0.66, 1].map((frac, ri) => {
+          const r = innerR + maxBarH * frac;
+          return (
+            <View
+              key={`ring-${ri}`}
+              style={{
+                position: 'absolute',
+                left: cx - r,
+                top: cy - r,
+                width: r * 2,
+                height: r * 2,
+                borderRadius: r,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: `rgba(0,229,255,${0.08 + ri * 0.04})`,
+              }}
+            />
+          );
+        })}
 
-        {points.map((p, i) => (
+        {/* Cross-hair guides */}
+        <View style={{position: 'absolute', left: cx - outerR, top: cy - 0.25, width: outerR * 2, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,229,255,0.08)'}} />
+        <View style={{position: 'absolute', left: cx - 0.25, top: cy - outerR, width: StyleSheet.hairlineWidth, height: outerR * 2, backgroundColor: 'rgba(0,229,255,0.08)'}} />
+
+        {/* Scan sweep line */}
+        <View style={{
+          position: 'absolute',
+          left: cx - 1,
+          top: cy - outerR,
+          width: 2,
+          height: outerR * 2,
+          transform: [{rotate: `${(motionPhase * 180) / Math.PI}deg`}],
+        }}>
+          <View style={{width: 2, height: maxBarH, borderRadius: 1, backgroundColor: 'rgba(0,229,255,0.2)'}} />
+        </View>
+
+        {/* Frequency bars + peak dots */}
+        {COLS_ARR.map(i => {
+          const lv = volLevel[i] || 0;
+          const pk = volPeak[i] || 0;
+          const barH = Math.max(2, lv * maxBarH);
+          const peakH = pk * maxBarH;
+          const angle = (360 / NUM_COLS) * i;
+
+          return (
+            <View
+              key={i}
+              style={{
+                position: 'absolute',
+                left: cx - barW / 2,
+                top: cy - outerR,
+                width: barW,
+                height: outerR * 2,
+                transform: [{rotate: `${angle}deg`}],
+              }}>
+              {/* Active bar */}
               <View
-                key={`dot-${i}`}
-                style={[
-                  styles.neonDot,
-                  {
-                    left: p.left - 2,
-                    top: p.top - 2,
-                    opacity: 0.45 + (volLevel[i] || 0) * 0.55,
-                  },
-                ]}
+                style={{
+                  position: 'absolute',
+                  top: maxBarH - barH,
+                  width: barW,
+                  height: barH,
+                  borderRadius: barW / 2,
+                  backgroundColor: `rgba(0,229,255,${0.35 + lv * 0.65})`,
+                  shadowColor: '#00E5FF',
+                  shadowOffset: {width: 0, height: 0},
+                  shadowOpacity: lv * 0.9,
+                  shadowRadius: 2 + lv * 8,
+                }}
               />
-            ))}
+              {/* Peak dot */}
+              {peakH > 3 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: maxBarH - peakH - dotSz / 2,
+                    left: (barW - dotSz) / 2,
+                    width: dotSz,
+                    height: dotSz,
+                    borderRadius: dotSz / 2,
+                    backgroundColor: '#fff',
+                    shadowColor: '#00E5FF',
+                    shadowOffset: {width: 0, height: 0},
+                    shadowOpacity: 0.9,
+                    shadowRadius: 5,
+                  }}
+                />
+              )}
+            </View>
+          );
+        })}
+
+        {/* Center pulse circle */}
+        <View
+          style={{
+            position: 'absolute',
+            left: cx - innerR,
+            top: cy - innerR,
+            width: innerR * 2,
+            height: innerR * 2,
+            borderRadius: innerR,
+            backgroundColor: `rgba(0,229,255,${(0.04 + overallLevel * 0.16).toFixed(3)})`,
+            borderWidth: 1.5,
+            borderColor: `rgba(0,229,255,${(0.2 + overallLevel * 0.5).toFixed(3)})`,
+            shadowColor: '#00E5FF',
+            shadowOffset: {width: 0, height: 0},
+            shadowOpacity: 0.3 + overallLevel * 0.5,
+            shadowRadius: 8 + overallLevel * 18,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: `rgba(0,229,255,${(0.5 + overallLevel * 0.5).toFixed(3)})`,
+            }}
+          />
+        </View>
       </View>
     );
   };
@@ -575,7 +656,7 @@ const RhythmLightScreen: React.FC = () => {
         {mode === 'classic' ? renderClassic() : null}
         {mode === 'mirror' ? renderMirror() : null}
         {mode === 'speaker' ? renderSpeaker() : null}
-        {mode === 'neon' ? renderNeon() : null}
+        {mode === 'radar' ? renderRadar() : null}
         {mode === 'matrix' ? renderMatrix() : null}
       </View>
 
@@ -585,32 +666,34 @@ const RhythmLightScreen: React.FC = () => {
           activeOpacity={0.7}
           onPress={() => setSpkBeatMode(prev => !prev)}>
           <Text style={styles.beatSwitchLabel}>
-            {spkBeatMode ? '节律模式' : '音量模式'}
+            {spkBeatMode ? '节律' : '音量'}
           </Text>
           <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
             <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
           </View>
         </TouchableOpacity>
-        <View style={styles.modeRowBottom}>
+        <View style={styles.modePanelStrip}>
           {VISUALIZER_MODES.map(item => {
             const selected = mode === item.key;
             return (
               <TouchableOpacity
                 key={item.key}
-                activeOpacity={0.85}
+                activeOpacity={0.7}
                 onPress={() => setMode(item.key)}
-                style={[styles.modeChipBottom, selected && styles.modeChipBottomActive]}>
-                <Icon
-                  name={item.icon}
-                  size={18}
-                  color={selected ? '#fff' : 'rgba(255,255,255,0.72)'}
-                  style={styles.modeChipIcon}
-                />
+                style={styles.modePanelItem}>
+                <View style={[styles.modePanelIcon, selected && styles.modePanelIconActive]}>
+                  <Icon
+                    name={item.icon}
+                    size={20}
+                    color={selected ? '#00E5FF' : 'rgba(255,255,255,0.4)'}
+                  />
+                </View>
                 <Text
                   numberOfLines={1}
-                  style={[styles.modeChipBottomText, selected && styles.modeChipBottomTextActive]}>
+                  style={[styles.modePanelText, selected && styles.modePanelTextActive]}>
                   {item.label}
                 </Text>
+                {selected && <View style={styles.modePanelDot} />}
               </TouchableOpacity>
             );
           })}
@@ -690,52 +773,73 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     gap: 8,
   },
-  modeRowBottom: {
+  modePanelStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-  },
-  modeChipBottom: {
-    flex: 1,
-    minWidth: 0,
-    height: 62,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(8,14,20,0.88)',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(0,229,255,0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  modePanelItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  modePanelIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
-  modeChipBottomActive: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderColor: 'rgba(255,255,255,0.3)',
+  modePanelIconActive: {
+    backgroundColor: 'rgba(0,229,255,0.1)',
+    borderColor: 'rgba(0,229,255,0.45)',
+    shadowColor: '#00E5FF',
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
   },
-  modeChipIcon: {
-    marginBottom: 3,
-  },
-  modeChipBottomText: {
+  modePanelText: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.75)',
-    fontWeight: '600',
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '500',
   },
-  modeChipBottomTextActive: {
-    color: '#fff',
+  modePanelTextActive: {
+    color: '#00E5FF',
     fontWeight: '700',
+  },
+  modePanelDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#00E5FF',
+    shadowColor: '#00E5FF',
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    marginTop: -2,
   },
   beatSwitchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     height: 28,
   },
   beatSwitchLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    color: 'rgba(0,229,255,0.6)',
     fontWeight: '600',
+    letterSpacing: 2,
   },
   beatSwitchTrack: {
     width: 40,
@@ -746,7 +850,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   beatSwitchTrackOn: {
-    backgroundColor: 'rgba(0,255,68,0.5)',
+    backgroundColor: 'rgba(0,229,255,0.45)',
   },
   beatSwitchThumb: {
     width: 18,
@@ -823,31 +927,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.7,
     shadowRadius: 4,
   },
-  neonWrap: {
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  neonSegment: {
-    position: 'absolute',
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: '#2FE8FF',
-    shadowColor: '#2FE8FF',
-    shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.85,
-    shadowRadius: 4,
-  },
-  neonDot: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#C7F8FF',
-    shadowColor: '#2FE8FF',
-    shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-  },
+
   matrixCellDim: {
     backgroundColor: 'rgba(25,25,36,0.22)',
   },

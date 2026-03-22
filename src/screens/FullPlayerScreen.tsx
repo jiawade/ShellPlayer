@@ -1,6 +1,6 @@
 // src/screens/FullPlayerScreen.tsx
-import React, { memo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal, Pressable } from 'react-native';
+import React, { memo, useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal, Pressable, ScrollView, ActivityIndicator, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { RepeatMode as TPRepeatMode } from 'react-native-track-player';
@@ -13,12 +13,14 @@ import SleepTimer from '../components/SleepTimer';
 import PlayQueueView from '../components/PlayQueueView';
 import AudioAnalyzer from '../components/AudioAnalyzer';
 import { useAppSelector, useAppDispatch } from '../store';
-import { setShowFullPlayer, toggleShowLyrics, toggleFavorite, setRepeatMode, setPlaybackSpeed } from '../store/musicSlice';
+import { setShowFullPlayer, toggleShowLyrics, toggleFavorite, setRepeatMode, setPlaybackSpeed, updateTrackArtwork } from '../store/musicSlice';
 import { usePlayerControls, usePlayerSync } from '../hooks/usePlayerProgress';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { RepeatMode } from '../types';
 import { hapticMedium, hapticLight, hapticSelection } from '../utils/haptics';
+import { searchCoverArt, downloadCoverArt, downloadCoverToFile, CoverSearchResult } from '../utils/coverArtSearch';
+import { writeTrackArtwork } from '../utils/tagWriter';
 
 const COVER = Dimensions.get('window').width * 0.7;
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -44,6 +46,55 @@ const FullPlayerScreen: React.FC = () => {
   const [showMore, setShowMore] = useState(false);
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [showModeToast, setShowModeToast] = useState('');
+
+  // Cover art search state
+  const [showCoverSearch, setShowCoverSearch] = useState(false);
+  const [coverSearching, setCoverSearching] = useState(false);
+  const [coverResults, setCoverResults] = useState<CoverSearchResult[]>([]);
+  const [coverSaving, setCoverSaving] = useState<number | null>(null);
+
+  const handleSearchCover = useCallback(async () => {
+    if (!currentTrack) return;
+    setShowCoverSearch(true);
+    setCoverSearching(true);
+    setCoverResults([]);
+    try {
+      const results = await searchCoverArt(currentTrack.title, currentTrack.artist);
+      setCoverResults(results);
+    } catch {
+      setCoverResults([]);
+    } finally {
+      setCoverSearching(false);
+    }
+  }, [currentTrack]);
+
+  const handleSelectCover = useCallback(async (result: CoverSearchResult) => {
+    if (!currentTrack) return;
+    setCoverSaving(result.id);
+    try {
+      // Download and cache artwork
+      const cachedUri = await downloadCoverArt(currentTrack.id, result.artworkUrl);
+      if (!cachedUri) {
+        Alert.alert(t('coverSearch.title'), t('coverSearch.downloadFailed'));
+        setCoverSaving(null);
+        return;
+      }
+      // Update Redux store
+      dispatch(updateTrackArtwork({ trackId: currentTrack.id, artwork: cachedUri }));
+
+      // Try writing artwork to file tags (best effort)
+      const tmpPath = await downloadCoverToFile(result.artworkUrl);
+      if (tmpPath) {
+        await writeTrackArtwork(currentTrack.filePath, tmpPath).catch(() => {});
+      }
+
+      setShowCoverSearch(false);
+    } catch {
+      Alert.alert(t('coverSearch.title'), t('coverSearch.downloadFailed'));
+    } finally {
+      setCoverSaving(null);
+    }
+  }, [currentTrack, dispatch, t]);
 
   useEffect(() => {
     (async () => {
@@ -119,6 +170,15 @@ const FullPlayerScreen: React.FC = () => {
         ) : (
           <TouchableOpacity style={styles.coverArea} activeOpacity={0.95} onPress={() => dispatch(toggleShowLyrics())}>
             <View style={[styles.coverGlow, { shadowColor: colors.accent }]}><CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={28} /></View>
+            {!currentTrack.artwork && (
+              <TouchableOpacity
+                style={[styles.coverSearchBtn, { backgroundColor: colors.accentDim }]}
+                activeOpacity={0.7}
+                onPress={handleSearchCover}>
+                <Icon name="image-outline" size={16} color={colors.accent} />
+                <Text style={{ fontSize: sizes.xs, color: colors.accent, fontWeight: '600' }}>{t('coverSearch.searchButton')}</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.trackInfo}>
               <Text style={{ fontSize: sizes.xxl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', lineHeight: 36 }} numberOfLines={2}>{currentTrack.title}</Text>
               <Text style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }} numberOfLines={1}>{currentTrack.artist}</Text>
@@ -257,6 +317,64 @@ const FullPlayerScreen: React.FC = () => {
           </Pressable>
         </Modal>
       )}
+
+      {/* Cover Art Search Modal */}
+      {showCoverSearch && (
+        <Modal visible={showCoverSearch} transparent animationType="slide" onRequestClose={() => setShowCoverSearch(false)}>
+          <Pressable style={[styles.moreOverlay, { backgroundColor: colors.overlay }]} onPress={() => setShowCoverSearch(false)}>
+            <Pressable style={[styles.coverSearchSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+              <View style={styles.moreHeader}>
+                <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>{t('coverSearch.title')}</Text>
+                <TouchableOpacity onPress={() => setShowCoverSearch(false)} hitSlop={12}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              {currentTrack && (
+                <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginBottom: 12 }} numberOfLines={1}>
+                  {currentTrack.artist} - {currentTrack.title}
+                </Text>
+              )}
+              {coverSearching ? (
+                <View style={styles.coverSearchCenter}>
+                  <ActivityIndicator size="large" color={colors.accent} />
+                  <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>{t('coverSearch.searching')}</Text>
+                </View>
+              ) : coverResults.length === 0 ? (
+                <View style={styles.coverSearchCenter}>
+                  <Icon name="image-outline" size={48} color={colors.textMuted} />
+                  <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>{t('coverSearch.noResults')}</Text>
+                </View>
+              ) : (
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  <View style={styles.coverGrid}>
+                    {coverResults.map(r => {
+                      const isSaving = coverSaving === r.id;
+                      return (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={[styles.coverResultItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                          activeOpacity={0.7}
+                          onPress={() => !coverSaving && handleSelectCover(r)}
+                          disabled={!!coverSaving}>
+                          <Image source={{ uri: r.thumbUrl }} style={styles.coverThumb} resizeMode="cover" />
+                          {isSaving && (
+                            <View style={styles.coverSavingOverlay}>
+                              <ActivityIndicator size="small" color="#fff" />
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 11, color: colors.textPrimary, marginTop: 4, fontWeight: '600' }} numberOfLines={1}>{r.title}</Text>
+                          <Text style={{ fontSize: 10, color: colors.textMuted }} numberOfLines={1}>{r.artist}</Text>
+                          <Text style={{ fontSize: 10, color: colors.textMuted }} numberOfLines={1}>{r.album}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -294,6 +412,13 @@ const styles = StyleSheet.create({
   moreHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
   moreItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   moreItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  coverSearchBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+  coverSearchSheet: { maxHeight: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
+  coverSearchCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  coverGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 20 },
+  coverResultItem: { width: (Dimensions.get('window').width - 40 - 24) / 3, borderRadius: 12, padding: 8, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  coverThumb: { width: '100%', aspectRatio: 1, borderRadius: 8 } as any,
+  coverSavingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default memo(FullPlayerScreen);

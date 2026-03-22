@@ -381,6 +381,13 @@
       "downloaded": "已下载"
     }
   },
+  "coverSearch": {
+    "title": "搜索封面",
+    "searchButton": "搜索封面",
+    "searching": "搜索中...",
+    "noResults": "未找到封面",
+    "downloadFailed": "封面下载失败"
+  },
   "sleepTimer": {
     "title": "睡眠定时",
     "willStop": "后停止播放",

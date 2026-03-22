@@ -3,6 +3,7 @@ package com.musicplayer
 import com.facebook.react.bridge.*
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
+import org.jaudiotagger.tag.images.ArtworkFactory
 import java.io.File
 import java.util.logging.Logger
 
@@ -20,8 +21,8 @@ class TagWriterModule(reactContext: ReactApplicationContext) :
     fun writeMetadata(filePath: String, tags: ReadableMap, promise: Promise) {
         try {
             val file = File(filePath)
-            if (!file.exists() || !file.canWrite()) {
-                promise.reject("TAG_FILE_ERROR", "File not found or not writable: $filePath")
+            if (!file.exists()) {
+                promise.reject("TAG_FILE_ERROR", "File not found: $filePath")
                 return
             }
 
@@ -42,6 +43,32 @@ class TagWriterModule(reactContext: ReactApplicationContext) :
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("TAG_WRITE_ERROR", "Failed to write tags: ${e.message}", e)
+        }
+    }
+
+    @ReactMethod
+    fun writeArtwork(filePath: String, imagePath: String, promise: Promise) {
+        try {
+            val file = File(filePath)
+            if (!file.exists()) {
+                promise.reject("TAG_FILE_ERROR", "File not found: $filePath")
+                return
+            }
+            val imgFile = File(imagePath)
+            if (!imgFile.exists()) {
+                promise.reject("TAG_FILE_ERROR", "Image file not found: $imagePath")
+                return
+            }
+
+            val audioFile = AudioFileIO.read(file)
+            val tag = audioFile.tagOrCreateAndSetDefault
+            val artwork = ArtworkFactory.createArtworkFromFile(imgFile)
+            tag.deleteArtworkField()
+            tag.setField(artwork)
+            audioFile.commit()
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("TAG_WRITE_ERROR", "Failed to write artwork: ${e.message}", e)
         }
     }
 }

@@ -3,14 +3,18 @@ import React, { memo, useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent,
+  Modal, Pressable, ActivityIndicator, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppSelector } from '../store';
+import { useAppSelector, useAppDispatch } from '../store';
+import { setLyrics } from '../store/musicSlice';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { searchLyrics, downloadAndSaveLyrics, LrcSearchResult } from '../utils/lyricsSearch';
+import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
 
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 52;
@@ -19,10 +23,55 @@ const OFFSET_STEP = 0.1; // seconds
 
 const LyricsView: React.FC = () => {
   const { lyrics, currentLyricIndex, currentTrack } = useAppSelector(s => s.music);
+  const dispatch = useAppDispatch();
   const { seekToPrevLyric, seekToNextLyric, replayCurrentLyric } = usePlayerControls();
   const { colors, sizes } = useTheme();
   const { t } = useTranslation();
   const scrollRef = useRef<ScrollView>(null);
+
+  // Lyrics search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<LrcSearchResult[]>([]);
+  const [downloadedIds, setDownloadedIds] = useState<Set<number>>(new Set());
+
+  const handleSearchLyrics = useCallback(async () => {
+    if (!currentTrack) return;
+    setShowSearch(true);
+    setSearching(true);
+    setSearchResults([]);
+    setDownloadedIds(new Set());
+    try {
+      const results = await searchLyrics(currentTrack.title, currentTrack.artist);
+      setSearchResults(results);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [currentTrack]);
+
+  const handleDownloadLyrics = useCallback(async (result: LrcSearchResult) => {
+    if (!currentTrack) return;
+    // Determine save path: same directory as source, .lrc extension
+    const fp = currentTrack.filePath;
+    const dotIdx = fp.lastIndexOf('.');
+    const lrcPath = dotIdx > 0 ? fp.substring(0, dotIdx) + '.lrc' : fp + '.lrc';
+    const ok = await downloadAndSaveLyrics(result, lrcPath);
+    if (ok) {
+      setDownloadedIds(prev => new Set(prev).add(result.id));
+      // Parse the downloaded lyrics and update display
+      const content = result.syncedLyrics ?? result.plainLyrics ?? '';
+      let parsed = parseLRC(content);
+      if (parsed.length === 0) {
+        parsed = parseTextLyrics(content, currentTrack.duration);
+      }
+      dispatch(setLyrics(parsed));
+      setShowSearch(false);
+    } else {
+      Alert.alert(t('lyrics.search.title'), t('lyrics.search.noResults'));
+    }
+  }, [currentTrack, dispatch, t]);
 
   const [scrollAreaHeight, setScrollAreaHeight] = useState(400);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
@@ -142,6 +191,75 @@ const LyricsView: React.FC = () => {
     }
   }, [dragLineIndex, lyrics, clearAutoReturn]);
 
+  const fmtDur = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const renderSearchModal = () => (
+    <Modal visible={showSearch} transparent animationType="slide" onRequestClose={() => setShowSearch(false)}>
+      <Pressable style={[styles.modalOverlay, { backgroundColor: colors.overlay }]} onPress={() => setShowSearch(false)}>
+        <Pressable style={[styles.searchSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+          <View style={styles.searchHeader}>
+            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>{t('lyrics.search.title')}</Text>
+            <TouchableOpacity onPress={() => setShowSearch(false)} hitSlop={12}>
+              <Icon name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          {currentTrack && (
+            <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginBottom: 12 }} numberOfLines={1}>
+              {currentTrack.artist} - {currentTrack.title}
+            </Text>
+          )}
+          {searching ? (
+            <View style={styles.searchCenter}>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>{t('lyrics.search.searching')}</Text>
+            </View>
+          ) : searchResults.length === 0 ? (
+            <View style={styles.searchCenter}>
+              <Icon name="search-outline" size={48} color={colors.textMuted} />
+              <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>{t('lyrics.search.noResults')}</Text>
+            </View>
+          ) : (
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {searchResults.map(r => {
+                const isDownloaded = downloadedIds.has(r.id);
+                const hasSynced = !!r.syncedLyrics;
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[styles.resultItem, { borderBottomColor: colors.border }]}
+                    activeOpacity={0.6}
+                    onPress={() => !isDownloaded && handleDownloadLyrics(r)}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }} numberOfLines={1}>{r.title}</Text>
+                      <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{r.artist}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        {r.album ? <Text style={{ fontSize: sizes.xs, color: colors.textMuted }} numberOfLines={1}>{r.album}</Text> : null}
+                        <Text style={{ fontSize: sizes.xs, color: colors.textMuted }}>{fmtDur(r.duration)}</Text>
+                        <View style={[styles.badge, { backgroundColor: hasSynced ? colors.accent : colors.bgCard }]}>
+                          <Text style={{ fontSize: 10, color: hasSynced ? colors.bg : colors.textMuted, fontWeight: '600' }}>{hasSynced ? 'LRC' : 'TXT'}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.dlBtn, { backgroundColor: isDownloaded ? colors.bgCard : colors.accent }]}
+                      onPress={() => !isDownloaded && handleDownloadLyrics(r)}
+                      disabled={isDownloaded}>
+                      <Icon name={isDownloaded ? 'checkmark' : 'download-outline'} size={18} color={isDownloaded ? colors.accent : colors.bg} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+
   if (lyrics.length === 0) {
     return (
       <View style={styles.empty}>
@@ -151,14 +269,12 @@ const LyricsView: React.FC = () => {
         {currentTrack && (
           <TouchableOpacity
             style={[styles.searchBtn, { backgroundColor: colors.accent }]}
-            onPress={() => {
-              // Import and search is handled by parent, just show a hint
-              // The actual search will be triggered from FullPlayerScreen
-            }}>
+            onPress={handleSearchLyrics}>
             <Icon name="search-outline" size={18} color={colors.bg} />
             <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.bg }}>{t('lyrics.search.title')}</Text>
           </TouchableOpacity>
         )}
+        {renderSearchModal()}
       </View>
     );
   }
@@ -266,6 +382,13 @@ const styles = StyleSheet.create({
   offsetBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   offsetToggle: { position: 'absolute', right: 16, padding: 4 },
   searchBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  searchSheet: { maxHeight: '75%', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
+  searchHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  searchCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  resultItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
+  badge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  dlBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default memo(LyricsView);

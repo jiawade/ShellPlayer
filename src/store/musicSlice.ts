@@ -691,6 +691,12 @@ const musicSlice = createSlice({
       if (track) Object.assign(track, changes);
       if (s.currentTrack?.id === trackId) Object.assign(s.currentTrack, changes);
     },
+    updateTrackArtwork(s, a: PayloadAction<{trackId: string; artwork: string}>) {
+      const {trackId, artwork} = a.payload;
+      const track = s.tracks.find(t => t.id === trackId);
+      if (track) track.artwork = artwork;
+      if (s.currentTrack?.id === trackId) s.currentTrack.artwork = artwork;
+    },
   },
   extraReducers: builder => {
     builder
@@ -832,5 +838,6 @@ export const {
   setCustomAccent,
   setLanguage,
   updateTrackMetadata,
+  updateTrackArtwork,
 } = musicSlice.actions;
 export default musicSlice.reducer;

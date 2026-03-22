@@ -381,6 +381,13 @@
       "downloaded": "Downloaded"
     }
   },
+  "coverSearch": {
+    "title": "Search Cover Art",
+    "searchButton": "Search Cover",
+    "searching": "Searching...",
+    "noResults": "No cover art found",
+    "downloadFailed": "Failed to download cover art"
+  },
   "sleepTimer": {
     "title": "Sleep Timer",
     "willStop": "until pause",

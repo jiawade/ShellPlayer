@@ -1,6 +1,7 @@
 #import "AppDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
+#import <React/RCTDevLoadingView.h>
 #import <React/RCTRootView.h>
 #import <AVFoundation/AVFoundation.h>
 #import <TargetConditionals.h>
@@ -12,6 +13,7 @@
   self.moduleName = @"MusicPlayer";
   self.initialProps = @{};
   application.applicationSupportsShakeToEdit = NO;
+  [RCTDevLoadingView setEnabled:NO];
 
   AVAudioSession *session = [AVAudioSession sharedInstance];
   [session setCategory:AVAudioSessionCategoryPlayback

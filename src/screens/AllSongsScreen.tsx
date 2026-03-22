@@ -46,6 +46,7 @@ import {
 import TrackPlayer from 'react-native-track-player';
 import {exportTrackToFile} from '../utils/mediaLibrary';
 import {Track, SortMode} from '../types';
+import {deduplicateTracks} from '../utils/dedup';
 import {useTheme} from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
 import {useAlphabetIndex} from '../hooks/useAlphabetIndex';
@@ -55,7 +56,17 @@ const SORT_OPTIONS: {mode: SortMode; label: string; icon: string}[] = [
   {mode: 'title', label: '按名称', icon: 'text-outline'},
   {mode: 'artist', label: '按歌手', icon: 'person-outline'},
   {mode: 'recent', label: '最近添加', icon: 'time-outline'},
+  {mode: 'shuffle', label: '随机打乱', icon: 'shuffle-outline'},
 ];
+
+const hashToUnit = (input: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967295;
+};
 
 const AllSongsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -69,6 +80,7 @@ const AllSongsScreen: React.FC = () => {
     scanProgress,
     repeatMode,
     sortMode,
+    hideDuplicates,
     batchSelectMode,
     batchSelectedIds,
   } = useAppSelector(s => s.music);
@@ -80,6 +92,7 @@ const AllSongsScreen: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [shuffleSeed, setShuffleSeed] = useState(() => Date.now());
   const [userTriggeredImport, setUserTriggeredImport] = useState(false);
   const prevScanningRef = React.useRef(false);
   const [prevTrackCount, setPrevTrackCount] = useState(0);
@@ -206,10 +219,19 @@ const AllSongsScreen: React.FC = () => {
 
   const filteredTracks = useMemo(() => {
     let list = sortMode === 'title' ? [...pinyinSorted] : [...tracks];
+    if (hideDuplicates) {
+      list = deduplicateTracks(list);
+    }
     if (sortMode === 'artist') {
       list.sort((a, b) => a.artist.localeCompare(b.artist, 'zh-CN'));
     } else if (sortMode === 'recent') {
       list.reverse();
+    } else if (sortMode === 'shuffle') {
+      list.sort(
+        (a, b) =>
+          hashToUnit(`${shuffleSeed}:${a.id}`) -
+          hashToUnit(`${shuffleSeed}:${b.id}`),
+      );
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -221,7 +243,18 @@ const AllSongsScreen: React.FC = () => {
       );
     }
     return list;
-  }, [tracks, pinyinSorted, searchQuery, sortMode]);
+  }, [tracks, pinyinSorted, searchQuery, sortMode, hideDuplicates, shuffleSeed]);
+
+  const handleSortChange = useCallback(
+    (mode: SortMode) => {
+      if (mode === 'shuffle') {
+        setShuffleSeed(Date.now());
+      }
+      dispatch(setSortMode(mode));
+      setShowSort(false);
+    },
+    [dispatch],
+  );
 
   const filteredTracksRef = useRef(filteredTracks);
   filteredTracksRef.current = filteredTracks;
@@ -501,10 +534,7 @@ const AllSongsScreen: React.FC = () => {
                 {backgroundColor: colors.bgCard},
                 sortMode === o.mode && {backgroundColor: colors.accent},
               ]}
-              onPress={() => {
-                dispatch(setSortMode(o.mode));
-                setShowSort(false);
-              }}>
+              onPress={() => handleSortChange(o.mode)}>
               <Icon
                 name={o.icon}
                 size={14}
@@ -612,7 +642,9 @@ const AllSongsScreen: React.FC = () => {
         }}>
         {searchQuery
           ? `找到 ${filteredTracks.length} 首`
-          : `共 ${tracks.length} 首`}
+          : hideDuplicates
+            ? `共 ${filteredTracks.length} 首（已去重）`
+            : `共 ${tracks.length} 首`}
       </Text>
 
       <View style={{flex: 1}}>

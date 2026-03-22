@@ -18,6 +18,7 @@ import {
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
 import { Track, SortMode } from '../types';
+import { deduplicateTracks } from '../utils/dedup';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
 import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
@@ -33,7 +34,7 @@ const PlaylistDetailScreen: React.FC = () => {
   const route = useRoute<any>();
   const playlistId: string = route.params?.playlistId;
   const { playlists } = useAppSelector(s => s.playlist);
-  const { tracks, currentTrack, repeatMode } = useAppSelector(s => s.music);
+  const { tracks, currentTrack, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
 
   const playlist = playlists.find(p => p.id === playlistId);
@@ -65,8 +66,9 @@ const PlaylistDetailScreen: React.FC = () => {
   const baseTracks = useMemo(() => {
     if (!playlist) return [];
     const idSet = new Set(playlist.trackIds);
-    return tracks.filter(t => idSet.has(t.id));
-  }, [playlist, tracks]);
+    const list = tracks.filter(t => idSet.has(t.id));
+    return hideDuplicates ? deduplicateTracks(list) : list;
+  }, [playlist, tracks, hideDuplicates]);
 
   const {
     sortedTracks: pinyinSorted,
@@ -468,8 +470,9 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator
           initialNumToRender={20}
-          maxToRenderPerBatch={20}
+          maxToRenderPerBatch={15}
           windowSize={11}
+          removeClippedSubviews={true}
           getItemLayout={getItemLayout}
         />
       </SafeAreaView>
@@ -525,7 +528,7 @@ const styles = StyleSheet.create({
   confirmBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
   importRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 10,
+    paddingHorizontal: 20, height: 58,
   },
 });
 

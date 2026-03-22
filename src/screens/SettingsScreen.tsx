@@ -1,10 +1,11 @@
 // src/screens/SettingsScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Platform, Switch } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store';
-import { scanMusic, setThemeMode, importiOSMediaLibrary } from '../store/musicSlice';
+import { scanMusic, setThemeMode, setHideDuplicates, importiOSMediaLibrary } from '../store/musicSlice';
+import { deduplicateTracks } from '../utils/dedup';
 import FolderPickerScreen from './FolderPickerScreen';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,7 +17,7 @@ const LINE_HEIGHTS = [40, 44, 48, 52, 56, 60, 64];
 
 const SettingsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { tracks, isScanning, scanDirectories, themeMode } = useAppSelector(s => s.music);
+  const { tracks, isScanning, scanDirectories, themeMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [lyricFontSize, setLyricFontSize] = useState(16);
@@ -85,6 +86,36 @@ const SettingsScreen: React.FC = () => {
               <Icon name="phone-portrait-outline" size={18} color={themeMode === 'system' ? colors.bg : colors.textMuted} />
               <Text style={[styles.themeTxt, { color: colors.textMuted }, themeMode === 'system' && { color: colors.bg }]}>跟随系统</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* 音乐库 */}
+      <View style={styles.section}>
+        <Text style={[styles.secTitle, { color: colors.textMuted }]}>播放设置</Text>
+        <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>隐藏相同歌曲</Text>
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2, lineHeight: 16 }}>歌名和歌手相同时，优先保留有封面或音质更高的版本</Text>
+            </View>
+            <Switch
+              value={hideDuplicates}
+              onValueChange={(v: boolean) => {
+                dispatch(setHideDuplicates(v));
+                if (v) {
+                  const dedupedCount = deduplicateTracks(tracks).length;
+                  const removedCount = tracks.length - dedupedCount;
+                  if (removedCount > 0) {
+                    Alert.alert('去重完成', `已隐藏 ${removedCount} 首重复歌曲，当前显示 ${dedupedCount} 首`);
+                  } else {
+                    Alert.alert('去重完成', '未发现重复歌曲');
+                  }
+                }
+              }}
+              trackColor={{ false: colors.bgElevated, true: colors.accent }}
+              thumbColor="#fff"
+            />
           </View>
         </View>
       </View>
@@ -220,6 +251,8 @@ const styles = StyleSheet.create({
   optionTxt: { fontSize: 12, fontWeight: '600' },
   resetBtn: { marginTop: 12, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
   aboutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  switchLabel: { fontSize: 14, fontWeight: '600' },
 });
 
 export default SettingsScreen;

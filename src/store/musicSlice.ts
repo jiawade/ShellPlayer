@@ -37,6 +37,7 @@ interface MusicState {
   playbackSpeed: number;
   sleepTimerEnd: number | null; // timestamp when timer expires
   playQueue: Track[]; // current play queue for queue viewer
+  hideDuplicates: boolean;
   batchSelectMode: boolean;
   batchSelectedIds: string[];
 }
@@ -64,6 +65,7 @@ const initialState: MusicState = {
   playbackSpeed: 1.0,
   sleepTimerEnd: null,
   playQueue: [],
+  hideDuplicates: false,
   batchSelectMode: false,
   batchSelectedIds: [],
 };
@@ -620,6 +622,10 @@ const musicSlice = createSlice({
     setSleepTimer: (s, a: PayloadAction<number | null>) => {
       s.sleepTimerEnd = a.payload;
     },
+    // Hide duplicates
+    setHideDuplicates: (s, a: PayloadAction<boolean>) => {
+      s.hideDuplicates = a.payload;
+    },
     // Play queue
     setPlayQueue: (s, a: PayloadAction<Track[]>) => {
       s.playQueue = a.payload;
@@ -749,7 +755,7 @@ const musicSlice = createSlice({
       })
       .addCase(loadUserPrefs.fulfilled, (s, a) => {
         const p = a.payload as any;
-        if (p.sortMode) {
+        if (['title', 'artist', 'recent', 'shuffle'].includes(p.sortMode)) {
           s.sortMode = p.sortMode;
         }
         if (p.themeMode) {
@@ -757,6 +763,9 @@ const musicSlice = createSlice({
         }
         if (p.speed) {
           s.playbackSpeed = p.speed;
+        }
+        if (typeof p.hideDuplicates === 'boolean') {
+          s.hideDuplicates = p.hideDuplicates;
         }
       })
       .addCase(playTrack.fulfilled, (s, a) => {
@@ -791,6 +800,7 @@ export const {
   setPlaybackSpeed,
   setSleepTimer,
   setPlayQueue,
+  setHideDuplicates,
   toggleBatchMode,
   toggleBatchSelect,
   batchFavorite,

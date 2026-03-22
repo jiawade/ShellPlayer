@@ -7,6 +7,7 @@ import TrackMenu from '../components/TrackMenu';
 import { useAppSelector, useAppDispatch } from '../store';
 import { playTrack, toggleFavorite, clearHistory } from '../store/musicSlice';
 import { Track } from '../types';
+import { deduplicateTracks } from '../utils/dedup';
 import { useTheme } from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
@@ -14,7 +15,7 @@ import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayi
 
 const HistoryScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { tracks, currentTrack, playHistory, repeatMode } = useAppSelector(s => s.music);
+  const { tracks, currentTrack, playHistory, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -22,10 +23,11 @@ const HistoryScreen: React.FC = () => {
   const locateRef = useRef<LocatePlayingRef>(null);
 
   const historyTracks = useMemo(() => {
-    return playHistory
+    const list = playHistory
       .map(h => tracks.find(t => t.id === h.trackId))
       .filter((t): t is Track => t != null);
-  }, [tracks, playHistory]);
+    return hideDuplicates ? deduplicateTracks(list) : list;
+  }, [tracks, playHistory, hideDuplicates]);
 
   const {
     sortedTracks: sortedHistoryTracks,

@@ -7,6 +7,7 @@ import TrackMenu from '../components/TrackMenu';
 import { useAppSelector, useAppDispatch } from '../store';
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { Track } from '../types';
+import { deduplicateTracks } from '../utils/dedup';
 import { useTheme } from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
@@ -14,14 +15,17 @@ import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayi
 
 const FavoritesScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { tracks, currentTrack, favoriteIds, repeatMode } = useAppSelector(s => s.music);
+  const { tracks, currentTrack, favoriteIds, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const locateRef = useRef<LocatePlayingRef>(null);
 
-  const favTracks = useMemo(() => tracks.filter(t => favoriteIds.includes(t.id)), [tracks, favoriteIds]);
+  const favTracks = useMemo(() => {
+    const fav = tracks.filter(t => favoriteIds.includes(t.id));
+    return hideDuplicates ? deduplicateTracks(fav) : fav;
+  }, [tracks, favoriteIds, hideDuplicates]);
 
   const {
     sortedTracks: sortedFavTracks,

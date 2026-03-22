@@ -21,7 +21,7 @@ export interface LyricLine {
 }
 
 export type RepeatMode = 'off' | 'track' | 'queue';
-export type SortMode = 'title' | 'artist' | 'recent';
+export type SortMode = 'title' | 'artist' | 'recent' | 'shuffle';
 export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface PlayHistoryEntry {

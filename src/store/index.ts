@@ -43,8 +43,10 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     case 'music/setSortMode':
     case 'music/setThemeMode':
     case 'music/setPlaybackSpeed':
+    case 'music/setHideDuplicates':
       AsyncStorage.setItem('@userPrefs', JSON.stringify({
         sortMode: m.sortMode, themeMode: m.themeMode, speed: m.playbackSpeed,
+        hideDuplicates: m.hideDuplicates,
       })).catch(() => {});
       break;
     case 'music/addToHistory':

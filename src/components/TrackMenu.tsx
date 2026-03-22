@@ -6,10 +6,12 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
+import { useNavigation } from '@react-navigation/native';
 import { Track } from '../types';
 import { useAppDispatch } from '../store';
 import { hideTrack, deleteTrackPermanently } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   track: Track | null;
@@ -19,7 +21,9 @@ interface Props {
 
 const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [showInfo, setShowInfo] = React.useState(false);
 
   const handlePlayNext = useCallback(async () => {
@@ -49,12 +53,12 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
   const handleDeletePermanent = useCallback(() => {
     if (!track) return;
     Alert.alert(
-      '永久删除',
-      `确定要从存储中永久删除「${track.title}」吗？\n此操作不可撤销！`,
+      t('trackMenu.deleteAlert.title'),
+      t('trackMenu.deleteAlert.message', { title: track.title }),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '确定删除', style: 'destructive',
+          text: t('trackMenu.deleteAlert.confirm'), style: 'destructive',
           onPress: () => { dispatch(deleteTrackPermanently(track.id)); onClose(); },
         },
       ],
@@ -77,24 +81,23 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { setShowInfo(false); onClose(); }}>
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => { setShowInfo(false); onClose(); }}>
-          <Pressable style={[styles.infoSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
+          <View style={[styles.infoSheet, { backgroundColor: colors.bgElevated }]}>
             <View style={[styles.infoHeader, { borderBottomColor: colors.border }]}>
-              <Text style={{ fontSize: sizes.lg, fontWeight: '700', color: colors.textPrimary }}>歌曲信息</Text>
+              <Text style={{ fontSize: sizes.lg, fontWeight: '700', color: colors.textPrimary }}>{t('trackMenu.infoPanel.title')}</Text>
               <TouchableOpacity onPress={() => { setShowInfo(false); onClose(); }} hitSlop={12}>
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.infoScroll} showsVerticalScrollIndicator={false}>
-              <InfoRow label="标题" value={track.title} />
-              <InfoRow label="歌手" value={track.artist} />
-              <InfoRow label="专辑" value={track.album} />
-              <InfoRow label="格式" value={ext} />
-              <InfoRow label="文件名" value={track.fileName} />
-              <InfoRow label="文件路径" value={track.filePath} />
-              <InfoRow label="歌词文件" value={track.lrcPath ? '有 (.lrc)' : track.embeddedLyrics ? '有 (内嵌)' : '无'} />
-              <InfoRow label="封面" value={track.artwork ? '有' : '无'} />
+            <ScrollView style={styles.infoScroll} showsVerticalScrollIndicator={true} bounces={true}>
+              <InfoRow label={t('trackMenu.infoPanel.titleLabel')} value={track.title} />
+              <InfoRow label={t('trackMenu.infoPanel.artistLabel')} value={track.artist} />
+              <InfoRow label={t('trackMenu.infoPanel.albumLabel')} value={track.album} />
+              <InfoRow label={t('trackMenu.infoPanel.formatLabel')} value={ext} />
+              <InfoRow label={t('trackMenu.infoPanel.filenameLabel')} value={track.fileName} />
+              <InfoRow label={t('trackMenu.infoPanel.lyricsLabel')} value={track.lrcPath ? t('trackMenu.infoPanel.hasLyrics') : track.embeddedLyrics ? t('trackMenu.infoPanel.hasLyrics') : t('trackMenu.infoPanel.noLyrics')} />
+              <InfoRow label={t('trackMenu.infoPanel.artworkLabel')} value={track.artwork ? t('trackMenu.infoPanel.hasArtwork') : t('trackMenu.infoPanel.noArtwork')} />
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     );
@@ -111,26 +114,31 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
 
           <TouchableOpacity style={styles.menuItem} onPress={handlePlayNext} activeOpacity={0.6}>
             <Icon name="play-forward-outline" size={20} color={colors.textPrimary} />
-            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>下一首播放</Text>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t('trackMenu.playNext')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={handleShowInfo} activeOpacity={0.6}>
             <Icon name="information-circle-outline" size={20} color={colors.textPrimary} />
-            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>歌曲信息</Text>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t('trackMenu.info')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); navigation.navigate('TagEditor', { track }); }} activeOpacity={0.6}>
+            <Icon name="create-outline" size={20} color={colors.textPrimary} />
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t('trackMenu.editTags')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={handleHide} activeOpacity={0.6}>
             <Icon name="eye-off-outline" size={20} color={colors.secondary} />
-            <Text style={{ fontSize: sizes.md, color: colors.secondary, fontWeight: '500' }}>从列表中移除</Text>
+            <Text style={{ fontSize: sizes.md, color: colors.secondary, fontWeight: '500' }}>{t('trackMenu.hide')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={handleDeletePermanent} activeOpacity={0.6}>
             <Icon name="trash-outline" size={20} color={colors.heart} />
-            <Text style={{ fontSize: sizes.md, color: colors.heart, fontWeight: '500' }}>永久删除文件</Text>
+            <Text style={{ fontSize: sizes.md, color: colors.heart, fontWeight: '500' }}>{t('trackMenu.delete')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: colors.bgCard }]} onPress={onClose} activeOpacity={0.7}>
-            <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>取消</Text>
+            <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>{t('trackMenu.cancel')}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

@@ -243,6 +243,39 @@ class EqualizerModule(reactContext: ReactApplicationContext) :
         presetReverb?.enabled = false
     }
 
+    @ReactMethod
+    fun setCustomBands(gains: ReadableArray, promise: Promise) {
+        try {
+            val eq = equalizer
+            if (eq == null) {
+                promise.reject("EQ_NOT_INIT", "Equalizer not initialized")
+                return
+            }
+            lastPresetId = -1
+            val numBands = eq.numberOfBands.toInt()
+            val bandRange = eq.bandLevelRange
+            val minLevel = bandRange[0].toInt()
+            val maxLevel = bandRange[1].toInt()
+
+            // Disable extra effects when custom bands
+            bassBoost?.enabled = false
+            virtualizer?.enabled = false
+            loudnessEnhancer?.enabled = false
+            presetReverb?.enabled = false
+
+            eq.enabled = true
+            for (i in 0 until minOf(numBands, gains.size())) {
+                val gainDb = gains.getDouble(i)
+                val targetMb = (gainDb * 100).toInt()
+                val clamped = targetMb.coerceIn(minLevel, maxLevel)
+                eq.setBandLevel(i.toShort(), clamped.toShort())
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("EQ_CUSTOM_ERROR", "Failed to set custom bands: ${e.message}", e)
+        }
+    }
+
     private fun releaseAll() {
         try { equalizer?.release() } catch (_: Exception) {}
         try { bassBoost?.release() } catch (_: Exception) {}

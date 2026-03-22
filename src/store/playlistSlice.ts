@@ -64,6 +64,13 @@ const playlistSlice = createSlice({
         pl.updatedAt = Date.now();
       }
     },
+    reorderPlaylist: (s, a: PayloadAction<{ playlistId: string; trackIds: string[] }>) => {
+      const pl = s.playlists.find(p => p.id === a.payload.playlistId);
+      if (pl) {
+        pl.trackIds = a.payload.trackIds;
+        pl.updatedAt = Date.now();
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(loadPlaylists.fulfilled, (s, a) => {
@@ -78,6 +85,7 @@ export const {
   deletePlaylist,
   addTracksToPlaylist,
   removeTracksFromPlaylist,
+  reorderPlaylist,
 } = playlistSlice.actions;
 
 export default playlistSlice.reducer;

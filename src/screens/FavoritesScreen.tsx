@@ -9,6 +9,7 @@ import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { Track } from '../types';
 import { deduplicateTracks } from '../utils/dedup';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
 import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
@@ -17,6 +18,7 @@ const FavoritesScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { tracks, currentTrack, favoriteIds, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -52,8 +54,8 @@ const FavoritesScreen: React.FC = () => {
     return (
       <View style={[styles.empty, { backgroundColor: colors.bg }]}>
         <View style={[styles.emptyIcon, { backgroundColor: colors.bgCard }]}><Icon name="heart-outline" size={72} color={colors.heartDim} /></View>
-        <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary }}>还没有喜欢的歌曲</Text>
-        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>点击歌曲旁的 ♡ 按钮{'\n'}将歌曲加入收藏</Text>
+        <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary }}>{t('favorites.empty.noFavorites')}</Text>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>{t('favorites.empty.message')}</Text>
       </View>
     );
   }
@@ -61,7 +63,7 @@ const FavoritesScreen: React.FC = () => {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>我喜欢的</Text>
+        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>{t('favorites.title')}</Text>
         <View style={[styles.badge, { backgroundColor: colors.heartDim }]}><Icon name="heart" size={14} color={colors.heart} /><Text style={{ fontSize: sizes.sm, color: colors.heart, fontWeight: '600' }}>{favTracks.length}</Text></View>
       </View>
       <View style={{flex: 1}}>

@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import musicReducer from './musicSlice';
 import playlistReducer from './playlistSlice';
+import proReducer from './proSlice';
+import statsReducer from './statsSlice';
 
 const serializeArtworkForCache = (artwork?: string): string | undefined => {
   if (!artwork) return undefined;
@@ -44,9 +46,12 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     case 'music/setThemeMode':
     case 'music/setPlaybackSpeed':
     case 'music/setHideDuplicates':
+    case 'music/setCustomAccent':
+    case 'music/setLanguage':
       AsyncStorage.setItem('@userPrefs', JSON.stringify({
         sortMode: m.sortMode, themeMode: m.themeMode, speed: m.playbackSpeed,
-        hideDuplicates: m.hideDuplicates,
+        hideDuplicates: m.hideDuplicates, customAccent: m.customAccent,
+        language: m.language,
       })).catch(() => {});
       break;
     case 'music/addToHistory':
@@ -68,6 +73,10 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     AsyncStorage.setItem('@playlists', JSON.stringify(pl.playlists)).catch(() => {});
   }
 
+  if (action.type === 'stats/recordListenTime') {
+    AsyncStorage.setItem('@play_stats', JSON.stringify(state.stats)).catch(() => {});
+  }
+
   if (action.type === 'music/setPlaybackSpeed') {
     TrackPlayer.setRate(m.playbackSpeed).catch(() => {});
   }
@@ -76,7 +85,7 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
 };
 
 export const store = configureStore({
-  reducer: { music: musicReducer, playlist: playlistReducer },
+  reducer: { music: musicReducer, playlist: playlistReducer, pro: proReducer, stats: statsReducer },
   middleware: (getDefault) => getDefault({ serializableCheck: false }).concat(persistMiddleware),
 });
 

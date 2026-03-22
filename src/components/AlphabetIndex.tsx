@@ -1,13 +1,13 @@
-import React, { memo, useCallback, useRef, useState, useEffect } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   PanResponder,
-  Animated,
   LayoutChangeEvent,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { hapticSelection } from '../utils/haptics';
 
 interface Props {
   letters: string[];
@@ -26,10 +26,8 @@ const AlphabetIndex: React.FC<Props> = ({
 }) => {
   const { colors } = useTheme();
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  const opacity = useRef(new Animated.Value(0)).current;
-  const hintOpacity = useRef(new Animated.Value(0)).current;
+  const [showHint, setShowHint] = useState(false);
 
-  // Store mutable values in refs so PanResponder closures always read latest
   const lettersRef = useRef(letters);
   lettersRef.current = letters;
   const onSelectRef = useRef(onSelectLetter);
@@ -40,14 +38,6 @@ const AlphabetIndex: React.FC<Props> = ({
   onTouchEndRef.current = onTouchEnd;
   const layoutRef = useRef({ y: 0, h: 0 });
 
-  useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, opacity]);
-
   const getLetterFromY = useCallback((pageY: number) => {
     const { y, h } = layoutRef.current;
     const len = lettersRef.current.length;
@@ -57,21 +47,14 @@ const AlphabetIndex: React.FC<Props> = ({
     return lettersRef.current[Math.max(0, Math.min(idx, len - 1))];
   }, []);
 
-  const showHint = useCallback(() => {
-    Animated.timing(hintOpacity, { toValue: 1, duration: 100, useNativeDriver: true }).start();
-  }, [hintOpacity]);
-
-  const hideHint = useCallback(() => {
-    Animated.timing(hintOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-  }, [hintOpacity]);
-
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         onTouchStartRef.current?.();
-        showHint();
+        setShowHint(true);
+        hapticSelection();
         const letter = getLetterFromY(evt.nativeEvent.pageY);
         if (letter) { setActiveLetter(letter); onSelectRef.current(letter); }
       },
@@ -80,12 +63,12 @@ const AlphabetIndex: React.FC<Props> = ({
         if (letter) { setActiveLetter(letter); onSelectRef.current(letter); }
       },
       onPanResponderRelease: () => {
-        hideHint();
+        setShowHint(false);
         setActiveLetter(null);
         onTouchEndRef.current?.();
       },
       onPanResponderTerminate: () => {
-        hideHint();
+        setShowHint(false);
         setActiveLetter(null);
         onTouchEndRef.current?.();
       },
@@ -98,20 +81,22 @@ const AlphabetIndex: React.FC<Props> = ({
     });
   }, []);
 
-  if (letters.length === 0) return null;
+  if (!visible || letters.length === 0) return null;
 
   return (
-    <>
+    <View style={styles.overlay} pointerEvents="box-none">
       {/* Center hint bubble */}
-      <Animated.View
-        style={[styles.hintBubble, { backgroundColor: colors.accent, opacity: hintOpacity }]}
-        pointerEvents="none"
-      >
-        <Text style={styles.hintText}>{activeLetter || ''}</Text>
-      </Animated.View>
+      {showHint && activeLetter && (
+        <View
+          style={[styles.hintBubble, { backgroundColor: colors.accent }]}
+          pointerEvents="none"
+        >
+          <Text style={styles.hintText}>{activeLetter}</Text>
+        </View>
+      )}
 
       {/* Side index */}
-      <Animated.View style={[styles.container, { opacity }]} pointerEvents={visible ? 'auto' : 'none'}>
+      <View style={styles.container}>
         <View
           onLayout={handleLayout}
           {...panResponder.panHandlers}
@@ -137,19 +122,22 @@ const AlphabetIndex: React.FC<Props> = ({
             </View>
           ))}
         </View>
-      </Animated.View>
-    </>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+  },
   container: {
     position: 'absolute',
     right: 2,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-    zIndex: 100,
   },
   lettersWrap: {
     alignItems: 'center',
@@ -167,10 +155,8 @@ const styles = StyleSheet.create({
   },
   hintBubble: {
     position: 'absolute',
-    left: '50%',
-    top: '50%',
-    marginLeft: -28,
-    marginTop: -28,
+    alignSelf: 'center',
+    top: '45%',
     width: 56,
     height: 56,
     borderRadius: 28,

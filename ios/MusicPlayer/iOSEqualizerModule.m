@@ -409,4 +409,25 @@ RCT_EXPORT_METHOD(release:(RCTPromiseResolveBlock)resolve
   resolve(@YES);
 }
 
+RCT_EXPORT_METHOD(setCustomBands:(NSArray *)gains
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  if (!sEQCtx) { reject(@"EQ_NOT_INIT", @"EQ not initialised", nil); return; }
+  self.currentPresetId = -1;
+  int count = (int)MIN(gains.count, EQ_NUM_BANDS);
+  for (int i = 0; i < count; i++) {
+    sEQCtx->pendingGains[i] = [[gains objectAtIndex:i] floatValue];
+  }
+  sEQCtx->enabled = YES;
+  sEQCtx->needsUpdate = YES;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    AVPlayer *player = sCapturedAVPlayer;
+    if (player && player.currentItem && player.currentItem.audioMix == nil) {
+      [self applyTapToItem:player.currentItem];
+    }
+    resolve(@YES);
+  });
+}
+
 @end

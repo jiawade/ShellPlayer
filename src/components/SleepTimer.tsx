@@ -6,13 +6,14 @@ import TrackPlayer from 'react-native-track-player';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setSleepTimer } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const TIMER_OPTIONS = [
-  { label: '15 分钟', minutes: 15 },
-  { label: '30 分钟', minutes: 30 },
-  { label: '45 分钟', minutes: 45 },
-  { label: '60 分钟', minutes: 60 },
-  { label: '90 分钟', minutes: 90 },
+  { labelKey: 'sleepTimer.options.15min', minutes: 15 },
+  { labelKey: 'sleepTimer.options.30min', minutes: 30 },
+  { labelKey: 'sleepTimer.options.45min', minutes: 45 },
+  { labelKey: 'sleepTimer.options.60min', minutes: 60 },
+  { labelKey: 'sleepTimer.options.90min', minutes: 90 },
 ];
 
 interface Props { visible: boolean; onClose: () => void; }
@@ -21,6 +22,7 @@ const SleepTimer: React.FC<Props> = ({ visible, onClose }) => {
   const dispatch = useAppDispatch();
   const { sleepTimerEnd } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [remaining, setRemaining] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -63,7 +65,7 @@ const SleepTimer: React.FC<Props> = ({ visible, onClose }) => {
       <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={onClose}>
         <Pressable style={[styles.sheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
           <View style={styles.header}>
-            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>睡眠定时</Text>
+            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>{t('sleepTimer.title')}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Icon name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -73,20 +75,20 @@ const SleepTimer: React.FC<Props> = ({ visible, onClose }) => {
             <View style={[styles.activeTimer, { backgroundColor: colors.accentDim }]}>
               <Icon name="moon" size={20} color={colors.accent} />
               <Text style={{ fontSize: sizes.lg, color: colors.accent, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{remaining}</Text>
-              <Text style={{ fontSize: sizes.sm, color: colors.textMuted }}>后停止播放</Text>
+              <Text style={{ fontSize: sizes.sm, color: colors.textMuted }}>{t('sleepTimer.willStop')}</Text>
             </View>
           )}
 
           {TIMER_OPTIONS.map(opt => (
             <TouchableOpacity key={opt.minutes} style={[styles.option, { borderBottomColor: colors.border }]} onPress={() => handleSet(opt.minutes)} activeOpacity={0.6}>
               <Icon name="time-outline" size={20} color={colors.textSecondary} />
-              <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{opt.label}</Text>
+              <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t(opt.labelKey)}</Text>
             </TouchableOpacity>
           ))}
 
           {hasTimer && (
             <TouchableOpacity style={[styles.cancelTimerBtn, { backgroundColor: colors.bgCard }]} onPress={handleCancel} activeOpacity={0.7}>
-              <Text style={{ fontSize: sizes.md, color: colors.heart, fontWeight: '600' }}>取消定时</Text>
+              <Text style={{ fontSize: sizes.md, color: colors.heart, fontWeight: '600' }}>{t('sleepTimer.cancelButton')}</Text>
             </TouchableOpacity>
           )}
         </Pressable>

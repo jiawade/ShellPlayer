@@ -1,0 +1,551 @@
+{
+  "common": {
+    "cancel": "取消",
+    "confirm": "确定",
+    "delete": "删除",
+    "save": "保存",
+    "ok": "好的",
+    "hint": "提示",
+    "import": "导入",
+    "scan": "扫描",
+    "songs": "首歌曲",
+    "song": "首",
+    "unknownArtist": "未知歌手",
+    "unknownAlbum": "未知专辑"
+  },
+  "tabs": {
+    "songs": "歌曲",
+    "playlists": "歌单",
+    "favorites": "喜欢",
+    "history": "历史",
+    "settings": "设置"
+  },
+  "allSongs": {
+    "title": "全部歌曲",
+    "sort": {
+      "byName": "按名称",
+      "byArtist": "按歌手",
+      "byAlbum": "按专辑",
+      "byDuration": "按时长",
+      "recent": "最近添加",
+      "shuffle": "随机打乱"
+    },
+    "importAlerts": {
+      "importComplete": "导入完成",
+      "successMessage": "成功导入了 {{count}} 首歌曲",
+      "newSongsMessage": "新增了 {{newCount}} 首歌曲，共 {{totalCount}} 首",
+      "noNewSongsMessage": "共 {{totalCount}} 首歌曲，没有新增"
+    },
+    "importing": {
+      "title": "正在导入歌曲",
+      "readingLibrary": "正在读取音乐库和本地文件...",
+      "scanning": "正在扫描文件夹...",
+      "parsing": "正在解析歌曲元数据...",
+      "progressFormat": "{{current}} / {{total}} 首"
+    },
+    "emptyState": {
+      "noMusic": "未找到音乐",
+      "setupMessageIOS": "可导入 iTunes/iPod 音乐库，或将音乐文件放入 Documents/music 目录后导入。",
+      "setupMessageAndroid": "请选择目录以扫描音乐文件。",
+      "selectSource": "选择导入来源",
+      "selectDirectory": "选择扫描目录"
+    },
+    "batch": {
+      "selectedCount": "已选 {{count}} 首",
+      "selectAll": "全选",
+      "favorite": "收藏",
+      "hide": "隐藏"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "theme": {
+      "title": "主题",
+      "dark": "深色",
+      "light": "浅色",
+      "system": "跟随系统"
+    },
+    "language": {
+      "title": "语言",
+      "system": "跟随系统",
+      "en": "English",
+      "zh": "中文"
+    },
+    "playback": {
+      "title": "播放设置",
+      "hideDuplicates": "隐藏相同歌曲",
+      "hideDuplicatesDesc": "歌名和歌手相同时，优先保留有封面或音质更高的版本",
+      "dedupeCompleteTitle": "去重完成",
+      "dedupeMessage": "已隐藏 {{count}} 首重复歌曲，当前显示 {{total}} 首",
+      "noDedupes": "未发现重复歌曲"
+    },
+    "library": {
+      "title": "音乐库",
+      "songCount": "首歌曲",
+      "lyricsCount": "有歌词",
+      "favorites": "收藏",
+      "importing": "正在导入...",
+      "reimportLabel": "重新导入音乐",
+      "rescanLabel": "重新扫描",
+      "reimportTitle": "重新导入",
+      "reimportMessage": "将从 iTunes/iPod 音乐库和 Documents 目录重新导入音乐",
+      "rescanTitle": "重新扫描",
+      "rescanMessage": "确定要重新扫描本地音乐吗？"
+    },
+    "musicSource": {
+      "iosTitle": "音乐来源",
+      "androidTitle": "扫描目录",
+      "ituneLabel": "iTunes/iPod 音乐库",
+      "documentsLabel": "Documents 目录（本地文件）",
+      "notSet": "未设置",
+      "iosHint": "通过 iTunes/Finder 同步音乐或使用「文件」应用将音乐文件放入 ShellPlayer 的 Documents 目录",
+      "modifyDirectories": "修改扫描目录"
+    },
+    "lyrics": {
+      "title": "歌词显示",
+      "fontSize": "字体大小",
+      "lineHeight": "行距",
+      "reset": "恢复默认"
+    },
+    "about": {
+      "title": "关于",
+      "appName": "应用名称",
+      "version": "版本",
+      "pro": "ShellPlayer Pro",
+      "privacyPolicy": "隐私政策",
+      "termsOfService": "服务条款",
+      "licenses": "开源许可证"
+    }
+  },
+  "fullPlayer": {
+    "playModes": {
+      "sequential": "顺序播放",
+      "shuffle": "随机播放",
+      "repeatOne": "单曲循环"
+    },
+    "header": "正在播放",
+    "lyricsHint": "点击查看歌词",
+    "coverButton": "封面",
+    "moreMenu": {
+      "title": "更多功能",
+      "rhythmLight": "律动灯",
+      "rhythmLightDesc": "音乐节奏可视化",
+      "carMode": "车载模式",
+      "carModeDesc": "大按钮驾驶界面",
+      "audioAnalyzer": "音频分析",
+      "audioAnalyzerDesc": "详细音频信息"
+    }
+  },
+  "playlists": {
+    "title": "歌单",
+    "trackCount": "{{count}} 首",
+    "empty": {
+      "noPlaylists": "还没有歌单",
+      "message": "点击右上角 + 创建你的第一个歌单",
+      "createButton": "新建歌单"
+    },
+    "createDialog": {
+      "title": "新建歌单",
+      "placeholder": "歌单名称",
+      "cancel": "取消",
+      "create": "创建"
+    },
+    "createAlert": {
+      "title": "提示",
+      "message": "请输入歌单名称"
+    }
+  },
+  "playlistDetail": {
+    "sort": {
+      "byName": "按名称",
+      "byArtist": "按歌手"
+    },
+    "notFound": "歌单不存在",
+    "playAll": "播放全部",
+    "shuffleAll": "随机播放",
+    "searchPlaceholder": "搜索歌单中的歌曲...",
+    "resultCount": {
+      "found": "找到 {{count}} 首",
+      "total": "共 {{count}} 首"
+    },
+    "empty": {
+      "empty": "歌单还没有歌曲",
+      "importButton": "导入歌曲"
+    },
+    "renameDialog": {
+      "title": "重命名歌单",
+      "cancel": "取消",
+      "confirm": "确定"
+    },
+    "deleteAlert": {
+      "title": "删除歌单",
+      "message": "确定要删除「{{name}}」吗？",
+      "confirm": "删除"
+    },
+    "import": {
+      "title": "导入歌曲",
+      "selectAll": "全选",
+      "addButton": "添加",
+      "searchPlaceholder": "搜索全部歌曲...",
+      "found": "找到 {{count}} 首",
+      "total": "共 {{count}} 首",
+      "alreadyAdded": "已添加"
+    },
+    "importAlert": {
+      "title": "提示",
+      "message": "请至少选择一首歌曲"
+    },
+    "removeTrack": {
+      "title": "移除歌曲",
+      "message": "确定将该歌曲从此歌单中移除？",
+      "confirm": "移除"
+    },
+    "exportSuccess": "播放列表已导出至 {{path}}",
+    "exportFailed": "导出失败"
+  },
+  "favorites": {
+    "title": "我喜欢的",
+    "empty": {
+      "noFavorites": "还没有喜欢的歌曲",
+      "message": "点击歌曲旁的 ♡ 按钮\n将歌曲加入收藏"
+    }
+  },
+  "history": {
+    "title": "播放历史",
+    "count": "共 {{count}} 首",
+    "empty": {
+      "noHistory": "暂无播放记录",
+      "message": "播放歌曲后会自动记录在这里"
+    },
+    "clearAlert": {
+      "title": "清空历史",
+      "message": "确定要清空全部播放历史吗？",
+      "clear": "清空"
+    }
+  },
+  "browse": {
+    "title": "浏览",
+    "empty": {
+      "title": "无内容",
+      "comingSoon": "即将推出"
+    },
+    "breadcrumb": "根目录",
+    "playFolder": "播放文件夹",
+    "playAll": "播放全部",
+    "addToPlaylist": "添加到歌单",
+    "filesCount": "{{count}} 个音频文件",
+    "audioFiles": "{{count}} 个音频文件",
+    "folders": "{{count}} 个文件夹",
+    "emptyFolder": "此文件夹为空",
+    "notImported": "此文件尚未导入"
+  },
+  "albums": {
+    "title": "专辑",
+    "count": "{{count}} 张专辑",
+    "playAll": "播放全部",
+    "shuffleAll": "随机播放",
+    "trackCount": "{{count}} 首歌",
+    "totalDuration": "{{duration}}",
+    "unknownAlbum": "未知专辑",
+    "empty": {
+      "title": "暂无专辑",
+      "message": "导入音乐后将在此显示专辑"
+    }
+  },
+  "artists": {
+    "title": "艺术家",
+    "count": "{{count}} 位艺术家",
+    "songCount": "{{count}} 首歌",
+    "albumCount": "{{count}} 张专辑",
+    "allSongs": "所有歌曲",
+    "albumsTab": "专辑",
+    "unknownArtist": "未知艺术家",
+    "empty": {
+      "title": "暂无艺术家",
+      "message": "导入音乐后将在此显示艺术家"
+    }
+  },
+  "library": {
+    "segments": {
+      "songs": "歌曲",
+      "albums": "专辑",
+      "artists": "艺术家",
+      "folders": "浏览"
+    }
+  },
+  "rhythmLight": {
+    "modes": {
+      "classic": "经典灯柱",
+      "mirror": "中轴波形",
+      "speaker": "音响节律",
+      "radar": "雷达频谱",
+      "matrix": "流光方阵",
+      "vumeter": "VU表",
+      "waveform": "波形",
+      "spectrum3d": "3D频谱"
+    }
+  },
+  "folderPicker": {
+    "commonDirs": {
+      "netease": "网易云音乐",
+      "qq": "QQ音乐",
+      "kugou": "酷狗音乐"
+    },
+    "selectFolder": "选择文件夹",
+    "selectCurrent": "选择此目录",
+    "emptyMessage": {
+      "iosFolders": "此目录下没有子文件夹或音乐文件",
+      "androidFolders": "此目录下没有子文件夹",
+      "documentsFolder": "Documents 目录下暂无文件夹或音乐文件"
+    },
+    "selectAllFiles": {
+      "selectAll": "全选文件",
+      "deselectAll": "取消全选文件"
+    },
+    "sections": {
+      "library": "音乐库",
+      "documents": "本地目录（Documents）",
+      "common": "常用目录",
+      "custom": "自定义",
+      "selectedFiles": "已选文件"
+    },
+    "browse": "浏览文件夹...",
+    "itunesSource": "iTunes/iPod 音乐库",
+    "itunesHint": "导入通过 iTunes/Finder 同步的音乐",
+    "selectAll": {
+      "deselectAll": "取消全选",
+      "selectAll": "全选"
+    },
+    "headers": {
+      "iosSelectSource": "选择导入来源",
+      "androidSelectDirectory": "选择扫描目录"
+    },
+    "buttons": {
+      "iosImportAll": "导入全部（音乐库 + 本地文件）",
+      "androidScanAll": "扫描全部常用目录",
+      "iosStart": "开始导入",
+      "androidStart": "开始扫描",
+      "filesFormat": "个音乐文件",
+      "selectedDirs": "已选 {{count}} 个目录",
+      "selectedItems": "已选 {{count}} 项"
+    },
+    "alerts": {
+      "selectSourceTitle": "提示",
+      "selectSourceMessage": "请至少选择一个导入来源",
+      "selectDirTitle": "提示",
+      "selectDirMessage": "请至少选择一个目录"
+    }
+  },
+  "equalizer": {
+    "title": "音效模式",
+    "applying": "应用中...",
+    "advancedEQ": "高级EQ",
+    "presetTab": "预设",
+    "customTab": "参数EQ",
+    "reset": "重置",
+    "presets": {
+      "off": { "name": "关闭", "desc": "原始音效" },
+      "3dSurround": { "name": "3D丽音", "desc": "立体环绕声场" },
+      "jazz": { "name": "爵士", "desc": "温暖中频增强" },
+      "pop": { "name": "流行", "desc": "人声突出" },
+      "rock": { "name": "摇滚", "desc": "低高音增强" },
+      "classical": { "name": "古典", "desc": "宽广动态" },
+      "hiphop": { "name": "嘻哈", "desc": "重低音增强" },
+      "electronic": { "name": "电子", "desc": "低+高频提升" },
+      "randb": { "name": "R&B", "desc": "柔和中低频" },
+      "vocals": { "name": "人声", "desc": "人声频段增强" },
+      "deepBass": { "name": "重低音", "desc": "极致低频" },
+      "live": { "name": "现场", "desc": "模拟现场效果" }
+    }
+  },
+  "lyrics": {
+    "empty": {
+      "title": "暂无歌词",
+      "supportedFormats": "支持 .lrc 文件或 ID3 内嵌歌词",
+      "fileLocation": ".lrc 文件需与歌曲同名同目录"
+    },
+    "controls": {
+      "prev": "上一句",
+      "replay": "重播",
+      "next": "下一句"
+    },
+    "offset": {
+      "title": "歌词偏移",
+      "reset": "重置"
+    },
+    "search": {
+      "title": "搜索歌词",
+      "searching": "搜索中...",
+      "noResults": "未找到歌词",
+      "download": "下载",
+      "downloaded": "已下载"
+    }
+  },
+  "sleepTimer": {
+    "title": "睡眠定时",
+    "willStop": "后停止播放",
+    "cancelButton": "取消定时",
+    "options": {
+      "15min": "15 分钟",
+      "30min": "30 分钟",
+      "45min": "45 分钟",
+      "60min": "60 分钟",
+      "90min": "90 分钟"
+    }
+  },
+  "playQueue": {
+    "title": "播放队列",
+    "countFormat": "首",
+    "empty": "队列为空"
+  },
+  "searchBar": {
+    "placeholder": "搜索歌曲、歌手..."
+  },
+  "trackMenu": {
+    "playNext": "下一首播放",
+    "info": "歌曲信息",
+    "hide": "从列表中移除",
+    "delete": "永久删除文件",
+    "editTags": "编辑标签",
+    "cancel": "取消",
+    "deleteAlert": {
+      "title": "永久删除",
+      "message": "确定要从存储中永久删除「{{title}}」吗？\n此操作不可撤销！",
+      "confirm": "确定删除"
+    },
+    "infoPanel": {
+      "title": "歌曲信息",
+      "titleLabel": "标题",
+      "artistLabel": "歌手",
+      "albumLabel": "专辑",
+      "formatLabel": "格式",
+      "filenameLabel": "文件名",
+      "filepathLabel": "文件路径",
+      "lyricsLabel": "歌词",
+      "artworkLabel": "封面",
+      "hasLyrics": "有歌词",
+      "noLyrics": "无歌词",
+      "hasArtwork": "有封面",
+      "noArtwork": "无封面"
+    }
+  },
+  "pro": {
+    "title": "ShellPlayer Pro",
+    "subtitle": "解锁全部高级功能",
+    "purchase": "解锁 Pro",
+    "restore": "恢复购买",
+    "purchased": "已解锁 Pro",
+    "storeUnavailable": "商店不可用",
+    "trial": "免费试用 Pro 3 天",
+    "features": {
+      "parametricEQ": "参数EQ & 12个预设",
+      "allVisualizers": "全部可视化模式",
+      "smartPlaylists": "智能歌单 & M3U",
+      "lyricsSearch": "歌词搜索 & 偏移调节",
+      "audioAnalyzer": "音频分析仪",
+      "tagEditor": "标签编辑",
+      "statistics": "播放统计",
+      "carMode": "车载模式",
+      "customThemes": "自定义主题",
+      "gapless": "无缝播放"
+    }
+  },
+  "onboarding": {
+    "page1": {
+      "title": "本地音乐播放器",
+      "desc": "播放 MP3、FLAC、M4A、WAV 等格式 — 全部来自您的设备"
+    },
+    "page2": {
+      "title": "专业音频",
+      "desc": "12种EQ预设、实时可视化、音频分析"
+    },
+    "page3": {
+      "title": "同步歌词",
+      "desc": "LRC歌词同步、拖拽跳转、在线歌词搜索"
+    },
+    "page4": {
+      "title": "隐私至上",
+      "desc": "无需账号、不收集数据 — 一切留在您的设备上"
+    },
+    "getStarted": "开始使用"
+  },
+  "statistics": {
+    "title": "播放统计",
+    "today": "今天",
+    "thisWeek": "本周",
+    "thisMonth": "本月",
+    "allTime": "总计",
+    "topSongs": "最常播放",
+    "topArtists": "最爱艺术家",
+    "listenTime": "聆听时长",
+    "plays": "次",
+    "hours": "小时",
+    "minutes": "分钟",
+    "heatmap": "聆听日历",
+    "formatDistribution": "格式分布",
+    "noData": "暂无数据",
+    "tracks": "首"
+  },
+  "carMode": {
+    "exit": "退出车载模式"
+  },
+  "audioAnalyzer": {
+    "title": "音频分析",
+    "format": "格式",
+    "sampleRate": "采样率",
+    "bitRate": "比特率",
+    "channels": "声道",
+    "fileSize": "文件大小",
+    "duration": "时长",
+    "stereo": "立体声",
+    "mono": "单声道",
+    "level": "电平",
+    "audioInfo": "音频信息",
+    "path": "路径"
+  },
+  "tagEditor": {
+    "title": "编辑标签",
+    "titleField": "标题",
+    "artistField": "艺术家",
+    "albumField": "专辑",
+    "yearField": "年份",
+    "trackField": "曲目号",
+    "coverArt": "封面",
+    "changeCover": "更换封面",
+    "save": "保存修改",
+    "saving": "保存中...",
+    "saved": "标签已保存",
+    "saveSuccess": "标签更新成功",
+    "saveFailed": "标签更新失败",
+    "memoryOnly": "已在应用内更新（文件为只读）"
+  },
+  "loading": {
+    "initPlayer": "初始化播放器..."
+  },
+  "themeEditor": {
+    "title": "主题",
+    "appearance": "外观",
+    "dark": "深色",
+    "light": "浅色",
+    "system": "跟随系统",
+    "presets": "预设主题",
+    "resetDefault": "恢复默认",
+    "preset_default": "默认",
+    "preset_ocean": "海洋",
+    "preset_forest": "森林",
+    "preset_sunset": "日落",
+    "preset_rose": "玫瑰",
+    "preset_midnight": "午夜",
+    "preset_crimson": "赤红",
+    "preset_gold": "金色"
+  },
+  "battery": {
+    "title": "后台播放",
+    "warning": "部分安卓设备可能会为了省电而停止后台播放。请按以下步骤操作以避免此问题。",
+    "step1": "进入 设置 > 电池（或电池优化）",
+    "step2": "在应用列表中找到 ShellPlayer",
+    "step3": "设置为「不优化」或「无限制」",
+    "step4": "如有「自启动」权限选项，也请开启",
+    "openSettings": "打开设置"
+  }
+}

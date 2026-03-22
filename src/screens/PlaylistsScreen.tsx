@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../store';
 import { loadPlaylists, createPlaylist } from '../store/playlistSlice';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import PlaylistCover from '../components/PlaylistCover';
 import { Playlist } from '../types';
 
@@ -16,6 +17,7 @@ const PlaylistsScreen: React.FC = () => {
   const { playlists } = useAppSelector(s => s.playlist);
   const { tracks } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -42,7 +44,7 @@ const PlaylistsScreen: React.FC = () => {
   const handleCreate = useCallback(() => {
     const name = newName.trim();
     if (!name) {
-      Alert.alert('提示', '请输入歌单名称');
+      Alert.alert(t('playlists.createAlert.title'), t('playlists.createAlert.message'));
       return;
     }
     dispatch(createPlaylist(name));
@@ -67,7 +69,7 @@ const PlaylistsScreen: React.FC = () => {
           <PlaylistCover artworks={artworks} borderRadius={12} />
         </View>
         <Text style={[styles.cardName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
-        <Text style={[styles.cardCount, { color: colors.textMuted }]}>{count} 首</Text>
+        <Text style={[styles.cardCount, { color: colors.textMuted }]}>{t('playlists.trackCount', { count })}</Text>
       </TouchableOpacity>
     );
   }, [playlistArtworks, colors, handleOpen]);
@@ -75,7 +77,7 @@ const PlaylistsScreen: React.FC = () => {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>歌单</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('playlists.title')}</Text>
         <TouchableOpacity onPress={() => setShowCreate(true)} hitSlop={8} style={styles.addBtn}>
           <Icon name="add-circle-outline" size={26} color={colors.accent} />
         </TouchableOpacity>
@@ -87,17 +89,17 @@ const PlaylistsScreen: React.FC = () => {
             <Icon name="albums-outline" size={64} color={colors.textMuted} />
           </View>
           <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary, marginTop: 4 }}>
-            还没有歌单
+            {t('playlists.empty.noPlaylists')}
           </Text>
           <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-            点击右上角 + 创建你的第一个歌单
+            {t('playlists.empty.message')}
           </Text>
           <TouchableOpacity
             style={[styles.createBtn, { backgroundColor: colors.accent }]}
             onPress={() => setShowCreate(true)}
           >
             <Icon name="add" size={20} color={colors.bg} />
-            <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>新建歌单</Text>
+            <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>{t('playlists.empty.createButton')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -115,10 +117,10 @@ const PlaylistsScreen: React.FC = () => {
       <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowCreate(false)}>
           <Pressable style={[styles.dialog, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
-            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 }}>新建歌单</Text>
+            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 }}>{t('playlists.createDialog.title')}</Text>
             <TextInput
               style={[styles.dialogInput, { backgroundColor: colors.bgCard, color: colors.textPrimary, borderColor: colors.border }]}
-              placeholder="歌单名称"
+              placeholder={t('playlists.createDialog.placeholder')}
               placeholderTextColor={colors.textMuted}
               value={newName}
               onChangeText={setNewName}
@@ -132,13 +134,13 @@ const PlaylistsScreen: React.FC = () => {
                 style={[styles.dialogBtn, { backgroundColor: colors.bgCard }]}
                 onPress={() => { setShowCreate(false); setNewName(''); }}
               >
-                <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>取消</Text>
+                <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>{t('playlists.createDialog.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.dialogBtn, { backgroundColor: colors.accent }]}
                 onPress={handleCreate}
               >
-                <Text style={{ fontSize: sizes.md, color: colors.bg, fontWeight: '600' }}>创建</Text>
+                <Text style={{ fontSize: sizes.md, color: colors.bg, fontWeight: '600' }}>{t('playlists.createDialog.create')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

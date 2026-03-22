@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(EqualizerPackage())
               add(AudioLevelPackage())
+              add(TagWriterPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

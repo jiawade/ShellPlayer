@@ -14,18 +14,21 @@ import { useAppSelector, useAppDispatch } from '../store';
 import {
   renamePlaylist, deletePlaylist,
   addTracksToPlaylist, removeTracksFromPlaylist,
+  reorderPlaylist,
 } from '../store/playlistSlice';
 import { playTrack, toggleFavorite } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { Track, SortMode } from '../types';
 import { deduplicateTracks } from '../utils/dedup';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
 import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
+import { generateM3U, exportToFile } from '../utils/m3uParser';
 
-const SORT_OPTIONS: { mode: SortMode; label: string; icon: string }[] = [
-  { mode: 'title', label: '按名称', icon: 'text-outline' },
-  { mode: 'artist', label: '按歌手', icon: 'person-outline' },
+const SORT_OPTIONS_KEYS: { mode: SortMode; labelKey: string; icon: string }[] = [
+  { mode: 'title', labelKey: 'playlistDetail.sort.byName', icon: 'text-outline' },
+  { mode: 'artist', labelKey: 'playlistDetail.sort.byArtist', icon: 'person-outline' },
 ];
 
 const PlaylistDetailScreen: React.FC = () => {
@@ -36,6 +39,7 @@ const PlaylistDetailScreen: React.FC = () => {
   const { playlists } = useAppSelector(s => s.playlist);
   const { tracks, currentTrack, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
 
   const playlist = playlists.find(p => p.id === playlistId);
 
@@ -116,15 +120,15 @@ const PlaylistDetailScreen: React.FC = () => {
 
   const handleRename = useCallback(() => {
     const name = renameTxt.trim();
-    if (!name) { Alert.alert('提示', '请输入歌单名称'); return; }
+    if (!name) { Alert.alert(t('playlists.createAlert.title'), t('playlists.createAlert.message')); return; }
     dispatch(renamePlaylist({ id: playlistId, name }));
     setShowRename(false);
   }, [dispatch, playlistId, renameTxt]);
 
   const handleDelete = useCallback(() => {
-    Alert.alert('删除歌单', `确定删除「${playlist?.name}」？此操作不可恢复。`, [
-      { text: '取消' },
-      { text: '删除', style: 'destructive', onPress: () => {
+    Alert.alert(t('playlistDetail.deleteAlert.title'), t('playlistDetail.deleteAlert.message', { name: playlist?.name }), [
+      { text: t('common.cancel') },
+      { text: t('common.delete'), style: 'destructive', onPress: () => {
         dispatch(deletePlaylist(playlistId));
         navigation.goBack();
       }},
@@ -132,13 +136,25 @@ const PlaylistDetailScreen: React.FC = () => {
   }, [dispatch, playlistId, playlist, navigation]);
 
   const handleRemoveTrack = useCallback((trackId: string) => {
-    Alert.alert('移除歌曲', '确定将该歌曲从此歌单中移除？', [
-      { text: '取消' },
-      { text: '移除', style: 'destructive', onPress: () => {
+    Alert.alert(t('playlistDetail.removeTrack.title'), t('playlistDetail.removeTrack.message'), [
+      { text: t('common.cancel') },
+      { text: t('playlistDetail.removeTrack.confirm'), style: 'destructive', onPress: () => {
         dispatch(removeTracksFromPlaylist({ playlistId, trackIds: [trackId] }));
       }},
     ]);
   }, [dispatch, playlistId]);
+
+  const handleExportM3U = useCallback(async () => {
+    if (playlistTracks.length === 0) return;
+    try {
+      const content = generateM3U(playlistTracks);
+      const safeName = (playlist?.name || 'playlist').replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '_');
+      const filePath = await exportToFile(content, safeName);
+      Alert.alert(t('common.ok'), t('playlistDetail.exportSuccess', { path: filePath }));
+    } catch {
+      Alert.alert(t('common.hint'), t('playlistDetail.exportFailed'));
+    }
+  }, [playlistTracks, playlist, t]);
 
   const renderItem = useCallback(({ item }: { item: Track }) => (
     <View style={styles.trackRow}>
@@ -167,7 +183,7 @@ const PlaylistDetailScreen: React.FC = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
             <Icon name="chevron-back" size={26} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={{ flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginLeft: 8 }}>歌单不存在</Text>
+          <Text style={{ flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginLeft: 8 }}>{t('playlistDetail.notFound')}</Text>
         </View>
       </View>
     );
@@ -189,6 +205,9 @@ const PlaylistDetailScreen: React.FC = () => {
         <TouchableOpacity onPress={handleDelete} hitSlop={8} style={{ marginRight: 12 }}>
           <Icon name="trash-outline" size={22} color={colors.secondary || '#EF4444'} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={handleExportM3U} hitSlop={8} style={{ marginRight: 12 }}>
+          <Icon name="download-outline" size={22} color={colors.textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowImport(true)} hitSlop={8}>
           <Icon name="add-circle-outline" size={22} color={colors.accent} />
         </TouchableOpacity>
@@ -205,11 +224,11 @@ const PlaylistDetailScreen: React.FC = () => {
       <View style={styles.actionRow}>
         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accent }]} onPress={handlePlayAll}>
           <Icon name="play" size={18} color={colors.bg} />
-          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.bg }}>播放全部</Text>
+          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.bg }}>{t('playlistDetail.playAll')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1 }]} onPress={handleShuffleAll}>
           <Icon name="shuffle" size={18} color={colors.textPrimary} />
-          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.textPrimary }}>随机播放</Text>
+          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.textPrimary }}>{t('playlistDetail.shuffleAll')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowSort(!showSort)} style={styles.sortToggle} hitSlop={8}>
           <Icon name="swap-vertical-outline" size={20} color={colors.textSecondary} />
@@ -218,35 +237,35 @@ const PlaylistDetailScreen: React.FC = () => {
 
       {showSort && (
         <View style={styles.sortRow}>
-          {SORT_OPTIONS.map(o => (
+          {SORT_OPTIONS_KEYS.map(o => (
             <TouchableOpacity
               key={o.mode}
               style={[styles.sortBtn, { backgroundColor: colors.bgCard }, sortMode === o.mode && { backgroundColor: colors.accent }]}
               onPress={() => { setSortMode(o.mode); setShowSort(false); }}
             >
               <Icon name={o.icon} size={14} color={sortMode === o.mode ? colors.bg : colors.textMuted} />
-              <Text style={[styles.sortTxt, { color: colors.textMuted }, sortMode === o.mode && { color: colors.bg }]}>{o.label}</Text>
+              <Text style={[styles.sortTxt, { color: colors.textMuted }, sortMode === o.mode && { color: colors.bg }]}>{t(o.labelKey)}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="搜索歌单中的歌曲..." />
+      <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={t('playlistDetail.searchPlaceholder')} />
 
       <Text style={{ fontSize: sizes.sm, color: colors.textMuted, paddingHorizontal: 20, paddingBottom: 4 }}>
-        {searchQuery ? `找到 ${playlistTracks.length} 首` : `共 ${playlist.trackIds.length} 首`}
+        {searchQuery ? t('playlistDetail.resultCount.found', { count: playlistTracks.length }) : t('playlistDetail.resultCount.total', { count: playlist.trackIds.length })}
       </Text>
 
       {playlistTracks.length === 0 && !searchQuery ? (
         <View style={styles.emptyList}>
           <Icon name="musical-notes-outline" size={48} color={colors.textMuted} />
-          <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>歌单还没有歌曲</Text>
+          <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>{t('playlistDetail.empty.empty')}</Text>
           <TouchableOpacity
             style={[styles.importBtnEmpty, { backgroundColor: colors.accent }]}
             onPress={() => setShowImport(true)}
           >
             <Icon name="add" size={18} color={colors.bg} />
-            <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.bg }}>导入歌曲</Text>
+            <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.bg }}>{t('playlistDetail.empty.importButton')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -265,10 +284,10 @@ const PlaylistDetailScreen: React.FC = () => {
             initialNumToRender={20}
             maxToRenderPerBatch={15}
           />
-          {sortMode === 'title' && !searchQuery && (
+          {sortMode === 'title' && !searchQuery && letters.length > 0 && (
             <AlphabetIndex
               letters={letters}
-              visible={indexVisible}
+              visible={true}
               onSelectLetter={onSelectLetter}
               onTouchStart={onIndexTouchStart}
               onTouchEnd={onIndexTouchEnd}
@@ -287,7 +306,7 @@ const PlaylistDetailScreen: React.FC = () => {
       <Modal visible={showRename} transparent animationType="fade" onRequestClose={() => setShowRename(false)}>
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setShowRename(false)}>
           <Pressable style={[styles.dialog, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
-            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 }}>重命名歌单</Text>
+            <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 }}>{t('playlistDetail.renameDialog.title')}</Text>
             <TextInput
               style={[styles.dialogInput, { backgroundColor: colors.bgCard, color: colors.textPrimary, borderColor: colors.border }]}
               value={renameTxt}
@@ -299,10 +318,10 @@ const PlaylistDetailScreen: React.FC = () => {
             />
             <View style={styles.dialogBtns}>
               <TouchableOpacity style={[styles.dialogBtn, { backgroundColor: colors.bgCard }]} onPress={() => setShowRename(false)}>
-                <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>取消</Text>
+                <Text style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.dialogBtn, { backgroundColor: colors.accent }]} onPress={handleRename}>
-                <Text style={{ fontSize: sizes.md, color: colors.bg, fontWeight: '600' }}>确定</Text>
+                <Text style={{ fontSize: sizes.md, color: colors.bg, fontWeight: '600' }}>{t('common.confirm')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -330,9 +349,10 @@ interface ImportRowProps {
   onToggle: (id: string) => void;
   colors: any;
   sizes: any;
+  alreadyAddedLabel: string;
 }
 
-const ImportRow = memo<ImportRowProps>(({ item, isSelected, isExisting, onToggle, colors, sizes }) => (
+const ImportRow = memo<ImportRowProps>(({ item, isSelected, isExisting, onToggle, colors, sizes, alreadyAddedLabel }) => (
   <TouchableOpacity
     style={[styles.importRow, isExisting && { opacity: 0.4 }]}
     onPress={() => { if (!isExisting) onToggle(item.id); }}
@@ -350,7 +370,7 @@ const ImportRow = memo<ImportRowProps>(({ item, isSelected, isExisting, onToggle
       <Text style={{ fontSize: sizes.sm, color: colors.textSecondary }} numberOfLines={1}>{item.artist}</Text>
     </View>
     {isExisting && (
-      <Text style={{ fontSize: 10, color: colors.textMuted }}>已添加</Text>
+      <Text style={{ fontSize: 10, color: colors.textMuted }}>{alreadyAddedLabel}</Text>
     )}
   </TouchableOpacity>
 ));
@@ -368,6 +388,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
   const dispatch = useAppDispatch();
   const { tracks } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
 
@@ -401,7 +422,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
 
   const handleConfirm = useCallback(() => {
     if (selected.size === 0) {
-      Alert.alert('提示', '请至少选择一首歌曲');
+      Alert.alert(t('playlistDetail.importAlert.title'), t('playlistDetail.importAlert.message'));
       return;
     }
     dispatch(addTracksToPlaylist({ playlistId, trackIds: Array.from(selected) }));
@@ -424,8 +445,9 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
       onToggle={toggleSelect}
       colors={colors}
       sizes={sizes}
+      alreadyAddedLabel={t('playlistDetail.import.alreadyAdded')}
     />
-  ), [selected, existingSet, toggleSelect, colors, sizes]);
+  ), [selected, existingSet, toggleSelect, colors, sizes, t]);
 
   const ITEM_HEIGHT = 58;
   const getItemLayout = useCallback((_: any, i: number) => ({
@@ -443,24 +465,24 @@ const ImportSongsModal: React.FC<ImportProps> = ({ visible, onClose, playlistId,
             <Icon name="close" size={26} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={{ flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, marginLeft: 12 }}>
-            导入歌曲
+            {t('playlistDetail.import.title')}
           </Text>
           <TouchableOpacity onPress={handleSelectAll} style={{ marginRight: 12 }}>
-            <Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>全选</Text>
+            <Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>{t('playlistDetail.import.selectAll')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleConfirm}>
             <View style={[styles.confirmBtn, { backgroundColor: colors.accent }]}>
               <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.bg }}>
-                添加{selected.size > 0 ? ` (${selected.size})` : ''}
+                {t('playlistDetail.import.addButton')}{selected.size > 0 ? ` (${selected.size})` : ''}
               </Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        <SearchBar value={search} onChangeText={setSearch} placeholder="搜索全部歌曲..." />
+        <SearchBar value={search} onChangeText={setSearch} placeholder={t('playlistDetail.import.searchPlaceholder')} />
 
         <Text style={{ fontSize: sizes.sm, color: colors.textMuted, paddingHorizontal: 20, paddingBottom: 4 }}>
-          {search ? `找到 ${filtered.length} 首` : `共 ${tracks.length} 首`}
+          {search ? t('playlistDetail.import.found', { count: filtered.length }) : t('playlistDetail.import.total', { count: tracks.length })}
         </Text>
 
         <FlatList

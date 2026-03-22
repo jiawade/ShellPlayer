@@ -12,6 +12,7 @@ import {
   Alert,
   Platform,
   InteractionManager,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackItem from '../components/TrackItem';
@@ -51,12 +52,22 @@ import {useTheme} from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
 import {useAlphabetIndex} from '../hooks/useAlphabetIndex';
 import LocatePlayingButton, {LocatePlayingRef} from '../components/LocatePlayingButton';
+import { useTranslation } from 'react-i18next';
+import AlbumsScreen from './AlbumsScreen';
+import AlbumDetailScreen from './AlbumDetailScreen';
+import ArtistsScreen from './ArtistsScreen';
+import ArtistDetailScreen from './ArtistDetailScreen';
+import BrowseScreen from './BrowseScreen';
 
-const SORT_OPTIONS: {mode: SortMode; label: string; icon: string}[] = [
-  {mode: 'title', label: '按名称', icon: 'text-outline'},
-  {mode: 'artist', label: '按歌手', icon: 'person-outline'},
-  {mode: 'recent', label: '最近添加', icon: 'time-outline'},
-  {mode: 'shuffle', label: '随机打乱', icon: 'shuffle-outline'},
+type LibrarySegment = 'songs' | 'albums' | 'artists' | 'folders';
+
+const SORT_OPTIONS_KEYS: {mode: SortMode; labelKey: string; icon: string}[] = [
+  {mode: 'title', labelKey: 'allSongs.sort.byName', icon: 'text-outline'},
+  {mode: 'artist', labelKey: 'allSongs.sort.byArtist', icon: 'person-outline'},
+  {mode: 'album', labelKey: 'allSongs.sort.byAlbum', icon: 'disc-outline'},
+  {mode: 'duration', labelKey: 'allSongs.sort.byDuration', icon: 'timer-outline'},
+  {mode: 'recent', labelKey: 'allSongs.sort.recent', icon: 'time-outline'},
+  {mode: 'shuffle', labelKey: 'allSongs.sort.shuffle', icon: 'shuffle-outline'},
 ];
 
 const hashToUnit = (input: string): number => {
@@ -85,6 +96,7 @@ const AllSongsScreen: React.FC = () => {
     batchSelectedIds,
   } = useAppSelector(s => s.music);
   const {colors, sizes} = useTheme();
+  const { t } = useTranslation();
   const flatListRef = useRef<FlatList>(null);
   const locateRef = useRef<LocatePlayingRef>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -94,6 +106,9 @@ const AllSongsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [shuffleSeed, setShuffleSeed] = useState(() => Date.now());
   const [userTriggeredImport, setUserTriggeredImport] = useState(false);
+  const [activeSegment, setActiveSegment] = useState<LibrarySegment>('songs');
+  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const prevScanningRef = React.useRef(false);
   const [prevTrackCount, setPrevTrackCount] = useState(0);
 
@@ -102,11 +117,11 @@ const AllSongsScreen: React.FC = () => {
       setUserTriggeredImport(false);
       const newCount = tracks.length - prevTrackCount;
       if (prevTrackCount === 0 && tracks.length > 0) {
-        Alert.alert('导入完成', `成功导入了 ${tracks.length} 首歌曲`);
+        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.successMessage', { count: tracks.length }));
       } else if (newCount > 0) {
-        Alert.alert('导入完成', `新增了 ${newCount} 首歌曲，共 ${tracks.length} 首`);
+        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.newSongsMessage', { newCount, totalCount: tracks.length }));
       } else if (userTriggeredImport && tracks.length > 0) {
-        Alert.alert('导入完成', `共 ${tracks.length} 首歌曲，没有新增`);
+        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.noNewSongsMessage', { totalCount: tracks.length }));
       }
     }
     prevScanningRef.current = isScanning;
@@ -224,6 +239,10 @@ const AllSongsScreen: React.FC = () => {
     }
     if (sortMode === 'artist') {
       list.sort((a, b) => a.artist.localeCompare(b.artist, 'zh-CN'));
+    } else if (sortMode === 'album') {
+      list.sort((a, b) => a.album.localeCompare(b.album, 'zh-CN'));
+    } else if (sortMode === 'duration') {
+      list.sort((a, b) => (b.duration || 0) - (a.duration || 0));
     } else if (sortMode === 'recent') {
       list.reverse();
     } else if (sortMode === 'shuffle') {
@@ -365,15 +384,15 @@ const AllSongsScreen: React.FC = () => {
             fontWeight: '600',
             marginTop: 20,
           }}>
-          正在导入歌曲
+          {t('allSongs.importing.title')}
         </Text>
         <Text
           style={{fontSize: sizes.md, color: colors.textMuted, marginTop: 8}}>
           {p?.phase === 'scanning'
             ? Platform.OS === 'ios'
-              ? '正在读取音乐库和本地文件...'
-              : '正在扫描文件夹...'
-            : '正在解析歌曲元数据...'}
+              ? t('allSongs.importing.readingLibrary')
+              : t('allSongs.importing.scanning')
+            : t('allSongs.importing.parsing')}
         </Text>
         <View style={styles.progressWrap}>
           <View
@@ -423,7 +442,7 @@ const AllSongsScreen: React.FC = () => {
             marginTop: 16,
             fontWeight: '600',
           }}>
-          未找到音乐
+          {t('allSongs.emptyState.noMusic')}
         </Text>
         {scanError ? (
           <Text
@@ -443,7 +462,7 @@ const AllSongsScreen: React.FC = () => {
           <Icon name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'} size={18} color={colors.bg} />
           <Text
             style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-            {Platform.OS === 'ios' ? '选择导入来源' : '选择扫描目录'}
+            {Platform.OS === 'ios' ? t('allSongs.emptyState.selectSource') : t('allSongs.emptyState.selectDirectory')}
           </Text>
         </TouchableOpacity>
         {Platform.OS === 'ios' && (
@@ -455,7 +474,7 @@ const AllSongsScreen: React.FC = () => {
               textAlign: 'center',
               paddingHorizontal: 32,
             }}>
-            可导入 iTunes/iPod 音乐库，或将音乐文件放入 Documents/music 目录后导入。
+            {t('allSongs.emptyState.setupMessageIOS')}
           </Text>
         )}
         <Modal visible={showFolderPicker} animationType="slide">
@@ -482,7 +501,7 @@ const AllSongsScreen: React.FC = () => {
             color: colors.textPrimary,
             letterSpacing: -0.5,
           }}>
-          全部歌曲
+          {t('allSongs.title')}
         </Text>
         <View style={styles.headerRight}>
           {isScanning && (
@@ -524,9 +543,52 @@ const AllSongsScreen: React.FC = () => {
         </View>
       </View>
 
+      <View style={styles.segmentRow}>
+        {(['songs', 'albums', 'artists', 'folders'] as LibrarySegment[]).map(seg => (
+          <TouchableOpacity
+            key={seg}
+            style={[
+              styles.segmentBtn,
+              {backgroundColor: activeSegment === seg ? colors.accent : 'transparent'},
+            ]}
+            onPress={() => {
+              setActiveSegment(seg);
+              setSelectedAlbum(null);
+              setSelectedArtist(null);
+            }}>
+            <Text
+              style={[
+                styles.segmentTxt,
+                {color: activeSegment === seg ? colors.bg : colors.textMuted},
+              ]}>
+              {t(`library.segments.${seg}`)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {activeSegment === 'albums' ? (
+        selectedAlbum ? (
+          <AlbumDetailScreen albumName={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
+        ) : (
+          <AlbumsScreen onSelectAlbum={setSelectedAlbum} />
+        )
+      ) : activeSegment === 'artists' ? (
+        selectedArtist && selectedAlbum ? (
+          <AlbumDetailScreen albumName={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
+        ) : selectedArtist ? (
+          <ArtistDetailScreen artistName={selectedArtist} onBack={() => setSelectedArtist(null)} onSelectAlbum={setSelectedAlbum} />
+        ) : (
+          <ArtistsScreen onSelectArtist={setSelectedArtist} />
+        )
+      ) : activeSegment === 'folders' ? (
+        <BrowseScreen />
+      ) : (
+      <>
+
       {showSort && (
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map(o => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScrollView} contentContainerStyle={styles.sortRow}>
+          {SORT_OPTIONS_KEYS.map(o => (
             <TouchableOpacity
               key={o.mode}
               style={[
@@ -546,11 +608,11 @@ const AllSongsScreen: React.FC = () => {
                   {color: colors.textMuted},
                   sortMode === o.mode && {color: colors.bg},
                 ]}>
-                {o.label}
+                {t(o.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
 
       {batchSelectMode && (
@@ -569,7 +631,7 @@ const AllSongsScreen: React.FC = () => {
                 color: colors.accent,
                 fontWeight: '600',
               }}>
-              全选
+              {t('allSongs.batch.selectAll')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => dispatch(clearBatchSelect())}>
@@ -589,7 +651,7 @@ const AllSongsScreen: React.FC = () => {
               color: colors.textMuted,
               textAlign: 'center',
             }}>
-            已选 {batchSelectedIds.length}
+            {t('allSongs.batch.selectedCount', { count: batchSelectedIds.length })}
           </Text>
           <TouchableOpacity
             onPress={() => dispatch(batchFavorite())}
@@ -601,7 +663,7 @@ const AllSongsScreen: React.FC = () => {
                 color: colors.heart,
                 fontWeight: '600',
               }}>
-              收藏
+              {t('allSongs.batch.favorite')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -623,7 +685,7 @@ const AllSongsScreen: React.FC = () => {
                 color: colors.secondary,
                 fontWeight: '600',
               }}>
-              移除
+              {t('allSongs.batch.hide')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -688,10 +750,10 @@ const AllSongsScreen: React.FC = () => {
             ) : null
           }
         />
-        {sortMode === 'title' && !searchQuery && (
+        {sortMode === 'title' && !searchQuery && letters.length > 0 && (
           <AlphabetIndex
             letters={letters}
-            visible={indexVisible}
+            visible={true}
             onSelectLetter={onSelectLetter}
             onTouchStart={onIndexTouchStart}
             onTouchEnd={onIndexTouchEnd}
@@ -721,6 +783,8 @@ const AllSongsScreen: React.FC = () => {
         visible={showMenu}
         onClose={handleCloseMenu}
       />
+      </>
+      )}
     </View>
   );
 };
@@ -736,11 +800,16 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   headerRight: {flexDirection: 'row', alignItems: 'center'},
+  sortScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+    marginBottom: 4,
+  },
   sortRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
+    paddingRight: 30,
     gap: 8,
-    marginBottom: 4,
   },
   sortBtn: {
     flexDirection: 'row',
@@ -799,6 +868,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   noResult: {alignItems: 'center', marginTop: 60},
+  segmentRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 6,
+    marginBottom: 8,
+  },
+  segmentBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  segmentTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
 
 export default AllSongsScreen;

@@ -9,6 +9,7 @@ import { playTrack, toggleFavorite, clearHistory } from '../store/musicSlice';
 import { Track } from '../types';
 import { deduplicateTracks } from '../utils/dedup';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import AlphabetIndex from '../components/AlphabetIndex';
 import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
 import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
@@ -17,6 +18,7 @@ const HistoryScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { tracks, currentTrack, playHistory, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -47,9 +49,9 @@ const HistoryScreen: React.FC = () => {
   const handleOpenMenu = useCallback((t: Track) => { setMenuTrack(t); setShowMenu(true); }, []);
 
   const handleClear = () => {
-    Alert.alert('清空历史', '确定要清空全部播放历史吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '清空', style: 'destructive', onPress: () => dispatch(clearHistory()) },
+    Alert.alert(t('history.clearAlert.title'), t('history.clearAlert.message'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('history.clearAlert.clear'), style: 'destructive', onPress: () => dispatch(clearHistory()) },
     ]);
   };
 
@@ -63,9 +65,9 @@ const HistoryScreen: React.FC = () => {
         <View style={[styles.emptyIcon, { backgroundColor: colors.bgCard }]}>
           <Icon name="time-outline" size={72} color={colors.textMuted} />
         </View>
-        <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary }}>暂无播放记录</Text>
+        <Text style={{ fontSize: sizes.xl, fontWeight: '600', color: colors.textSecondary }}>{t('history.empty.noHistory')}</Text>
         <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-          播放歌曲后会自动记录在这里
+          {t('history.empty.message')}
         </Text>
       </View>
     );
@@ -74,13 +76,13 @@ const HistoryScreen: React.FC = () => {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>播放历史</Text>
+        <Text style={{ fontSize: sizes.xxxl, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 }}>{t('history.title')}</Text>
         <TouchableOpacity onPress={handleClear} hitSlop={8}>
           <Icon name="trash-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
       <Text style={{ fontSize: sizes.sm, color: colors.textMuted, paddingHorizontal: 20, paddingBottom: 8 }}>
-        共 {historyTracks.length} 首
+        {t('history.count', { count: historyTracks.length })}
       </Text>
       <View style={{flex: 1}}>
         <FlatList ref={flatListRef} data={sortedHistoryTracks} renderItem={renderItem} keyExtractor={(item, idx) => `${item.id}-${idx}`}

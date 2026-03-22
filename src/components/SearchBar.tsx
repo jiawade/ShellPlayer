@@ -3,6 +3,7 @@ import React, { memo, useRef, useEffect, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   value: string;
@@ -10,8 +11,10 @@ interface Props {
   placeholder?: string;
 }
 
-const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder = '搜索歌曲、歌手...' }) => {
+const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder }) => {
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('searchBar.placeholder');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -42,7 +45,7 @@ const SearchBar: React.FC<Props> = ({ value, onChangeText, placeholder = '搜索
         style={[styles.input, { fontSize: sizes.md, color: colors.textPrimary }]}
         defaultValue={value}
         onChangeText={handleChange}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         placeholderTextColor={colors.textMuted}
         autoCorrect={false}
         autoCapitalize="none"

@@ -102,3 +102,15 @@ export function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Apply a time offset to all lyric lines.
+ * Positive offset = lyrics appear later, negative = earlier.
+ */
+export function applyOffset(lyrics: LyricLine[], offset: number): LyricLine[] {
+  if (offset === 0) return lyrics;
+  return lyrics.map(line => ({
+    ...line,
+    time: Math.max(0, line.time + offset),
+  }));
+}

@@ -15,6 +15,7 @@ import CoverArt from './CoverArt';
 import {useAppSelector} from '../store';
 import {Track} from '../types';
 import {useTheme} from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   visible: boolean;
@@ -24,6 +25,7 @@ interface Props {
 const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
   const {playQueue, currentTrack} = useAppSelector(s => s.music);
   const {colors, sizes} = useTheme();
+  const { t } = useTranslation();
 
   const handlePlayFromQueue = useCallback(
     async (track: Track, index: number) => {
@@ -63,7 +65,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
                 color: colors.textPrimary,
                 flex: 1,
               }}>
-              播放队列
+              {t('playQueue.title')}
             </Text>
             <Text
               style={{
@@ -71,7 +73,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
                 color: colors.textMuted,
                 marginRight: 12,
               }}>
-              {playQueue.length} 首
+              {playQueue.length} {t('playQueue.countFormat')}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
               <Icon name="close" size={22} color={colors.textSecondary} />
@@ -133,7 +135,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
                     color: colors.textMuted,
                     marginTop: 12,
                   }}>
-                  队列为空
+                  {t('playQueue.empty')}
                 </Text>
               </View>
             }

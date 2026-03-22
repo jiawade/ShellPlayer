@@ -3,6 +3,55 @@ import TrackPlayer, {Event} from 'react-native-track-player';
 import {rebindEqualizer} from './utils/equalizer';
 import {store} from './store';
 import {playTrack} from './store/musicSlice';
+import {exportTrackToFile} from './utils/mediaLibrary';
+import {recordPlay} from './utils/reviewPrompt';
+
+/**
+ * Preload the next track into TrackPlayer's queue for gapless playback.
+ * Ensures the TP queue always has the current + next track ready.
+ */
+async function preloadNextTrack() {
+  try {
+    const state = store.getState().music;
+    const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+    if (!state.currentTrack || queue.length <= 1) return;
+
+    // Don't preload if repeat-one mode
+    if (state.repeatMode === 'track') return;
+
+    const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+    if (currentIdx < 0) return;
+
+    let nextTrack: typeof queue[number] | undefined;
+    if (state.repeatMode === 'queue') {
+      // Shuffle: pick a random next (deterministic preload for gapless)
+      const candidates = queue.filter(t => t.id !== state.currentTrack!.id);
+      if (candidates.length === 0) return;
+      nextTrack = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      // Sequential: preload next in order (don't wrap around at end)
+      if (currentIdx >= queue.length - 1) return;
+      nextTrack = queue[currentIdx + 1];
+    }
+
+    // Check if already in TP queue
+    if (!nextTrack) return;
+    const tpQueue = await TrackPlayer.getQueue();
+    if (tpQueue.some(t => t.id === nextTrack!.id)) return;
+
+    const url = nextTrack!.url.startsWith('ipod-library://')
+      ? await exportTrackToFile(nextTrack!.url)
+      : nextTrack!.url;
+
+    await TrackPlayer.add({
+      id: nextTrack!.id,
+      url,
+      title: nextTrack!.title,
+      artist: nextTrack!.artist,
+      artwork: nextTrack!.artwork,
+    });
+  } catch {}
+}
 
 export async function PlaybackService() {
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
@@ -82,9 +131,11 @@ export async function PlaybackService() {
     TrackPlayer.seekTo(e.position),
   );
 
-  // When a new track starts playing, rebind the equalizer to the active audio session
+  // When a new track starts playing, rebind the equalizer and preload next track
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, () => {
     rebindEqualizer();
+    preloadNextTrack();
+    recordPlay().catch(() => {});
   });
 
   // Handle queue exhaustion: when TrackPlayer finishes its internal queue,

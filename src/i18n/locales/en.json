@@ -1,0 +1,551 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "save": "Save",
+    "ok": "OK",
+    "hint": "Hint",
+    "import": "Import",
+    "scan": "Scan",
+    "songs": "songs",
+    "song": "song",
+    "unknownArtist": "Unknown Artist",
+    "unknownAlbum": "Unknown Album"
+  },
+  "tabs": {
+    "songs": "Songs",
+    "playlists": "Playlists",
+    "favorites": "Favorites",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "allSongs": {
+    "title": "All Songs",
+    "sort": {
+      "byName": "By Name",
+      "byArtist": "By Artist",
+      "byAlbum": "By Album",
+      "byDuration": "By Duration",
+      "recent": "Recently Added",
+      "shuffle": "Shuffle"
+    },
+    "importAlerts": {
+      "importComplete": "Import Complete",
+      "successMessage": "Successfully imported {{count}} songs",
+      "newSongsMessage": "Added {{newCount}} new songs, {{totalCount}} total",
+      "noNewSongsMessage": "{{totalCount}} songs total, no new songs"
+    },
+    "importing": {
+      "title": "Importing Songs",
+      "readingLibrary": "Reading music library and local files...",
+      "scanning": "Scanning folders...",
+      "parsing": "Parsing song metadata...",
+      "progressFormat": "{{current}} / {{total}} songs"
+    },
+    "emptyState": {
+      "noMusic": "No Music Found",
+      "setupMessageIOS": "Import from iTunes/iPod music library, or place music files in the Documents/music directory and import.",
+      "setupMessageAndroid": "Select a directory to scan for music files.",
+      "selectSource": "Select Import Source",
+      "selectDirectory": "Select Scan Directory"
+    },
+    "batch": {
+      "selectedCount": "{{count}} selected",
+      "selectAll": "Select All",
+      "favorite": "Favorite",
+      "hide": "Hide"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": {
+      "title": "Theme",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    },
+    "language": {
+      "title": "Language",
+      "system": "Follow System",
+      "en": "English",
+      "zh": "中文"
+    },
+    "playback": {
+      "title": "Playback Settings",
+      "hideDuplicates": "Hide Duplicate Songs",
+      "hideDuplicatesDesc": "When title and artist match, keep the version with cover art or higher quality",
+      "dedupeCompleteTitle": "Dedup Complete",
+      "dedupeMessage": "Hidden {{count}} duplicate songs, showing {{total}}",
+      "noDedupes": "No duplicate songs found"
+    },
+    "library": {
+      "title": "Music Library",
+      "songCount": "songs",
+      "lyricsCount": "with lyrics",
+      "favorites": "favorites",
+      "importing": "Importing...",
+      "reimportLabel": "Re-import Music",
+      "rescanLabel": "Re-scan",
+      "reimportTitle": "Re-import",
+      "reimportMessage": "Re-import music from iTunes/iPod library and Documents directory",
+      "rescanTitle": "Re-scan",
+      "rescanMessage": "Re-scan local music?"
+    },
+    "musicSource": {
+      "iosTitle": "Music Source",
+      "androidTitle": "Scan Directories",
+      "ituneLabel": "iTunes/iPod Music Library",
+      "documentsLabel": "Documents Directory (Local Files)",
+      "notSet": "Not Set",
+      "iosHint": "Sync music via iTunes/Finder or use the Files app to place music in ShellPlayer's Documents directory",
+      "modifyDirectories": "Modify Scan Directories"
+    },
+    "lyrics": {
+      "title": "Lyrics Display",
+      "fontSize": "Font Size",
+      "lineHeight": "Line Height",
+      "reset": "Reset to Default"
+    },
+    "about": {
+      "title": "About",
+      "appName": "App Name",
+      "version": "Version",
+      "pro": "ShellPlayer Pro",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "licenses": "Open Source Licenses"
+    }
+  },
+  "fullPlayer": {
+    "playModes": {
+      "sequential": "Sequential",
+      "shuffle": "Shuffle",
+      "repeatOne": "Repeat One"
+    },
+    "header": "Now Playing",
+    "lyricsHint": "Tap to view lyrics",
+    "coverButton": "Cover",
+    "moreMenu": {
+      "title": "More",
+      "rhythmLight": "Rhythm Light",
+      "rhythmLightDesc": "Music rhythm visualization",
+      "carMode": "Car Mode",
+      "carModeDesc": "Large controls for driving",
+      "audioAnalyzer": "Audio Analyzer",
+      "audioAnalyzerDesc": "Detailed audio information"
+    }
+  },
+  "playlists": {
+    "title": "Playlists",
+    "trackCount": "{{count}} songs",
+    "empty": {
+      "noPlaylists": "No Playlists Yet",
+      "message": "Tap + in the top right to create your first playlist",
+      "createButton": "New Playlist"
+    },
+    "createDialog": {
+      "title": "New Playlist",
+      "placeholder": "Playlist name",
+      "cancel": "Cancel",
+      "create": "Create"
+    },
+    "createAlert": {
+      "title": "Hint",
+      "message": "Please enter a playlist name"
+    }
+  },
+  "playlistDetail": {
+    "sort": {
+      "byName": "By Name",
+      "byArtist": "By Artist"
+    },
+    "notFound": "Playlist not found",
+    "playAll": "Play All",
+    "shuffleAll": "Shuffle All",
+    "searchPlaceholder": "Search songs in playlist...",
+    "resultCount": {
+      "found": "Found {{count}}",
+      "total": "{{count}} total"
+    },
+    "empty": {
+      "empty": "Playlist is empty",
+      "importButton": "Import Songs"
+    },
+    "renameDialog": {
+      "title": "Rename Playlist",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "deleteAlert": {
+      "title": "Delete Playlist",
+      "message": "Are you sure you want to delete \"{{name}}\"?",
+      "confirm": "Delete"
+    },
+    "import": {
+      "title": "Import Songs",
+      "selectAll": "Select All",
+      "addButton": "Add",
+      "searchPlaceholder": "Search all songs...",
+      "found": "Found {{count}}",
+      "total": "{{count}} total",
+      "alreadyAdded": "Added"
+    },
+    "importAlert": {
+      "title": "Hint",
+      "message": "Please select at least one song"
+    },
+    "removeTrack": {
+      "title": "Remove Song",
+      "message": "Remove this song from the playlist?",
+      "confirm": "Remove"
+    },
+    "exportSuccess": "Playlist exported to {{path}}",
+    "exportFailed": "Export failed"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "empty": {
+      "noFavorites": "No Favorite Songs Yet",
+      "message": "Tap the ♡ button next to a song\nto add it to favorites"
+    }
+  },
+  "history": {
+    "title": "Play History",
+    "count": "{{count}} total",
+    "empty": {
+      "noHistory": "No Play History",
+      "message": "Songs you play will be recorded here"
+    },
+    "clearAlert": {
+      "title": "Clear History",
+      "message": "Clear all play history?",
+      "clear": "Clear"
+    }
+  },
+  "browse": {
+    "title": "Browse",
+    "empty": {
+      "title": "No Content",
+      "comingSoon": "Coming Soon"
+    },
+    "breadcrumb": "Root",
+    "playFolder": "Play Folder",
+    "playAll": "Play All",
+    "addToPlaylist": "Add to Playlist",
+    "filesCount": "{{count}} audio files",
+    "audioFiles": "{{count}} audio files",
+    "folders": "{{count}} folders",
+    "emptyFolder": "This folder is empty",
+    "notImported": "This file hasn't been imported yet"
+  },
+  "albums": {
+    "title": "Albums",
+    "count": "{{count}} albums",
+    "playAll": "Play All",
+    "shuffleAll": "Shuffle",
+    "trackCount": "{{count}} songs",
+    "totalDuration": "{{duration}}",
+    "unknownAlbum": "Unknown Album",
+    "empty": {
+      "title": "No Albums",
+      "message": "Import music to see albums here"
+    }
+  },
+  "artists": {
+    "title": "Artists",
+    "count": "{{count}} artists",
+    "songCount": "{{count}} songs",
+    "albumCount": "{{count}} albums",
+    "allSongs": "All Songs",
+    "albumsTab": "Albums",
+    "unknownArtist": "Unknown Artist",
+    "empty": {
+      "title": "No Artists",
+      "message": "Import music to see artists here"
+    }
+  },
+  "library": {
+    "segments": {
+      "songs": "Songs",
+      "albums": "Albums",
+      "artists": "Artists",
+      "folders": "Browse"
+    }
+  },
+  "rhythmLight": {
+    "modes": {
+      "classic": "Classic Bars",
+      "mirror": "Mirror Wave",
+      "speaker": "Speaker Pulse",
+      "radar": "Radar Spectrum",
+      "matrix": "Light Matrix",
+      "vumeter": "VU Meter",
+      "waveform": "Waveform",
+      "spectrum3d": "3D Spectrum"
+    }
+  },
+  "folderPicker": {
+    "commonDirs": {
+      "netease": "NetEase Music",
+      "qq": "QQ Music",
+      "kugou": "Kugou Music"
+    },
+    "selectFolder": "Select Folder",
+    "selectCurrent": "Select This Directory",
+    "emptyMessage": {
+      "iosFolders": "No subfolders or music files in this directory",
+      "androidFolders": "No subfolders in this directory",
+      "documentsFolder": "No folders or music files in Documents directory"
+    },
+    "selectAllFiles": {
+      "selectAll": "Select All Files",
+      "deselectAll": "Deselect All Files"
+    },
+    "sections": {
+      "library": "Music Library",
+      "documents": "Local Directory (Documents)",
+      "common": "Common Directories",
+      "custom": "Custom",
+      "selectedFiles": "Selected Files"
+    },
+    "browse": "Browse folders...",
+    "itunesSource": "iTunes/iPod Music Library",
+    "itunesHint": "Import music synced via iTunes/Finder",
+    "selectAll": {
+      "deselectAll": "Deselect All",
+      "selectAll": "Select All"
+    },
+    "headers": {
+      "iosSelectSource": "Select Import Source",
+      "androidSelectDirectory": "Select Scan Directory"
+    },
+    "buttons": {
+      "iosImportAll": "Import All (Library + Local Files)",
+      "androidScanAll": "Scan All Common Directories",
+      "iosStart": "Start Import",
+      "androidStart": "Start Scan",
+      "filesFormat": "music files",
+      "selectedDirs": "{{count}} directories selected",
+      "selectedItems": "{{count}} items selected"
+    },
+    "alerts": {
+      "selectSourceTitle": "Hint",
+      "selectSourceMessage": "Please select at least one import source",
+      "selectDirTitle": "Hint",
+      "selectDirMessage": "Please select at least one directory"
+    }
+  },
+  "equalizer": {
+    "title": "Sound Mode",
+    "applying": "Applying...",
+    "advancedEQ": "Advanced EQ",
+    "presetTab": "Presets",
+    "customTab": "Parametric EQ",
+    "reset": "Reset",
+    "presets": {
+      "off": { "name": "Off", "desc": "Original sound" },
+      "3dSurround": { "name": "3D Surround", "desc": "Stereo surround" },
+      "jazz": { "name": "Jazz", "desc": "Warm midrange" },
+      "pop": { "name": "Pop", "desc": "Vocal emphasis" },
+      "rock": { "name": "Rock", "desc": "Bass & treble boost" },
+      "classical": { "name": "Classical", "desc": "Wide dynamics" },
+      "hiphop": { "name": "Hip-Hop", "desc": "Heavy bass" },
+      "electronic": { "name": "Electronic", "desc": "Low + high boost" },
+      "randb": { "name": "R&B", "desc": "Soft mid-bass" },
+      "vocals": { "name": "Vocals", "desc": "Vocal frequency boost" },
+      "deepBass": { "name": "Deep Bass", "desc": "Extreme low freq" },
+      "live": { "name": "Live", "desc": "Live concert effect" }
+    }
+  },
+  "lyrics": {
+    "empty": {
+      "title": "No Lyrics",
+      "supportedFormats": "Supports .lrc files or embedded ID3 lyrics",
+      "fileLocation": ".lrc file must match song name in same directory"
+    },
+    "controls": {
+      "prev": "Prev",
+      "replay": "Replay",
+      "next": "Next"
+    },
+    "offset": {
+      "title": "Lyrics Offset",
+      "reset": "Reset"
+    },
+    "search": {
+      "title": "Search Lyrics",
+      "searching": "Searching...",
+      "noResults": "No lyrics found",
+      "download": "Download",
+      "downloaded": "Downloaded"
+    }
+  },
+  "sleepTimer": {
+    "title": "Sleep Timer",
+    "willStop": "until pause",
+    "cancelButton": "Cancel Timer",
+    "options": {
+      "15min": "15 min",
+      "30min": "30 min",
+      "45min": "45 min",
+      "60min": "60 min",
+      "90min": "90 min"
+    }
+  },
+  "playQueue": {
+    "title": "Play Queue",
+    "countFormat": "songs",
+    "empty": "Queue is empty"
+  },
+  "searchBar": {
+    "placeholder": "Search songs, artists..."
+  },
+  "trackMenu": {
+    "playNext": "Play Next",
+    "info": "Song Info",
+    "hide": "Remove from List",
+    "delete": "Delete File Permanently",
+    "editTags": "Edit Tags",
+    "cancel": "Cancel",
+    "deleteAlert": {
+      "title": "Delete Permanently",
+      "message": "Permanently delete \"{{title}}\"?\nThis cannot be undone!",
+      "confirm": "Delete"
+    },
+    "infoPanel": {
+      "title": "Song Info",
+      "titleLabel": "Title",
+      "artistLabel": "Artist",
+      "albumLabel": "Album",
+      "formatLabel": "Format",
+      "filenameLabel": "Filename",
+      "filepathLabel": "File Path",
+      "lyricsLabel": "Lyrics",
+      "artworkLabel": "Artwork",
+      "hasLyrics": "Has lyrics",
+      "noLyrics": "No lyrics",
+      "hasArtwork": "Has artwork",
+      "noArtwork": "No artwork"
+    }
+  },
+  "pro": {
+    "title": "ShellPlayer Pro",
+    "subtitle": "Unlock all premium features",
+    "purchase": "Unlock Pro",
+    "restore": "Restore Purchase",
+    "purchased": "Pro Unlocked",
+    "storeUnavailable": "Store Unavailable",
+    "trial": "Try Pro Free for 3 Days",
+    "features": {
+      "parametricEQ": "Parametric EQ & 12 Presets",
+      "allVisualizers": "All Visualizer Modes",
+      "smartPlaylists": "Smart Playlists & M3U",
+      "lyricsSearch": "Lyrics Search & Offset",
+      "audioAnalyzer": "Audio Analyzer",
+      "tagEditor": "Tag Editor",
+      "statistics": "Play Statistics",
+      "carMode": "Car Mode",
+      "customThemes": "Custom Themes",
+      "gapless": "Gapless Playback"
+    }
+  },
+  "onboarding": {
+    "page1": {
+      "title": "Local Music Player",
+      "desc": "Play MP3, FLAC, M4A, WAV and more — all from your device"
+    },
+    "page2": {
+      "title": "Professional Audio",
+      "desc": "12 EQ presets, real-time visualizers, and audio analysis"
+    },
+    "page3": {
+      "title": "Synced Lyrics",
+      "desc": "LRC lyrics sync, drag to seek, and online lyrics search"
+    },
+    "page4": {
+      "title": "Privacy First",
+      "desc": "No account needed, no data collection — everything stays on your device"
+    },
+    "getStarted": "Get Started"
+  },
+  "statistics": {
+    "title": "Play Statistics",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "allTime": "All Time",
+    "topSongs": "Top Songs",
+    "topArtists": "Top Artists",
+    "listenTime": "Listen Time",
+    "plays": "plays",
+    "hours": "h",
+    "minutes": "min",
+    "heatmap": "Listening Calendar",
+    "formatDistribution": "Format Distribution",
+    "noData": "No data yet",
+    "tracks": "tracks"
+  },
+  "carMode": {
+    "exit": "Exit Car Mode"
+  },
+  "audioAnalyzer": {
+    "title": "Audio Analyzer",
+    "format": "Format",
+    "sampleRate": "Sample Rate",
+    "bitRate": "Bit Rate",
+    "channels": "Channels",
+    "fileSize": "File Size",
+    "duration": "Duration",
+    "stereo": "Stereo",
+    "mono": "Mono",
+    "level": "Level",
+    "audioInfo": "Audio Info",
+    "path": "Path"
+  },
+  "tagEditor": {
+    "title": "Edit Tags",
+    "titleField": "Title",
+    "artistField": "Artist",
+    "albumField": "Album",
+    "yearField": "Year",
+    "trackField": "Track Number",
+    "coverArt": "Cover Art",
+    "changeCover": "Change Cover",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "saved": "Tags Saved",
+    "saveSuccess": "Tags updated successfully",
+    "saveFailed": "Failed to update tags",
+    "memoryOnly": "Tags updated in app (file is read-only)"
+  },
+  "loading": {
+    "initPlayer": "Initializing player..."
+  },
+  "themeEditor": {
+    "title": "Theme",
+    "appearance": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "System",
+    "presets": "Presets",
+    "resetDefault": "Reset to Default",
+    "preset_default": "Default",
+    "preset_ocean": "Ocean",
+    "preset_forest": "Forest",
+    "preset_sunset": "Sunset",
+    "preset_rose": "Rose",
+    "preset_midnight": "Midnight",
+    "preset_crimson": "Crimson",
+    "preset_gold": "Gold"
+  },
+  "battery": {
+    "title": "Background Playback",
+    "warning": "Some Android devices may stop background playback to save battery. Follow these steps to prevent this.",
+    "step1": "Go to Settings > Battery (or Battery Optimization)",
+    "step2": "Find ShellPlayer in the app list",
+    "step3": "Set to \"Don't optimize\" or \"Unrestricted\"",
+    "step4": "Also check \"Auto-start\" permissions if available",
+    "openSettings": "Open Settings"
+  }
+}

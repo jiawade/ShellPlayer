@@ -22,6 +22,10 @@ import {
   addAudioLevelListener,
 } from '../utils/audioLevel';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
+import VUMeter from '../components/visualizers/VUMeter';
+import WaveformView from '../components/visualizers/WaveformView';
+import Spectrum3D from '../components/visualizers/Spectrum3D';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SPEAKER_IMAGES = [
@@ -46,14 +50,17 @@ const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
-type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'radar' | 'matrix';
+type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'radar' | 'matrix' | 'vumeter' | 'waveform' | 'spectrum3d';
 
-const VISUALIZER_MODES: Array<{key: VisualizerMode; label: string; icon: string}> = [
-  {key: 'classic', label: '经典灯柱', icon: 'apps-outline'},
-  {key: 'mirror', label: '中轴波形', icon: 'swap-vertical-outline'},
-  {key: 'speaker', label: '音响节律', icon: 'volume-high-outline'},
-  {key: 'radar', label: '雷达频谱', icon: 'scan-outline'},
-  {key: 'matrix', label: '流光方阵', icon: 'grid-outline'},
+const VISUALIZER_MODES: Array<{key: VisualizerMode; labelKey: string; icon: string}> = [
+  {key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline'},
+  {key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline'},
+  {key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline'},
+  {key: 'radar', labelKey: 'rhythmLight.modes.radar', icon: 'scan-outline'},
+  {key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline'},
+  {key: 'vumeter', labelKey: 'rhythmLight.modes.vumeter', icon: 'speedometer-outline'},
+  {key: 'waveform', labelKey: 'rhythmLight.modes.waveform', icon: 'pulse-outline'},
+  {key: 'spectrum3d', labelKey: 'rhythmLight.modes.spectrum3d', icon: 'cube-outline'},
 ];
 
 /** LED color gradient: green (bottom) → yellow → orange → red (top) */
@@ -100,6 +107,7 @@ const RhythmLightScreen: React.FC = () => {
   const navigation = useNavigation();
   const {currentTrack, isPlaying} = useAppSelector(s => s.music);
   const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
+  const { t } = useTranslation();
   const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [mode, setMode] = useState<VisualizerMode>('classic');
@@ -653,6 +661,9 @@ const RhythmLightScreen: React.FC = () => {
         {mode === 'speaker' ? renderSpeaker() : null}
         {mode === 'radar' ? renderRadar() : null}
         {mode === 'matrix' ? renderMatrix() : null}
+        {mode === 'vumeter' ? <VUMeter levels={levels} beatLevel={beatLevelRef.current} /> : null}
+        {mode === 'waveform' ? <WaveformView levels={levels} beatLevel={beatLevelRef.current} /> : null}
+        {mode === 'spectrum3d' ? <Spectrum3D levels={levels} beatLevel={beatLevelRef.current} /> : null}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -686,7 +697,7 @@ const RhythmLightScreen: React.FC = () => {
                 <Text
                   numberOfLines={1}
                   style={[styles.modePanelText, selected && styles.modePanelTextActive]}>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Text>
                 {selected && <View style={styles.modePanelDot} />}
               </TouchableOpacity>

@@ -10,22 +10,57 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSelector } from '../store';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 52;
 const ACTIVE_FONT_BOOST = 6;
+const OFFSET_STEP = 0.1; // seconds
 
 const LyricsView: React.FC = () => {
-  const { lyrics, currentLyricIndex } = useAppSelector(s => s.music);
+  const { lyrics, currentLyricIndex, currentTrack } = useAppSelector(s => s.music);
   const { seekToPrevLyric, seekToNextLyric, replayCurrentLyric } = usePlayerControls();
   const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const scrollRef = useRef<ScrollView>(null);
 
   const [scrollAreaHeight, setScrollAreaHeight] = useState(400);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [lineH, setLineH] = useState(DEFAULT_LINE_HEIGHT);
+  const [lyricsOffset, setLyricsOffset] = useState(0);
+  const [showOffsetBar, setShowOffsetBar] = useState(false);
 
   const centerOffset = scrollAreaHeight / 2 - lineH / 2;
+
+  // Load lyrics offset per track
+  useEffect(() => {
+    if (!currentTrack?.id) return;
+    (async () => {
+      try {
+        const val = await AsyncStorage.getItem(`@lyricOffset_${currentTrack.id}`);
+        setLyricsOffset(val ? parseFloat(val) : 0);
+      } catch {
+        setLyricsOffset(0);
+      }
+    })();
+  }, [currentTrack?.id]);
+
+  const adjustOffset = useCallback((delta: number) => {
+    setLyricsOffset(prev => {
+      const next = Math.round((prev + delta) * 10) / 10;
+      if (currentTrack?.id) {
+        AsyncStorage.setItem(`@lyricOffset_${currentTrack.id}`, String(next)).catch(() => {});
+      }
+      return next;
+    });
+  }, [currentTrack?.id]);
+
+  const resetOffset = useCallback(() => {
+    setLyricsOffset(0);
+    if (currentTrack?.id) {
+      AsyncStorage.removeItem(`@lyricOffset_${currentTrack.id}`).catch(() => {});
+    }
+  }, [currentTrack?.id]);
 
   useEffect(() => {
     (async () => {
@@ -111,8 +146,19 @@ const LyricsView: React.FC = () => {
     return (
       <View style={styles.empty}>
         <Icon name="musical-notes-outline" size={64} color={colors.textMuted} />
-        <Text style={{ fontSize: sizes.xl, color: colors.textSecondary, marginTop: 16, fontWeight: '600' }}>暂无歌词</Text>
-        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>支持 .lrc 文件或 ID3 内嵌歌词{'\n'}.lrc 文件需与歌曲同名同目录</Text>
+        <Text style={{ fontSize: sizes.xl, color: colors.textSecondary, marginTop: 16, fontWeight: '600' }}>{t('lyrics.empty.title')}</Text>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>{t('lyrics.empty.supportedFormats')}{'\n'}{t('lyrics.empty.fileLocation')}</Text>
+        {currentTrack && (
+          <TouchableOpacity
+            style={[styles.searchBtn, { backgroundColor: colors.accent }]}
+            onPress={() => {
+              // Import and search is handled by parent, just show a hint
+              // The actual search will be triggered from FullPlayerScreen
+            }}>
+            <Icon name="search-outline" size={18} color={colors.bg} />
+            <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.bg }}>{t('lyrics.search.title')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -161,15 +207,36 @@ const LyricsView: React.FC = () => {
         )}
       </View>
 
+      {showOffsetBar && (
+        <View style={[styles.offsetBar, { backgroundColor: colors.bgElevated, borderTopColor: colors.border }]}>
+          <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, fontWeight: '600' }}>{t('lyrics.offset.title')}</Text>
+          <TouchableOpacity onPress={() => adjustOffset(-OFFSET_STEP)} style={[styles.offsetBtn, { backgroundColor: colors.bgCard }]}>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700' }}>-</Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: sizes.md, color: colors.accent, fontWeight: '700', fontVariant: ['tabular-nums'], minWidth: 60, textAlign: 'center' }}>
+            {lyricsOffset >= 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s
+          </Text>
+          <TouchableOpacity onPress={() => adjustOffset(OFFSET_STEP)} style={[styles.offsetBtn, { backgroundColor: colors.bgCard }]}>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700' }}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={resetOffset} style={{ marginLeft: 8 }}>
+            <Text style={{ fontSize: sizes.sm, color: colors.textMuted }}>{t('lyrics.offset.reset')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={[styles.ctrlBar, { backgroundColor: colors.bgGlass, borderTopColor: colors.border }]}>
         <TouchableOpacity onPress={seekToPrevLyric} style={[styles.ctrlBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.6}>
-          <Icon name="play-back" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>上一句</Text>
+          <Icon name="play-back" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>{t('lyrics.controls.prev')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={replayCurrentLyric} style={[styles.ctrlBtn, styles.replayBtn, { backgroundColor: colors.accent }]} activeOpacity={0.6}>
-          <Icon name="refresh" size={20} color={colors.bg} /><Text style={{ fontSize: sizes.sm, color: colors.bg, fontWeight: '600' }}>重播</Text>
+          <Icon name="refresh" size={20} color={colors.bg} /><Text style={{ fontSize: sizes.sm, color: colors.bg, fontWeight: '600' }}>{t('lyrics.controls.replay')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={seekToNextLyric} style={[styles.ctrlBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.6}>
-          <Icon name="play-forward" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>下一句</Text>
+          <Icon name="play-forward" size={18} color={colors.accent} /><Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>{t('lyrics.controls.next')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowOffsetBar(!showOffsetBar)} style={styles.offsetToggle} activeOpacity={0.6}>
+          <Icon name="timer-outline" size={18} color={showOffsetBar ? colors.accent : colors.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -195,6 +262,10 @@ const styles = StyleSheet.create({
   ctrlBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, gap: 20, borderTopWidth: 1 },
   ctrlBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
   replayBtn: { paddingHorizontal: 20, paddingVertical: 10 },
+  offsetBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 16, gap: 8, borderTopWidth: 1 },
+  offsetBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  offsetToggle: { position: 'absolute', right: 16, padding: 4 },
+  searchBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
 });
 
 export default memo(LyricsView);

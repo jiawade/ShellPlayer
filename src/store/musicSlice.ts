@@ -40,6 +40,8 @@ interface MusicState {
   hideDuplicates: boolean;
   batchSelectMode: boolean;
   batchSelectedIds: string[];
+  customAccent: string | null;
+  language: string;
 }
 
 const initialState: MusicState = {
@@ -68,6 +70,8 @@ const initialState: MusicState = {
   hideDuplicates: false,
   batchSelectMode: false,
   batchSelectedIds: [],
+  customAccent: null,
+  language: '',
 };
 
 const serializeArtworkForCache = (artwork?: string): string | undefined => {
@@ -606,6 +610,9 @@ const musicSlice = createSlice({
     setThemeMode: (s, a: PayloadAction<ThemeMode>) => {
       s.themeMode = a.payload;
     },
+    setLanguage: (s, a: PayloadAction<string>) => {
+      s.language = a.payload;
+    },
     // Play history
     addToHistory: (s, a: PayloadAction<string>) => {
       const entry: PlayHistoryEntry = {trackId: a.payload, playedAt: Date.now()};
@@ -674,6 +681,15 @@ const musicSlice = createSlice({
     },
     clearBatchSelect: s => {
       s.batchSelectedIds = [];
+    },
+    setCustomAccent: (s, a: PayloadAction<string | null>) => {
+      s.customAccent = a.payload;
+    },
+    updateTrackMetadata(s, a: PayloadAction<{trackId: string; changes: Partial<Pick<Track, 'title' | 'artist' | 'album'>>}>) {
+      const {trackId, changes} = a.payload;
+      const track = s.tracks.find(t => t.id === trackId);
+      if (track) Object.assign(track, changes);
+      if (s.currentTrack?.id === trackId) Object.assign(s.currentTrack, changes);
     },
   },
   extraReducers: builder => {
@@ -755,7 +771,7 @@ const musicSlice = createSlice({
       })
       .addCase(loadUserPrefs.fulfilled, (s, a) => {
         const p = a.payload as any;
-        if (['title', 'artist', 'recent', 'shuffle'].includes(p.sortMode)) {
+        if (['title', 'artist', 'album', 'duration', 'recent', 'shuffle'].includes(p.sortMode)) {
           s.sortMode = p.sortMode;
         }
         if (p.themeMode) {
@@ -766,6 +782,12 @@ const musicSlice = createSlice({
         }
         if (typeof p.hideDuplicates === 'boolean') {
           s.hideDuplicates = p.hideDuplicates;
+        }
+        if (p.customAccent !== undefined) {
+          s.customAccent = p.customAccent;
+        }
+        if (p.language) {
+          s.language = p.language;
         }
       })
       .addCase(playTrack.fulfilled, (s, a) => {
@@ -807,5 +829,8 @@ export const {
   batchHide,
   selectAllBatch,
   clearBatchSelect,
+  setCustomAccent,
+  setLanguage,
+  updateTrackMetadata,
 } = musicSlice.actions;
 export default musicSlice.reducer;

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../contexts/ThemeContext';
+import {useTranslation} from 'react-i18next';
 import {IOS_HIDDEN_DIR_NAMES} from '../utils/defaultDirs';
 import {SUPPORTED_FORMATS} from '../utils/theme';
 import RNFS from 'react-native-fs';
@@ -94,6 +95,7 @@ const FolderPickerScreen: React.FC<Props> = ({
   onIOSImport,
 }) => {
   const {colors, sizes} = useTheme();
+  const {t} = useTranslation();
   const isIOS = Platform.OS === 'ios';
 
   const [selectedDirs, setSelectedDirs] = useState<Set<string>>(
@@ -197,7 +199,7 @@ const FolderPickerScreen: React.FC<Props> = ({
   const handleConfirm = () => {
     if (isIOS && onIOSImport) {
       if (!includeIPod && selectedDirs.size === 0 && selectedFiles.size === 0) {
-        Alert.alert('提示', '请至少选择一个导入来源');
+        Alert.alert(t('folderPicker.alerts.selectSourceTitle'), t('folderPicker.alerts.selectSourceMessage'));
         return;
       }
       onIOSImport({
@@ -210,7 +212,7 @@ const FolderPickerScreen: React.FC<Props> = ({
 
     const dirs = Array.from(selectedDirs);
     if (dirs.length === 0) {
-      Alert.alert('提示', '请至少选择一个目录');
+      Alert.alert(t('folderPicker.alerts.selectDirTitle'), t('folderPicker.alerts.selectDirMessage'));
       return;
     }
     onConfirm(dirs);
@@ -252,7 +254,7 @@ const FolderPickerScreen: React.FC<Props> = ({
                 fontWeight: '700',
                 color: colors.textPrimary,
               }}>
-              选择文件夹
+              {t('folderPicker.selectFolder')}
             </Text>
             <Text
               style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}
@@ -277,7 +279,7 @@ const FolderPickerScreen: React.FC<Props> = ({
           />
           <Text
             style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
-            选择此目录
+            {t('folderPicker.selectCurrent')}
           </Text>
         </TouchableOpacity>
 
@@ -342,14 +344,14 @@ const FolderPickerScreen: React.FC<Props> = ({
                   onPress={selectAllFiles}>
                   <Icon name="checkmark-done" size={20} color={colors.accent} />
                   <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600', marginLeft: 8}}>
-                    {fileEntries.every(e => selectedFiles.has(e.path)) ? '取消全选文件' : '全选文件'} ({fileEntries.length})
+                    {fileEntries.every(e => selectedFiles.has(e.path)) ? t('folderPicker.selectAllFiles.deselectAll') : t('folderPicker.selectAllFiles.selectAll')} ({fileEntries.length})
                   </Text>
                 </TouchableOpacity>
               ) : null
             }
             ListEmptyComponent={
               <Text style={{fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 40}}>
-                此目录下没有{isIOS ? '子文件夹或音乐文件' : '子文件夹'}
+                {isIOS ? t('folderPicker.emptyMessage.iosFolders') : t('folderPicker.emptyMessage.androidFolders')}
               </Text>
             }
           />
@@ -357,13 +359,13 @@ const FolderPickerScreen: React.FC<Props> = ({
 
         <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
           <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
-            已选 {selectedDirs.size} 目录{isIOS && selectedFiles.size > 0 ? `，${selectedFiles.size} 文件` : ''}
+            {t('folderPicker.buttons.selectedDirs', {count: selectedDirs.size})}{isIOS && selectedFiles.size > 0 ? `, ${selectedFiles.size} ${t('folderPicker.buttons.filesFormat')}` : ''}
           </Text>
           <TouchableOpacity
             style={[styles.confirmBtn, {backgroundColor: colors.accent}]}
             onPress={handleConfirm}>
             <Text style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-              开始导入
+              {t('folderPicker.buttons.iosStart')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -380,7 +382,7 @@ const FolderPickerScreen: React.FC<Props> = ({
         </TouchableOpacity>
         <Text
           style={{flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center'}}>
-          {isIOS ? '选择导入来源' : '选择扫描目录'}
+          {isIOS ? t('folderPicker.headers.iosSelectSource') : t('folderPicker.headers.androidSelectDirectory')}
         </Text>
         <View style={{width: 40}} />
       </View>
@@ -392,13 +394,13 @@ const FolderPickerScreen: React.FC<Props> = ({
           activeOpacity={0.7}>
           <Icon name={isIOS ? 'cloud-download' : 'scan'} size={20} color={colors.bg} />
           <Text style={{fontSize: sizes.lg, fontWeight: '700', color: colors.bg}}>
-            {isIOS ? '导入全部（音乐库 + 本地文件）' : '扫描全部常用目录'}
+            {isIOS ? t('folderPicker.buttons.iosImportAll') : t('folderPicker.buttons.androidScanAll')}
           </Text>
         </TouchableOpacity>
 
         {isIOS && (
           <>
-            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>音乐库</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>{t('folderPicker.sections.library')}</Text>
             <TouchableOpacity
               style={[
                 styles.commonRow,
@@ -414,10 +416,10 @@ const FolderPickerScreen: React.FC<Props> = ({
               <Icon name="musical-notes" size={20} color={colors.secondary} style={{marginLeft: 12}} />
               <View style={{flex: 1, marginLeft: 10}}>
                 <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
-                  iTunes/iPod 音乐库
+                  {t('folderPicker.itunesSource')}
                 </Text>
                 <Text style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}>
-                  导入通过 iTunes/Finder 同步的音乐
+                  {t('folderPicker.itunesHint')}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -428,12 +430,12 @@ const FolderPickerScreen: React.FC<Props> = ({
           <>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginHorizontal: 20, marginBottom: 8}}>
               <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 0, marginHorizontal: 0, marginBottom: 0}]}>
-                本地目录（Documents）
+                {t('folderPicker.sections.documents')}
               </Text>
               {iosDocEntries.length > 0 && (
                 <TouchableOpacity onPress={selectAllDocEntries} hitSlop={8}>
                   <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600'}}>
-                    {isAllDocSelected ? '取消全选' : '全选'}
+                    {isAllDocSelected ? t('folderPicker.selectAll.deselectAll') : t('folderPicker.selectAll.selectAll')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -493,7 +495,7 @@ const FolderPickerScreen: React.FC<Props> = ({
                 ))}
                 {iosDocEntries.length === 0 && (
                   <Text style={{fontSize: sizes.sm, color: colors.textMuted, textAlign: 'center', paddingVertical: 16}}>
-                    Documents 目录下暂无文件夹或音乐文件
+                    {t('folderPicker.emptyMessage.documentsFolder')}
                   </Text>
                 )}
               </>
@@ -501,7 +503,7 @@ const FolderPickerScreen: React.FC<Props> = ({
           </>
         ) : (
           <>
-            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>常用目录</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>{t('folderPicker.sections.common')}</Text>
             {COMMON_DIRS.map(dir => (
               <TouchableOpacity
                 key={dir.path}
@@ -527,13 +529,13 @@ const FolderPickerScreen: React.FC<Props> = ({
                 </View>
               </TouchableOpacity>
             ))}
-            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>自定义</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>{t('folderPicker.sections.custom')}</Text>
             <TouchableOpacity
               style={styles.browseStartBtn}
               onPress={() => setBrowsePath(STORAGE_ROOT)}>
               <Icon name="folder-open-outline" size={20} color={colors.accent} />
               <Text style={{fontSize: sizes.md, color: colors.accent, fontWeight: '600'}}>
-                浏览文件夹...
+                {t('folderPicker.browse')}
               </Text>
             </TouchableOpacity>
             {Array.from(selectedDirs)
@@ -563,12 +565,12 @@ const FolderPickerScreen: React.FC<Props> = ({
         {selectedFiles.size > 0 && (
           <>
             <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>
-              已选文件
+              {t('folderPicker.sections.selectedFiles')}
             </Text>
             <View style={[styles.commonRow, {borderBottomColor: colors.border, backgroundColor: colors.accentDim}]}>
               <Icon name="musical-note" size={20} color={colors.accent} />
               <Text style={{flex: 1, marginLeft: 10, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
-                {selectedFiles.size} 个音乐文件
+                {selectedFiles.size} {t('folderPicker.buttons.filesFormat')}
               </Text>
               <TouchableOpacity onPress={() => setSelectedFiles(new Set())} hitSlop={8}>
                 <Icon name="close-circle" size={20} color={colors.textMuted} />
@@ -583,8 +585,8 @@ const FolderPickerScreen: React.FC<Props> = ({
       <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
         <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
           {isIOS
-            ? `已选 ${totalSelected} 项`
-            : `已选 ${selectedDirs.size} 个目录`}
+            ? t('folderPicker.buttons.selectedItems', {count: totalSelected})
+            : t('folderPicker.buttons.selectedDirs', {count: selectedDirs.size})}
         </Text>
         <TouchableOpacity
           style={[
@@ -595,7 +597,7 @@ const FolderPickerScreen: React.FC<Props> = ({
           onPress={handleConfirm}
           disabled={!isIOS && selectedDirs.size === 0}>
           <Text style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-            开始{isIOS ? '导入' : '扫描'}
+            {isIOS ? t('folderPicker.buttons.iosStart') : t('folderPicker.buttons.androidStart')}
           </Text>
         </TouchableOpacity>
       </View>

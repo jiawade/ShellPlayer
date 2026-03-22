@@ -11,19 +11,22 @@ import LyricsView from '../components/LyricsView';
 import Equalizer from '../components/Equalizer';
 import SleepTimer from '../components/SleepTimer';
 import PlayQueueView from '../components/PlayQueueView';
+import AudioAnalyzer from '../components/AudioAnalyzer';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setShowFullPlayer, toggleShowLyrics, toggleFavorite, setRepeatMode, setPlaybackSpeed } from '../store/musicSlice';
 import { usePlayerControls, usePlayerSync } from '../hooks/usePlayerProgress';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import { RepeatMode } from '../types';
+import { hapticMedium, hapticLight, hapticSelection } from '../utils/haptics';
 
 const COVER = Dimensions.get('window').width * 0.7;
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
-const PLAY_MODES: { mode: RepeatMode; icon: string; label: string }[] = [
-  { mode: 'off', icon: 'arrow-forward-outline', label: '顺序播放' },
-  { mode: 'queue', icon: 'shuffle-outline', label: '随机播放' },
-  { mode: 'track', icon: 'sync-outline', label: '单曲循环' },
+const PLAY_MODES: { mode: RepeatMode; icon: string; labelKey: string }[] = [
+  { mode: 'off', icon: 'arrow-forward-outline', labelKey: 'fullPlayer.playModes.sequential' },
+  { mode: 'queue', icon: 'shuffle-outline', labelKey: 'fullPlayer.playModes.shuffle' },
+  { mode: 'track', icon: 'sync-outline', labelKey: 'fullPlayer.playModes.repeatOne' },
 ];
 
 const FullPlayerScreen: React.FC = () => {
@@ -33,11 +36,13 @@ const FullPlayerScreen: React.FC = () => {
   const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
   const { position, duration } = usePlayerSync();
   const { colors, sizes, isDark } = useTheme();
+  const { t } = useTranslation();
   const [showEQ, setShowEQ] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [showModeToast, setShowModeToast] = useState('');
 
   useEffect(() => {
@@ -68,6 +73,7 @@ const FullPlayerScreen: React.FC = () => {
   })();
 
   const cycleRepeat = async () => {
+    hapticLight();
     const idx = PLAY_MODES.findIndex(m => m.mode === repeatMode);
     const next = PLAY_MODES[(idx + 1) % PLAY_MODES.length];
     dispatch(setRepeatMode(next.mode));
@@ -75,10 +81,10 @@ const FullPlayerScreen: React.FC = () => {
     else if (next.mode === 'queue') await TrackPlayer.setRepeatMode(TPRepeatMode.Queue);
     else await TrackPlayer.setRepeatMode(TPRepeatMode.Off);
     try { await AsyncStorage.setItem('@playMode', JSON.stringify({ repeat: next.mode })); } catch {}
-    setShowModeToast(next.label); setTimeout(() => setShowModeToast(''), 1500);
+    setShowModeToast(t(next.labelKey)); setTimeout(() => setShowModeToast(''), 1500);
   };
 
-  const changeSpeed = (spd: number) => { dispatch(setPlaybackSpeed(spd)); setShowSpeed(false); };
+  const changeSpeed = (spd: number) => { hapticSelection(); dispatch(setPlaybackSpeed(spd)); setShowSpeed(false); };
 
   const cfg = PLAY_MODES.find(m => m.mode === repeatMode) || PLAY_MODES[0];
   const hasTimer = sleepTimerEnd && sleepTimerEnd > Date.now();
@@ -89,14 +95,14 @@ const FullPlayerScreen: React.FC = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.hBtn} hitSlop={12}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.hBtn} hitSlop={12} accessibilityLabel="Go back" accessibilityRole="button">
           <Icon name="chevron-down" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.hCenter}>
-          <Text style={{ fontSize: sizes.xs, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 2 }}>正在播放</Text>
+          <Text style={{ fontSize: sizes.xs, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 2 }}>{t('fullPlayer.header')}</Text>
           <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{headerTitle}</Text>
         </View>
-        <TouchableOpacity onPress={() => dispatch(toggleFavorite(currentTrack.id))} style={styles.hBtn} hitSlop={12}>
+        <TouchableOpacity onPress={() => { hapticLight(); dispatch(toggleFavorite(currentTrack.id)); }} style={styles.hBtn} hitSlop={12} accessibilityLabel={currentTrack.isFavorite ? 'Remove from favorites' : 'Add to favorites'} accessibilityRole="button">
           <Icon name={currentTrack.isFavorite ? 'heart' : 'heart-outline'} size={24} color={currentTrack.isFavorite ? colors.heart : colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -106,7 +112,7 @@ const FullPlayerScreen: React.FC = () => {
         {showLyrics ? (
           <View style={styles.lyricsContainer}>
             <TouchableOpacity onPress={() => dispatch(toggleShowLyrics())} style={[styles.backToCoverBtn, { backgroundColor: colors.accentDim }]} activeOpacity={0.7}>
-              <Icon name="image-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent, fontWeight: '600' }}>封面</Text>
+              <Icon name="image-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent, fontWeight: '600' }}>{t('fullPlayer.coverButton')}</Text>
             </TouchableOpacity>
             <LyricsView />
           </View>
@@ -117,7 +123,7 @@ const FullPlayerScreen: React.FC = () => {
               <Text style={{ fontSize: sizes.xxl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', lineHeight: 36 }} numberOfLines={2}>{currentTrack.title}</Text>
               <Text style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }} numberOfLines={1}>{currentTrack.artist}</Text>
             </View>
-            <View style={[styles.lyrHint, { backgroundColor: colors.accentDim }]}><Icon name="document-text-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent }}>点击查看歌词</Text></View>
+            <View style={[styles.lyrHint, { backgroundColor: colors.accentDim }]}><Icon name="document-text-outline" size={16} color={colors.accent} /><Text style={{ fontSize: sizes.xs, color: colors.accent }}>{t('fullPlayer.lyricsHint')}</Text></View>
           </TouchableOpacity>
         )}
       </View>
@@ -127,16 +133,16 @@ const FullPlayerScreen: React.FC = () => {
         <ProgressBar position={position} duration={duration} />
 
         <View style={styles.funcRow}>
-          <TouchableOpacity onPress={() => setShowSleep(true)} style={styles.funcBtn}>
+          <TouchableOpacity onPress={() => setShowSleep(true)} style={styles.funcBtn} accessibilityLabel="Sleep timer" accessibilityRole="button">
             <Icon name={hasTimer ? 'moon' : 'moon-outline'} size={18} color={hasTimer ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowSpeed(!showSpeed)} style={styles.funcBtn}>
             <Text style={[styles.speedLabel, { color: colors.textMuted }, playbackSpeed !== 1.0 && { color: colors.accent }]}>{playbackSpeed}x</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowQueue(true)} style={styles.funcBtn}>
+          <TouchableOpacity onPress={() => setShowQueue(true)} style={styles.funcBtn} accessibilityLabel="Play queue" accessibilityRole="button">
             <Icon name="list-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowEQ(true)} style={styles.funcBtn}>
+          <TouchableOpacity onPress={() => setShowEQ(true)} style={styles.funcBtn} accessibilityLabel="Equalizer" accessibilityRole="button">
             <Icon name="options-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -152,16 +158,16 @@ const FullPlayerScreen: React.FC = () => {
         )}
 
         <View style={styles.mainCtrl}>
-          <TouchableOpacity onPress={cycleRepeat} style={styles.ctrlSideBtn}>
+          <TouchableOpacity onPress={cycleRepeat} style={styles.ctrlSideBtn} accessibilityLabel="Repeat mode" accessibilityRole="button">
             <Icon name={cfg.icon} size={22} color={repeatMode !== 'off' ? colors.accent : colors.textMuted} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={skipToPrevious} style={styles.ctrlBtn}>
+          <TouchableOpacity onPress={() => { hapticLight(); skipToPrevious(); }} style={styles.ctrlBtn} accessibilityLabel="Previous track" accessibilityRole="button">
             <Icon name="play-skip-back" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={togglePlayPause} style={[styles.playBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticMedium(); togglePlayPause(); }} style={[styles.playBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]} activeOpacity={0.8} accessibilityLabel={isPlaying ? 'Pause' : 'Play'} accessibilityRole="button">
             <Icon name={isPlaying ? 'pause' : 'play'} size={32} color={colors.bg} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={skipToNext} style={styles.ctrlBtn}>
+          <TouchableOpacity onPress={() => { hapticLight(); skipToNext(); }} style={styles.ctrlBtn} accessibilityLabel="Next track" accessibilityRole="button">
             <Icon name="play-skip-forward" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowMore(true)} style={styles.ctrlSideBtn}>
@@ -181,13 +187,29 @@ const FullPlayerScreen: React.FC = () => {
       <SleepTimer visible={showSleep} onClose={() => setShowSleep(false)} />
       <PlayQueueView visible={showQueue} onClose={() => setShowQueue(false)} />
 
+      {/* Audio Analyzer */}
+      {showAnalyzer && (
+        <Modal visible={showAnalyzer} transparent animationType="slide" onRequestClose={() => setShowAnalyzer(false)}>
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 10 }}>
+              <TouchableOpacity onPress={() => setShowAnalyzer(false)} style={styles.hBtn} hitSlop={12}>
+                <Icon name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={{ flex: 1, fontSize: sizes.lg, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>{t('fullPlayer.moreMenu.audioAnalyzer')}</Text>
+              <View style={styles.hBtn} />
+            </View>
+            <AudioAnalyzer />
+          </View>
+        </Modal>
+      )}
+
       {/* More menu */}
       {showMore && (
         <Modal visible={showMore} transparent animationType="fade" onRequestClose={() => setShowMore(false)}>
           <Pressable style={[styles.moreOverlay, { backgroundColor: colors.overlay }]} onPress={() => setShowMore(false)}>
             <Pressable style={[styles.moreSheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
               <View style={styles.moreHeader}>
-                <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>更多功能</Text>
+                <Text style={{ fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, flex: 1 }}>{t('fullPlayer.moreMenu.title')}</Text>
                 <TouchableOpacity onPress={() => setShowMore(false)} hitSlop={12}>
                   <Icon name="close" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
@@ -200,8 +222,34 @@ const FullPlayerScreen: React.FC = () => {
                   <Icon name="pulse-outline" size={20} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>律动灯</Text>
-                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>音乐节奏可视化</Text>
+                  <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>{t('fullPlayer.moreMenu.rhythmLight')}</Text>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>{t('fullPlayer.moreMenu.rhythmLightDesc')}</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.6}
+                onPress={() => { setShowMore(false); navigation.navigate('CarMode' as never); }}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
+                  <Icon name="car-outline" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>{t('fullPlayer.moreMenu.carMode')}</Text>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>{t('fullPlayer.moreMenu.carModeDesc')}</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.6}
+                onPress={() => { setShowMore(false); setShowAnalyzer(true); }}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
+                  <Icon name="analytics-outline" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>{t('fullPlayer.moreMenu.audioAnalyzer')}</Text>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>{t('fullPlayer.moreMenu.audioAnalyzerDesc')}</Text>
                 </View>
                 <Icon name="chevron-forward" size={18} color={colors.textMuted} />
               </TouchableOpacity>

@@ -1,6 +1,6 @@
 // src/components/Equalizer.tsx
 import React, { memo, useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, PanResponder, LayoutChangeEvent } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, PanResponder, LayoutChangeEvent, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { applyEQPreset, getSavedPresetId, applyCustomBands, getSavedCustomBands, getBandFrequencies, getDefaultBands } from '../utils/equalizer';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,6 +30,9 @@ function formatFreq(hz: number): string {
 }
 
 /* ── Vertical band slider ─────────────────────────── */
+const KNOB_SIZE = 16;
+const KNOB_HIT_SLOP = 12; // extra touch area around knob
+
 const BandSlider: React.FC<{
   freq: number;
   value: number;
@@ -39,6 +42,13 @@ const BandSlider: React.FC<{
   trackColor: string;
 }> = memo(({ freq, value, onChange, accentColor, textColor, trackColor }) => {
   const layoutRef = useRef({ y: 0, h: 0 });
+  const [localValue, setLocalValue] = useState(value);
+  const isDragging = useRef(false);
+
+  // Sync external value when not dragging
+  useEffect(() => {
+    if (!isDragging.current) setLocalValue(value);
+  }, [value]);
 
   const clamp = (v: number) => Math.round(Math.max(MIN_DB, Math.min(MAX_DB, v)));
 
@@ -49,12 +59,36 @@ const BandSlider: React.FC<{
     return clamp(MIN_DB + ratio * (MAX_DB - MIN_DB));
   };
 
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  // Check if touch is near the knob
+  const isTouchOnKnob = useCallback((pageY: number) => {
+    const { y, h } = layoutRef.current;
+    if (h <= 0) return false;
+    const currentPct = ((valueRef.current - MIN_DB) / (MAX_DB - MIN_DB));
+    const knobCenterY = y + h * (1 - currentPct);
+    return Math.abs(pageY - knobCenterY) <= (KNOB_SIZE / 2 + KNOB_HIT_SLOP);
+  }, []);
+
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => onChange(yToDb(e.nativeEvent.pageY)),
-      onPanResponderMove: (e) => onChange(yToDb(e.nativeEvent.pageY)),
+      onStartShouldSetPanResponder: (e) => isTouchOnKnob(e.nativeEvent.pageY),
+      onMoveShouldSetPanResponder: (e, gs) =>
+        Math.abs(gs.dy) > Math.abs(gs.dx) && Math.abs(gs.dy) > 4 && isTouchOnKnob(e.nativeEvent.pageY),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        isDragging.current = true;
+      },
+      onPanResponderMove: (e) => {
+        const v = yToDb(e.nativeEvent.pageY);
+        setLocalValue(v);
+        onChangeRef.current(v);
+      },
+      onPanResponderRelease: () => { isDragging.current = false; },
+      onPanResponderTerminate: () => { isDragging.current = false; },
     }),
   ).current;
 
@@ -65,31 +99,34 @@ const BandSlider: React.FC<{
   }, []);
 
   // Knob position: 0 dB = center
-  const pct = ((value - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
+  const displayVal = localValue;
+  const pct = ((displayVal - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
 
   return (
     <View style={sliderStyles.col}>
-      <Text style={[sliderStyles.dbLabel, { color: textColor }]}>{value > 0 ? `+${value}` : `${value}`}</Text>
+      <Text style={[sliderStyles.dbLabel, { color: textColor }]}>{displayVal > 0 ? `+${displayVal}` : `${displayVal}`}</Text>
       <View
-        style={[sliderStyles.track, { backgroundColor: trackColor }]}
+        style={sliderStyles.trackWrapper}
         onLayout={handleLayout}
         {...panResponder.panHandlers}
       >
-        {/* Center line (0 dB) */}
-        <View style={[sliderStyles.centerLine, { backgroundColor: textColor, opacity: 0.2 }]} />
-        {/* Filled portion */}
-        <View
-          style={[
-            sliderStyles.fill,
-            {
-              backgroundColor: accentColor,
-              bottom: value >= 0 ? '50%' : `${pct}%`,
-              height: `${Math.abs(value) / (MAX_DB - MIN_DB) * 100}%`,
-            },
-          ]}
-        />
-        {/* Knob */}
-        <View style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: `${pct - 4}%` }]} />
+        <View style={[sliderStyles.track, { backgroundColor: trackColor }]}>
+          {/* Center line (0 dB) */}
+          <View style={[sliderStyles.centerLine, { backgroundColor: textColor, opacity: 0.2 }]} />
+          {/* Filled portion */}
+          <View
+            style={[
+              sliderStyles.fill,
+              {
+                backgroundColor: accentColor,
+                bottom: displayVal >= 0 ? '50%' : `${pct}%`,
+                height: `${Math.abs(displayVal) / (MAX_DB - MIN_DB) * 100}%`,
+              },
+            ]}
+          />
+        </View>
+        {/* Knob positioned outside overflow:hidden track */}
+        <View style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: `${pct - 5}%` }]} />
       </View>
       <Text style={[sliderStyles.freqLabel, { color: textColor }]}>{formatFreq(freq)}</Text>
     </View>
@@ -204,26 +241,34 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
             </ScrollView>
           ) : (
             <View style={styles.customWrap}>
-              {/* dB scale labels */}
-              <View style={styles.scaleLabels}>
-                <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>+{MAX_DB}</Text>
-                <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>0</Text>
-                <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>{MIN_DB}</Text>
+              {/* dB scale + band sliders in a row to prevent overlap */}
+              <View style={styles.eqRow}>
+                <View style={styles.scaleLabels}>
+                  <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>+{MAX_DB}</Text>
+                  <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>0</Text>
+                  <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>{MIN_DB}</Text>
+                </View>
+                {/* Band sliders */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.slidersRow}>
+                  {freqs.map((freq, i) => (
+                    <BandSlider
+                      key={freq}
+                      freq={freq}
+                      value={bands[i] ?? 0}
+                      onChange={(v) => handleBandChange(i, v)}
+                      accentColor={colors.accent}
+                      textColor={colors.textSecondary}
+                      trackColor={colors.bgCard}
+                    />
+                  ))}
+                </ScrollView>
               </View>
-              {/* Band sliders */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.slidersRow}>
-                {freqs.map((freq, i) => (
-                  <BandSlider
-                    key={freq}
-                    freq={freq}
-                    value={bands[i] ?? 0}
-                    onChange={(v) => handleBandChange(i, v)}
-                    accentColor={colors.accent}
-                    textColor={colors.textSecondary}
-                    trackColor={colors.bgCard}
-                  />
-                ))}
-              </ScrollView>
+              {/* Platform info hint */}
+              <Text style={{ fontSize: 10, color: colors.textMuted, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 }}>
+                {Platform.OS === 'ios'
+                  ? t('equalizer.platformHint.ios')
+                  : t('equalizer.platformHint.android')}
+              </Text>
               {/* Reset button */}
               <TouchableOpacity style={[styles.resetBtn, { borderColor: colors.border }]} onPress={handleResetBands}>
                 <Icon name="refresh-outline" size={16} color={colors.textSecondary} />
@@ -240,10 +285,11 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
 const sliderStyles = StyleSheet.create({
   col: { alignItems: 'center', width: 36, marginHorizontal: 4 },
   dbLabel: { fontSize: 9, fontWeight: '600', marginBottom: 4 },
-  track: { width: 6, height: 160, borderRadius: 3, position: 'relative', overflow: 'hidden' },
+  trackWrapper: { width: 16, height: 160, alignItems: 'center', position: 'relative' },
+  track: { width: 6, height: '100%', borderRadius: 3, position: 'absolute', left: 5, overflow: 'hidden' },
   centerLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1 },
   fill: { position: 'absolute', left: 0, right: 0, borderRadius: 3 },
-  knob: { position: 'absolute', left: -5, width: 16, height: 16, borderRadius: 8 },
+  knob: { position: 'absolute', left: 0, width: 16, height: 16, borderRadius: 8 },
   freqLabel: { fontSize: 8, marginTop: 4, fontWeight: '500' },
 });
 
@@ -258,9 +304,10 @@ const styles = StyleSheet.create({
   iconW: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   badge: { position: 'absolute', top: 8, right: 8 },
   customWrap: { paddingHorizontal: 12, paddingTop: 8, alignItems: 'center' },
-  scaleLabels: { position: 'absolute', left: 4, top: 26, height: 160, justifyContent: 'space-between', zIndex: 1 },
-  scaleTxt: { fontSize: 8 },
-  slidersRow: { paddingLeft: 28, paddingRight: 8, alignItems: 'flex-end' },
+  eqRow: { flexDirection: 'row', alignItems: 'center' },
+  scaleLabels: { width: 28, height: 160, justifyContent: 'space-between', marginTop: 14 },
+  scaleTxt: { fontSize: 8, textAlign: 'right' },
+  slidersRow: { paddingLeft: 4, paddingRight: 8, alignItems: 'flex-end' },
   resetBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, marginTop: 16 },
 });
 

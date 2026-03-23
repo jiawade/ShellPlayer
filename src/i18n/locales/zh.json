@@ -59,6 +59,10 @@
   },
   "settings": {
     "title": "设置",
+    "general": {
+      "title": "通用",
+      "desc": "主题、语言、歌词"
+    },
     "theme": {
       "title": "主题",
       "dark": "深色",
@@ -98,20 +102,22 @@
       "ituneLabel": "iTunes/iPod 音乐库",
       "documentsLabel": "Documents 目录（本地文件）",
       "notSet": "未设置",
-      "iosHint": "通过 iTunes/Finder 同步音乐或使用「文件」应用将音乐文件放入 ShellPlayer 的 Documents 目录",
+      "iosHint": "通过 iTunes/Finder 同步音乐或使用「文件」应用将音乐文件放入 Music X 的 Documents 目录",
       "modifyDirectories": "修改扫描目录"
     },
     "lyrics": {
       "title": "歌词显示",
       "fontSize": "字体大小",
       "lineHeight": "行距",
-      "reset": "恢复默认"
+      "reset": "恢复默认",
+      "btLyrics": "车载屏幕显示歌词",
+      "btLyricsDesc": "连接蓝牙、CarPlay 或 Android Auto 时，将当前歌词发送到车载屏幕显示"
     },
     "about": {
       "title": "关于",
       "appName": "应用名称",
       "version": "版本",
-      "pro": "ShellPlayer Pro",
+      "pro": "Music X Pro",
       "privacyPolicy": "隐私政策",
       "termsOfService": "服务条款",
       "licenses": "开源许可证"
@@ -343,6 +349,10 @@
     "presetTab": "预设",
     "customTab": "参数EQ",
     "reset": "重置",
+    "platformHint": {
+      "ios": "iOS 10频段软件均衡器 (32Hz–16kHz)",
+      "android": "Android 5频段系统均衡器（频段数取决于设备硬件）"
+    },
     "presets": {
       "off": { "name": "关闭", "desc": "原始音效" },
       "3dSurround": { "name": "3D丽音", "desc": "立体环绕声场" },
@@ -437,7 +447,7 @@
     }
   },
   "pro": {
-    "title": "ShellPlayer Pro",
+    "title": "Music X Pro",
     "subtitle": "解锁全部高级功能",
     "purchase": "解锁 Pro",
     "restore": "恢复购买",
@@ -550,7 +560,7 @@
     "title": "后台播放",
     "warning": "部分安卓设备可能会为了省电而停止后台播放。请按以下步骤操作以避免此问题。",
     "step1": "进入 设置 > 电池（或电池优化）",
-    "step2": "在应用列表中找到 ShellPlayer",
+    "step2": "在应用列表中找到 Music X",
     "step3": "设置为「不优化」或「无限制」",
     "step4": "如有「自启动」权限选项，也请开启",
     "openSettings": "打开设置"

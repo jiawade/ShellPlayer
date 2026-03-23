@@ -23,6 +23,7 @@ import PlaylistsScreen from './src/screens/PlaylistsScreen';
 import PlaylistDetailScreen from './src/screens/PlaylistDetailScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import GeneralSettingsScreen from './src/screens/GeneralSettingsScreen';
 import FullPlayerScreen from './src/screens/FullPlayerScreen';
 import RhythmLightScreen from './src/screens/RhythmLightScreen';
 import ProScreen from './src/screens/ProScreen';
@@ -123,6 +124,14 @@ function MainApp() {
         }}>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           <RootStack.Screen name="Main" component={TabsWithMiniPlayer} />
+          <RootStack.Screen
+            name="GeneralSettings"
+            component={GeneralSettingsScreen}
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
           <RootStack.Screen
             name="FullPlayer"
             component={FullPlayerScreen}

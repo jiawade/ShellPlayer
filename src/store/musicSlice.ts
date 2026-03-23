@@ -450,10 +450,11 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
     } catch {}
     await TrackPlayer.play();
 
-    // 后台逐个导出并添加周围歌曲（避免并发导出导致 iOS "Operation Stopped"）
-    const before = sub.slice(0, si).reverse();
+    // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
+    const before = sub.slice(0, si);
     const after = sub.slice(si + 1);
-    const addAfter = async () => {
+    const addSurrounding = async () => {
+      // 先添加后续歌曲（追加到队尾，无需指定索引）
       for (const t of after) {
         if (gen !== playTrackGeneration) return;
         const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
@@ -462,24 +463,18 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
           await TrackPlayer.add({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork});
         } catch {}
       }
-    };
-    const addBefore = async () => {
-      const items = [];
-      for (const t of before) {
+      // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
+      for (let i = before.length - 1; i >= 0; i--) {
         if (gen !== playTrackGeneration) return;
+        const t = before[i];
         const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
         if (gen !== playTrackGeneration) return;
-        items.unshift({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork});
-      }
-      for (const item of items) {
-        if (gen !== playTrackGeneration) return;
         try {
-          await TrackPlayer.add(item, 0);
+          await TrackPlayer.add({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork}, 0);
         } catch {}
       }
     };
-    addAfter();
-    addBefore();
+    addSurrounding();
 
     try {
       let lyrLines: LyricLine[] = [];

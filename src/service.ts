@@ -5,6 +5,7 @@ import {store} from './store';
 import {playTrack} from './store/musicSlice';
 import {exportTrackToFile} from './utils/mediaLibrary';
 import {recordPlay} from './utils/reviewPrompt';
+import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
 
 /**
  * Preload the next track into TrackPlayer's queue for gapless playback.
@@ -54,6 +55,7 @@ async function preloadNextTrack() {
 }
 
 export async function PlaybackService() {
+  loadBluetoothLyricsSetting().catch(() => {});
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
 

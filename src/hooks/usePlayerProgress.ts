@@ -13,10 +13,15 @@ import {
   setIsPlaying, setCurrentTrack, setCurrentLyricIndex,
   setLyrics, setCurrentIndex, playTrack,
 } from '../store/musicSlice';
+import { recordListenTime } from '../store/statsSlice';
 import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { readLrcFile, findMatchingLrcInDir } from '../utils/scanner';
 import { getLyricsForUrl } from '../utils/mediaLibrary';
 import { getDefaultLrcDir } from '../utils/defaultDirs';
+import {
+  isBluetoothLyricsEnabled, setOriginalTrackInfo, pushLyricToNowPlaying,
+  restoreOriginalMetadata,
+} from '../utils/bluetoothLyrics';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
@@ -26,6 +31,9 @@ export function usePlayerSync() {
   const { lyrics, tracks } = useAppSelector(s => s.music);
   const lastLyricIdx = useRef(-1);
   const prevPosition = useRef(0);
+  const listenAccum = useRef(0);
+  const lastTickTime = useRef(0);
+  const prevTrackId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const playing = playbackState.state === State.Playing
@@ -33,12 +41,30 @@ export function usePlayerSync() {
     dispatch(setIsPlaying(playing));
   }, [playbackState.state, dispatch]);
 
+  // Flush accumulated listen time when track changes
+  useEffect(() => {
+    if (activeTrack?.id !== prevTrackId.current) {
+      if (prevTrackId.current && listenAccum.current >= 1) {
+        const prevMatched = tracks.find(t => t.id === prevTrackId.current);
+        dispatch(recordListenTime({
+          trackId: prevTrackId.current,
+          artist: prevMatched?.artist || '',
+          seconds: Math.round(listenAccum.current),
+        }));
+      }
+      listenAccum.current = 0;
+      lastTickTime.current = 0;
+      prevTrackId.current = activeTrack?.id;
+    }
+  }, [activeTrack?.id, tracks, dispatch]);
+
   useEffect(() => {
     if (!activeTrack) return;
     const matched = tracks.find(t => t.id === activeTrack.id);
     if (!matched) return;
     dispatch(setCurrentTrack(matched));
     dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
+    setOriginalTrackInfo(matched.title, matched.artist);
 
     const loadLyrics = async () => {
       let lines: import('../types').LyricLine[] = [];
@@ -82,6 +108,33 @@ export function usePlayerSync() {
     prevPosition.current = position;
   }, [position, dispatch]);
 
+  // 累计听歌时长，每 30 秒记录一次
+  useEffect(() => {
+    const playing = playbackState.state === State.Playing;
+    if (!playing || !activeTrack) {
+      lastTickTime.current = 0;
+      return;
+    }
+    const now = Date.now();
+    if (lastTickTime.current > 0) {
+      const delta = (now - lastTickTime.current) / 1000;
+      if (delta > 0 && delta < 5) {
+        listenAccum.current += delta;
+      }
+    }
+    lastTickTime.current = now;
+
+    if (listenAccum.current >= 30) {
+      const matched = tracks.find(t => t.id === activeTrack.id);
+      dispatch(recordListenTime({
+        trackId: activeTrack.id,
+        artist: matched?.artist || '',
+        seconds: Math.round(listenAccum.current),
+      }));
+      listenAccum.current = 0;
+    }
+  }, [position, playbackState.state, activeTrack, tracks, dispatch]);
+
   // 歌词同步
   useEffect(() => {
     if (lyrics.length === 0) return;
@@ -89,6 +142,12 @@ export function usePlayerSync() {
     if (idx !== lastLyricIdx.current) {
       lastLyricIdx.current = idx;
       dispatch(setCurrentLyricIndex(idx));
+      // Push current lyric to car display via Bluetooth AVRCP
+      if (isBluetoothLyricsEnabled() && idx >= 0) {
+        pushLyricToNowPlaying(lyrics[idx].text);
+      } else if (isBluetoothLyricsEnabled() && idx < 0) {
+        restoreOriginalMetadata();
+      }
     }
   }, [position, lyrics, dispatch]);
 

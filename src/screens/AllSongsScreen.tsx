@@ -287,12 +287,12 @@ const AllSongsScreen: React.FC = () => {
       dispatch(
         playTrack({
           track: t,
-          queue: filteredTracks,
+          queue: filteredTracksRef.current,
           shuffle: repeatMode === 'queue',
         }),
       );
     },
-    [dispatch, filteredTracks, repeatMode, batchSelectMode],
+    [dispatch, repeatMode, batchSelectMode],
   );
 
   const handleFav = useCallback(
@@ -732,7 +732,7 @@ const AllSongsScreen: React.FC = () => {
           initialNumToRender={20}
           maxToRenderPerBatch={15}
           windowSize={11}
-          removeClippedSubviews={true}
+          removeClippedSubviews={false}
           getItemLayout={(_, i) => ({length: 76, offset: 76 * i, index: i})}
           ListEmptyComponent={
             searchQuery ? (

@@ -59,6 +59,10 @@
   },
   "settings": {
     "title": "Settings",
+    "general": {
+      "title": "General",
+      "desc": "Theme, Language, Lyrics"
+    },
     "theme": {
       "title": "Theme",
       "dark": "Dark",
@@ -98,20 +102,22 @@
       "ituneLabel": "iTunes/iPod Music Library",
       "documentsLabel": "Documents Directory (Local Files)",
       "notSet": "Not Set",
-      "iosHint": "Sync music via iTunes/Finder or use the Files app to place music in ShellPlayer's Documents directory",
+      "iosHint": "Sync music via iTunes/Finder or use the Files app to place music in Music X's Documents directory",
       "modifyDirectories": "Modify Scan Directories"
     },
     "lyrics": {
       "title": "Lyrics Display",
       "fontSize": "Font Size",
       "lineHeight": "Line Height",
-      "reset": "Reset to Default"
+      "reset": "Reset to Default",
+      "btLyrics": "Show Lyrics on Car Display",
+      "btLyricsDesc": "Send current lyric line to car display via Bluetooth, CarPlay, or Android Auto"
     },
     "about": {
       "title": "About",
       "appName": "App Name",
       "version": "Version",
-      "pro": "ShellPlayer Pro",
+      "pro": "Music X Pro",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service",
       "licenses": "Open Source Licenses"
@@ -343,6 +349,10 @@
     "presetTab": "Presets",
     "customTab": "Parametric EQ",
     "reset": "Reset",
+    "platformHint": {
+      "ios": "iOS 10-band software EQ (32Hz–16kHz)",
+      "android": "Android 5-band system EQ (bands depend on device hardware)"
+    },
     "presets": {
       "off": { "name": "Off", "desc": "Original sound" },
       "3dSurround": { "name": "3D Surround", "desc": "Stereo surround" },
@@ -437,7 +447,7 @@
     }
   },
   "pro": {
-    "title": "ShellPlayer Pro",
+    "title": "Music X Pro",
     "subtitle": "Unlock all premium features",
     "purchase": "Unlock Pro",
     "restore": "Restore Purchase",
@@ -550,7 +560,7 @@
     "title": "Background Playback",
     "warning": "Some Android devices may stop background playback to save battery. Follow these steps to prevent this.",
     "step1": "Go to Settings > Battery (or Battery Optimization)",
-    "step2": "Find ShellPlayer in the app list",
+    "step2": "Find Music X in the app list",
     "step3": "Set to \"Don't optimize\" or \"Unrestricted\"",
     "step4": "Also check \"Auto-start\" permissions if available",
     "openSettings": "Open Settings"

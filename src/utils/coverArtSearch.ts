@@ -1,5 +1,5 @@
 // src/utils/coverArtSearch.ts
-// Chinese → NetEase Cloud Music API  |  Others → iTunes API
+// Chinese → NetEase Cloud Music API  |  Others → iTunes API  |  Fallback → Bing Image Search
 import RNFS from 'react-native-fs';
 import { saveArtworkFile } from './artworkCache';
 import i18n from '../i18n';
@@ -170,34 +170,142 @@ async function searchItunes(
   }
 }
 
+// ── Bing Image Search ───────────────────────────────────────────────────
+// Searches Bing Images for artist/song artwork. Extracts high-resolution
+// image URLs from the HTML response's embedded JSON metadata.
+const BING_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml',
+  'Referer': 'https://cn.bing.com/',
+};
+
+async function searchBing(artist: string): Promise<CoverSearchResult[]> {
+  const query = artist.trim();
+  if (!query) return [];
+
+  const results: CoverSearchResult[] = [];
+  const seen = new Set<string>();
+
+  try {
+    const apiUrl = `https://cn.bing.com/images/async?q=${encodeURIComponent(query)}&first=0&count=35&mmasync=1`;
+    const res = await fetch(apiUrl, { headers: BING_HEADERS });
+    if (!res.ok) return [];
+
+    const html = await res.text();
+
+    // Strategy 1: Extract from m="..." attribute JSON metadata
+    //   Each image result has m="{&quot;murl&quot;:&quot;...&quot;,&quot;turl&quot;:&quot;...&quot;,...}"
+    //   murl = original full-size image URL
+    //   turl = Bing thumbnail proxy (always accessible, e.g. https://ts*.mm.bing.net/th?id=...)
+    const murlRegex = /murl&quot;:&quot;(https?:\/\/[^&]+?)&quot;/g;
+    const turlRegex = /turl&quot;:&quot;(https?:\/\/[^&]+?)&quot;/g;
+
+    // Collect all murls
+    const murls: string[] = [];
+    let m;
+    while ((m = murlRegex.exec(html)) !== null) {
+      murls.push(m[1]);
+    }
+
+    // Collect all turls
+    const turls: string[] = [];
+    while ((m = turlRegex.exec(html)) !== null) {
+      turls.push(m[1]);
+    }
+
+    for (let i = 0; i < murls.length; i++) {
+      const murl = murls[i];
+      if (seen.has(murl)) continue;
+      seen.add(murl);
+
+      // Use Bing thumbnail proxy as thumbUrl (always works, no CORS issues)
+      // Append size params for high-quality display
+      let thumbUrl = turls[i] || murl;
+      if (thumbUrl.includes('bing.net/th')) {
+        thumbUrl += '&w=200&h=200&c=7';
+      }
+
+      // For artworkUrl (full download), use the original murl
+      results.push({
+        id: results.length + 300000,
+        title: query,
+        artist: query,
+        album: '',
+        artworkUrl: murl,
+        thumbUrl,
+      });
+      if (results.length >= 12) break;
+    }
+
+    // Strategy 2: If no murls found, extract from .mimg img src attributes
+    if (results.length === 0) {
+      const imgSrcRegex = /<img[^>]*class="mimg[^"]*"[^>]*src="(https?:\/\/[^"]+)"/g;
+      while ((m = imgSrcRegex.exec(html)) !== null) {
+        const url = m[1].replace(/&amp;/g, '&');
+        if (seen.has(url)) continue;
+        seen.add(url);
+        // These are Bing proxy thumbnails; get high-res version
+        const highRes = url.includes('bing.net/th')
+          ? url.replace(/&w=\d+/, '&w=600').replace(/&h=\d+/, '&h=600') + '&w=600&h=600'
+          : url;
+        results.push({
+          id: results.length + 300000,
+          title: query,
+          artist: query,
+          album: '',
+          artworkUrl: highRes,
+          thumbUrl: url,
+        });
+        if (results.length >= 12) break;
+      }
+    }
+  } catch { /* fallthrough */ }
+
+  return results;
+}
+
 // ── Public entry point ──────────────────────────────────────────────────
 export async function searchCoverArt(
   title: string,
   artist: string,
 ): Promise<CoverSearchResult[]> {
   const isChinese = i18n.language?.startsWith('zh');
+  const bingQuery = (artist || title).trim();
+  if (!bingQuery) return [];
 
+  // Run Bing search in parallel with music API searches so results come fast
+  const bingPromise = searchBing(bingQuery).catch(() => [] as CoverSearchResult[]);
+
+  let musicResults: CoverSearchResult[] = [];
   if (isChinese) {
-    // Chinese → NetEase Cloud Music (best for Chinese artists)
-    const query = (artist || title).trim();
-    if (!query) return [];
-    const results = await searchNetease(query);
-    if (results.length > 0) return results;
-    // Fallback to iTunes
-    return searchItunes(title, artist);
+    musicResults = await searchNetease(bingQuery).catch(() => []);
+    if (musicResults.length === 0) {
+      musicResults = await searchItunes(title, artist).catch(() => []);
+    }
+  } else {
+    musicResults = await searchItunes(title, artist).catch(() => []);
+    if (musicResults.length === 0) {
+      musicResults = await searchNetease(bingQuery).catch(() => []);
+    }
   }
 
-  // Non-Chinese → iTunes (reliable global coverage)
-  const results = await searchItunes(title, artist);
-  if (results.length > 0) return results;
-  // Fallback to NetEase for Asian artists
-  const query = (artist || title).trim();
-  return query ? searchNetease(query) : [];
+  const bingResults = await bingPromise;
+
+  // Merge: music API results first, then Bing results
+  if (musicResults.length > 0) {
+    // Deduplicate by artworkUrl
+    const seen = new Set(musicResults.map(r => r.artworkUrl));
+    const extra = bingResults.filter(r => !seen.has(r.artworkUrl));
+    return [...musicResults, ...extra];
+  }
+
+  return bingResults;
 }
 
 /**
  * Download a cover image and save to artwork cache.
  * Returns the local file:// URI on success.
+ * Uses RNFS.downloadFile for reliable binary downloads with redirect support.
  */
 export async function downloadCoverArt(
   trackId: string,
@@ -205,34 +313,32 @@ export async function downloadCoverArt(
 ): Promise<string | undefined> {
   try {
     const url = ensureHttps(imageUrl);
-    const headers: Record<string, string> = {};
-    // NetEase CDN requires Referer
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    };
     if (url.includes('music.126.net')) {
       headers.Referer = 'https://music.163.com/';
     }
-    const response = await fetch(url, { headers });
-    if (!response.ok) return undefined;
-    const blob = await response.blob();
-    const base64 = await blobToBase64(blob);
-    if (!base64) return undefined;
-    const dataUri = `data:image/jpeg;base64,${base64}`;
+    const tmpPath = `${RNFS.CachesDirectoryPath}/cover_dl_${Date.now()}.jpg`;
+    const result = await RNFS.downloadFile({
+      fromUrl: url,
+      toFile: tmpPath,
+      headers,
+    }).promise;
+    if (result.statusCode !== 200 || result.bytesWritten < 1000) {
+      // File too small or failed — clean up
+      await RNFS.unlink(tmpPath).catch(() => {});
+      return undefined;
+    }
+    // Read as base64 and save to artwork cache
+    const base64Data = await RNFS.readFile(tmpPath, 'base64');
+    await RNFS.unlink(tmpPath).catch(() => {});
+    if (!base64Data) return undefined;
+    const dataUri = `data:image/jpeg;base64,${base64Data}`;
     return saveArtworkFile(trackId, dataUri);
   } catch {
     return undefined;
   }
-}
-
-function blobToBase64(blob: Blob): Promise<string | null> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const commaIdx = result?.indexOf(',');
-      resolve(commaIdx >= 0 ? result.substring(commaIdx + 1) : null);
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
 }
 
 /**
@@ -242,7 +348,9 @@ function blobToBase64(blob: Blob): Promise<string | null> {
 export async function downloadCoverToFile(imageUrl: string): Promise<string | undefined> {
   try {
     const url = ensureHttps(imageUrl);
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    };
     if (url.includes('music.126.net')) {
       headers.Referer = 'https://music.163.com/';
     }
@@ -252,7 +360,8 @@ export async function downloadCoverToFile(imageUrl: string): Promise<string | un
       toFile: tmpPath,
       headers,
     }).promise;
-    if (result.statusCode === 200) return tmpPath;
+    if (result.statusCode === 200 && result.bytesWritten >= 1000) return tmpPath;
+    await RNFS.unlink(tmpPath).catch(() => {});
     return undefined;
   } catch {
     return undefined;

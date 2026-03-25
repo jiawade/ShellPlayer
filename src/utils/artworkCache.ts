@@ -1,7 +1,12 @@
 // src/utils/artworkCache.ts
 import RNFS from 'react-native-fs';
+import { Platform } from 'react-native';
 
-const CACHE_DIR = `${RNFS.CachesDirectoryPath}/artwork`;
+// Use album/ dir (sibling to ShellPlayer_logs) as the artwork cache
+const CACHE_DIR =
+  Platform.OS === 'ios'
+    ? `${RNFS.DocumentDirectoryPath}/album`
+    : `${RNFS.ExternalDirectoryPath}/album`;
 let dirReady = false;
 
 async function ensureDir() {
@@ -27,15 +32,15 @@ function hashKey(s: string): string {
 export async function saveArtworkFile(trackId: string, dataUri: string): Promise<string | undefined> {
   await ensureDir();
   try {
-    // 提取 base64 数据部分
     const commaIdx = dataUri.indexOf(',');
-    if (commaIdx < 0) return undefined;
+    if (commaIdx < 0) {
+      return undefined;
+    }
     const base64Data = dataUri.substring(commaIdx + 1);
     const ext = dataUri.includes('image/png') ? 'png' : 'jpg';
     const fileName = `${hashKey(trackId)}.${ext}`;
     const filePath = `${CACHE_DIR}/${fileName}`;
 
-    // 如果已存在就不重复写
     if (await RNFS.exists(filePath)) {
       return `file://${filePath}`;
     }

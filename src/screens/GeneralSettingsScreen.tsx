@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import { loadBluetoothLyricsSetting, setBluetoothLyricsEnabled } from '../utils/bluetoothLyrics';
 import { useAppDispatch, useAppSelector } from '../store';
 import { setThemeMode, setHideDuplicates, setLanguage } from '../store/musicSlice';
@@ -17,6 +18,7 @@ const LINE_HEIGHTS = [40, 44, 48, 52, 56, 60, 64];
 
 const GeneralSettingsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const { tracks, themeMode, hideDuplicates, language } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
   const { t } = useTranslation();
@@ -194,6 +196,22 @@ const GeneralSettingsScreen: React.FC = () => {
           </View>
         </View>
       </View>
+
+      {/* 主题编辑器 */}
+      <TouchableOpacity style={[styles.navRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        onPress={() => navigation.navigate('ThemeEditor')} activeOpacity={0.7}>
+        <Icon name="color-palette-outline" size={20} color={colors.accent} />
+        <Text style={{ flex: 1, fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginLeft: 12 }}>{t('themeEditor.title')}</Text>
+        <Icon name="chevron-forward" size={18} color={colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* 播放统计 */}
+      <TouchableOpacity style={[styles.navRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        onPress={() => navigation.navigate('Statistics')} activeOpacity={0.7}>
+        <Icon name="stats-chart-outline" size={20} color={colors.accent} />
+        <Text style={{ flex: 1, fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginLeft: 12 }}>{t('statistics.title')}</Text>
+        <Icon name="chevron-forward" size={18} color={colors.textMuted} />
+      </TouchableOpacity>
 
       <View style={{ height: 140 }} />
     </ScrollView>

@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator, Text, NativeModules } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator, Text, NativeModules, Platform } from 'react-native';
 
 NativeModules.DevLoadingView?.hide?.();
 import { Provider } from 'react-redux';
@@ -143,7 +143,7 @@ function MainApp() {
             component={FullPlayerScreen}
             options={{
               gestureEnabled: true,
-              animation: 'slide_from_right',
+              animation: Platform.OS === 'android' ? 'fade' : 'slide_from_right',
             }}
           />
           <RootStack.Screen

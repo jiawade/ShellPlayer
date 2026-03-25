@@ -43,6 +43,7 @@ interface MusicState {
   batchSelectedIds: string[];
   customAccent: string | null;
   language: string;
+  lyricsOffset: number; // seconds, per-track offset for lyrics sync
 }
 
 const initialState: MusicState = {
@@ -73,6 +74,7 @@ const initialState: MusicState = {
   batchSelectedIds: [],
   customAccent: null,
   language: '',
+  lyricsOffset: 0,
   playbackErrorMsg: null as string | null,
 };
 
@@ -582,6 +584,9 @@ const musicSlice = createSlice({
     setCurrentLyricIndex: (s, a: PayloadAction<number>) => {
       s.currentLyricIndex = a.payload;
     },
+    setLyricsOffset: (s, a: PayloadAction<number>) => {
+      s.lyricsOffset = a.payload;
+    },
     setShowFullPlayer: (s, a: PayloadAction<boolean>) => {
       s.showFullPlayer = a.payload;
     },
@@ -829,6 +834,10 @@ const musicSlice = createSlice({
           s.language = p.language;
         }
       })
+      .addCase(playTrack.pending, (s, a) => {
+        s.currentTrack = a.meta.arg.track;
+        s.currentIndex = a.meta.arg.queue.findIndex(t => t.id === a.meta.arg.track.id);
+      })
       .addCase(playTrack.fulfilled, (s, a) => {
         s.currentTrack = a.payload.track;
         s.currentIndex = a.payload.index;
@@ -845,6 +854,7 @@ export const {
   setIsPlaying,
   setLyrics,
   setCurrentLyricIndex,
+  setLyricsOffset,
   setShowFullPlayer,
   toggleShowLyrics,
   setRepeatMode,

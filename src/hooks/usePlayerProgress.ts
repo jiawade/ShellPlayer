@@ -34,12 +34,14 @@ export function usePlayerSync() {
   const { position, duration } = useProgress(200);
   const playbackState = usePlaybackState();
   const activeTrack = useActiveTrack();
-  const { lyrics, tracks } = useAppSelector(s => s.music);
+  const { lyrics, tracks, currentTrack } = useAppSelector(s => s.music);
   const lastLyricIdx = useRef(-1);
   const prevPosition = useRef(0);
   const listenAccum = useRef(0);
   const lastTickTime = useRef(0);
   const prevTrackId = useRef<string | undefined>(undefined);
+  const currentTrackIdRef = useRef(currentTrack?.id);
+  currentTrackIdRef.current = currentTrack?.id;
 
   useEffect(() => {
     const playing = playbackState.state === State.Playing
@@ -68,8 +70,11 @@ export function usePlayerSync() {
     if (!activeTrack) return;
     const matched = tracks.find(t => t.id === activeTrack.id);
     if (!matched) return;
-    dispatch(setCurrentTrack(matched));
-    dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
+    // Skip if Redux already has the correct track (avoid overriding playTrack.pending)
+    if (currentTrackIdRef.current !== matched.id) {
+      dispatch(setCurrentTrack(matched));
+      dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
+    }
     setOriginalTrackInfo(matched.title, matched.artist, matched.artwork);
 
     const loadLyrics = async () => {
@@ -141,10 +146,11 @@ export function usePlayerSync() {
     }
   }, [position, playbackState.state, activeTrack, tracks, dispatch]);
 
-  // 歌词同步
+  // 歌词同步（lyricsOffset: 正值 = 歌词提前，负值 = 歌词延后）
+  const lyricsOffset = useAppSelector(s => s.music.lyricsOffset);
   useEffect(() => {
     if (lyrics.length === 0) return;
-    const idx = findCurrentLyricIndex(lyrics, position);
+    const idx = findCurrentLyricIndex(lyrics, position + lyricsOffset);
     if (idx !== lastLyricIdx.current) {
       lastLyricIdx.current = idx;
       dispatch(setCurrentLyricIndex(idx));
@@ -155,7 +161,7 @@ export function usePlayerSync() {
         restoreOriginalMetadata();
       }
     }
-  }, [position, lyrics, dispatch]);
+  }, [position, lyrics, lyricsOffset, dispatch]);
 
   // 定期保存播放进度（每 3 秒）
   const lastSaveRef = useRef(0);

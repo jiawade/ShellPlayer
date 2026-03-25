@@ -122,23 +122,9 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <TouchableOpacity style={[styles.navRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('ThemeEditor')} activeOpacity={0.7}>
-          <Icon name="color-palette-outline" size={20} color={colors.accent} />
-          <Text style={{ flex: 1, fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginLeft: 12 }}>{t('themeEditor.title')}</Text>
-          <Icon name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.navRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => navigation.navigate('Pro')} activeOpacity={0.7}>
           <Icon name="diamond-outline" size={20} color={colors.accent} />
           <Text style={{ flex: 1, fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginLeft: 12 }}>{t('settings.about.pro')}</Text>
-          <Icon name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.navRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('Statistics')} activeOpacity={0.7}>
-          <Icon name="stats-chart-outline" size={20} color={colors.textSecondary} />
-          <Text style={{ flex: 1, fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginLeft: 12 }}>{t('statistics.title')}</Text>
           <Icon name="chevron-forward" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 

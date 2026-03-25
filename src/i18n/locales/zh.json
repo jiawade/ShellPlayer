@@ -148,7 +148,11 @@
       "carMode": "车载模式",
       "carModeDesc": "大按钮驾驶界面",
       "audioAnalyzer": "音频分析",
-      "audioAnalyzerDesc": "详细音频信息"
+      "audioAnalyzerDesc": "详细音频信息",
+      "searchCover": "搜索封面",
+      "searchCoverDesc": "搜索并应用专辑封面",
+      "lyricsOffset": "歌词偏移",
+      "lyricsOffsetDesc": "调整歌词与音乐的同步"
     }
   },
   "playlists": {
@@ -405,10 +409,13 @@
   },
   "coverSearch": {
     "title": "搜索封面",
-    "searchButton": "搜索封面",
+    "searchButton": "搜索",
     "searching": "搜索中...",
-    "noResults": "未找到封面",
-    "downloadFailed": "封面下载失败"
+    "noResults": "未找到歌曲封面",
+    "downloadFailed": "封面下载失败",
+    "applySuccess": "封面应用成功",
+    "artistLabel": "歌手",
+    "artistPlaceholder": "请输入歌手名称"
   },
   "sleepTimer": {
     "title": "睡眠定时",

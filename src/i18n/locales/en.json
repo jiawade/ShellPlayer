@@ -148,7 +148,11 @@
       "carMode": "Car Mode",
       "carModeDesc": "Large controls for driving",
       "audioAnalyzer": "Audio Analyzer",
-      "audioAnalyzerDesc": "Detailed audio information"
+      "audioAnalyzerDesc": "Detailed audio information",
+      "searchCover": "Search Cover Art",
+      "searchCoverDesc": "Find and apply album artwork",
+      "lyricsOffset": "Lyrics Offset",
+      "lyricsOffsetDesc": "Adjust lyrics sync with music"
     }
   },
   "playlists": {
@@ -405,10 +409,13 @@
   },
   "coverSearch": {
     "title": "Search Cover Art",
-    "searchButton": "Search Cover",
+    "searchButton": "Search",
     "searching": "Searching...",
     "noResults": "No cover art found",
-    "downloadFailed": "Failed to download cover art"
+    "downloadFailed": "Failed to download cover art",
+    "applySuccess": "Cover art applied successfully",
+    "artistLabel": "Artist",
+    "artistPlaceholder": "Enter artist name"
   },
   "sleepTimer": {
     "title": "Sleep Timer",

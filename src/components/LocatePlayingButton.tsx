@@ -95,7 +95,11 @@ const LocatePlayingButton = forwardRef<LocatePlayingRef, Props>(
       };
     }, []);
 
-    if (!visible || !currentTrack) return null;
+    if (!visible || !currentTrack) {
+      return (
+        <Animated.View style={[styles.container, {opacity: 0}]} pointerEvents="none" />
+      );
+    }
 
     return (
       <Animated.View style={[styles.container, {opacity}]}>

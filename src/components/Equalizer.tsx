@@ -1,6 +1,6 @@
 // src/components/Equalizer.tsx
 import React, { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, LayoutChangeEvent, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, Platform } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { applyEQPreset, getSavedPresetId, applyCustomBands, getSavedCustomBands, getBandFrequencies, getDefaultBands } from '../utils/equalizer';
@@ -32,7 +32,7 @@ function formatFreq(hz: number): string {
 
 /* ── Vertical band slider ─────────────────────────── */
 const KNOB_SIZE = 16;
-const KNOB_HIT_SLOP = 12; // extra touch area around knob
+const TRACK_HEIGHT = 160;
 
 const BandSlider: React.FC<{
   freq: number;
@@ -42,9 +42,9 @@ const BandSlider: React.FC<{
   textColor: string;
   trackColor: string;
 }> = memo(({ freq, value, onChange, accentColor, textColor, trackColor }) => {
-  const layoutRef = useRef({ y: 0, h: 0 });
   const [localValue, setLocalValue] = useState(value);
   const isDragging = useRef(false);
+  const startDbRef = useRef(0);
 
   useEffect(() => {
     if (!isDragging.current) setLocalValue(value);
@@ -52,54 +52,40 @@ const BandSlider: React.FC<{
 
   const clamp = (v: number) => Math.round(Math.max(MIN_DB, Math.min(MAX_DB, v)));
 
-  const yToDb = useCallback((absoluteY: number) => {
-    const { y, h } = layoutRef.current;
-    if (h <= 0) return 0;
-    const ratio = 1 - (absoluteY - y) / h;
-    return clamp(MIN_DB + ratio * (MAX_DB - MIN_DB));
-  }, []);
-
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   const pan = useMemo(() =>
     Gesture.Pan()
       .runOnJS(true)
-      .activeOffsetY([-8, 8])
-      .failOffsetX([-10, 10])
-      .onStart((e) => {
+      .activeOffsetY([-4, 4])
+      .failOffsetX([-12, 12])
+      .onStart(() => {
         isDragging.current = true;
-        const v = yToDb(e.absoluteY);
-        setLocalValue(v);
-        onChangeRef.current(v);
+        startDbRef.current = localValue;
       })
       .onUpdate((e) => {
-        const v = yToDb(e.absoluteY);
+        // translationY < 0 = finger moved up = increase dB
+        const dbRange = MAX_DB - MIN_DB;
+        const dbDelta = -(e.translationY / TRACK_HEIGHT) * dbRange;
+        const v = clamp(startDbRef.current + dbDelta);
         setLocalValue(v);
         onChangeRef.current(v);
       })
       .onEnd(() => { isDragging.current = false; })
       .onFinalize(() => { isDragging.current = false; }),
-    [yToDb],
+    [localValue],
   );
 
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    e.target.measureInWindow((_x: number, y: number, _w: number, h: number) => {
-      layoutRef.current = { y, h };
-    });
-  }, []);
-
   const displayVal = localValue;
-  const pct = ((displayVal - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
+  const pct = (displayVal - MIN_DB) / (MAX_DB - MIN_DB);
+  const knobBottom = pct * TRACK_HEIGHT - KNOB_SIZE / 2;
 
   return (
     <View style={sliderStyles.col}>
       <Text style={[sliderStyles.dbLabel, { color: textColor }]}>{displayVal > 0 ? `+${displayVal}` : `${displayVal}`}</Text>
       <GestureDetector gesture={pan}>
-        <View
-          style={sliderStyles.trackWrapper}
-          onLayout={handleLayout}
-        >
+        <View style={sliderStyles.trackWrapper}>
           <View style={[sliderStyles.track, { backgroundColor: trackColor }]}>
             <View style={[sliderStyles.centerLine, { backgroundColor: textColor, opacity: 0.2 }]} />
             <View
@@ -107,14 +93,14 @@ const BandSlider: React.FC<{
                 sliderStyles.fill,
                 {
                   backgroundColor: accentColor,
-                  bottom: displayVal >= 0 ? '50%' : `${pct}%`,
-                  height: `${Math.abs(displayVal) / (MAX_DB - MIN_DB) * 100}%`,
+                  bottom: displayVal >= 0 ? '50%' : `${pct * 100}%`,
+                  height: `${(Math.abs(displayVal) / (MAX_DB - MIN_DB)) * 100}%`,
                 },
               ]}
             />
           </View>
           <View
-            style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: `${pct - 5}%` }]}
+            style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: knobBottom }]}
           />
         </View>
       </GestureDetector>
@@ -232,15 +218,15 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
             </ScrollView>
           ) : (
             <View style={styles.customWrap}>
-              {/* dB scale + band sliders in a row to prevent overlap */}
+              {/* dB scale + band sliders in a centered row */}
               <View style={styles.eqRow}>
                 <View style={styles.scaleLabels}>
                   <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>+{MAX_DB}</Text>
                   <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>0</Text>
                   <Text style={[styles.scaleTxt, { color: colors.textMuted }]}>{MIN_DB}</Text>
                 </View>
-                {/* Band sliders */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.slidersRow}>
+                {/* Band sliders - no horizontal scroll, flex to fill and center */}
+                <View style={styles.slidersRow}>
                   {freqs.map((freq, i) => (
                     <BandSlider
                       key={freq}
@@ -252,7 +238,7 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
                       trackColor={colors.bgCard}
                     />
                   ))}
-                </ScrollView>
+                </View>
               </View>
               {/* Platform info hint */}
               <Text style={{ fontSize: 10, color: colors.textMuted, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 }}>
@@ -275,13 +261,13 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
 };
 
 const sliderStyles = StyleSheet.create({
-  col: { alignItems: 'center', width: 36, marginHorizontal: 4 },
+  col: { alignItems: 'center', flex: 1, minWidth: 30, maxWidth: 44 },
   dbLabel: { fontSize: 9, fontWeight: '600', marginBottom: 4 },
-  trackWrapper: { width: 16, height: 160, alignItems: 'center', position: 'relative' },
-  track: { width: 6, height: '100%', borderRadius: 3, position: 'absolute', left: 5, overflow: 'hidden' },
+  trackWrapper: { width: 20, height: TRACK_HEIGHT, alignItems: 'center', position: 'relative' },
+  track: { width: 6, height: TRACK_HEIGHT, borderRadius: 3, position: 'absolute', left: 7, overflow: 'hidden' },
   centerLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1 },
   fill: { position: 'absolute', left: 0, right: 0, borderRadius: 3 },
-  knob: { position: 'absolute', left: 0, width: 16, height: 16, borderRadius: 8 },
+  knob: { position: 'absolute', left: 0, width: 20, height: KNOB_SIZE, borderRadius: KNOB_SIZE / 2 },
   freqLabel: { fontSize: 8, marginTop: 4, fontWeight: '500' },
 });
 
@@ -295,11 +281,11 @@ const styles = StyleSheet.create({
   card: { width: '30%', minWidth: 100, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, position: 'relative' },
   iconW: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   badge: { position: 'absolute', top: 8, right: 8 },
-  customWrap: { paddingHorizontal: 12, paddingTop: 8, alignItems: 'center' },
-  eqRow: { flexDirection: 'row', alignItems: 'center' },
-  scaleLabels: { width: 28, height: 160, justifyContent: 'space-between', marginTop: 14 },
+  customWrap: { paddingHorizontal: 8, paddingTop: 8, alignItems: 'center' },
+  eqRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
+  scaleLabels: { width: 28, height: TRACK_HEIGHT, justifyContent: 'space-between', marginTop: 14 },
   scaleTxt: { fontSize: 8, textAlign: 'right' },
-  slidersRow: { paddingLeft: 4, paddingRight: 8, alignItems: 'flex-end' },
+  slidersRow: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end' },
   resetBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, marginTop: 16 },
 });
 

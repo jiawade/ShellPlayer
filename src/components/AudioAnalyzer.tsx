@@ -6,6 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {useAppSelector} from '../store';
 import RNFS from 'react-native-fs';
 import {exportTrackToFile} from '../utils/mediaLibrary';
+import TrackPlayer from 'react-native-track-player';
 
 const formatDuration = (seconds?: number): string => {
   if (!seconds || seconds <= 0) return '--:--';
@@ -60,11 +61,13 @@ const AudioAnalyzer: React.FC = () => {
 
   const [fileSize, setFileSize] = useState<string>('');
   const [estimatedBitrate, setEstimatedBitrate] = useState<string>('');
+  const [actualDuration, setActualDuration] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (!currentTrack?.filePath) {
       setFileSize('');
       setEstimatedBitrate('');
+      setActualDuration(undefined);
       return;
     }
 
@@ -72,20 +75,48 @@ const AudioAnalyzer: React.FC = () => {
 
     const getFileStats = async () => {
       try {
+        // Get duration from TrackPlayer as fallback (works on Android even when metadata is missing)
+        let duration = currentTrack.duration;
+        if (!duration || duration <= 0) {
+          try {
+            const progress = await TrackPlayer.getProgress();
+            if (progress.duration > 0) {
+              duration = progress.duration;
+            }
+          } catch {}
+        }
+        if (!cancelled) setActualDuration(duration);
+
         let statPath = currentTrack.filePath;
         // iPod library URLs need export to get a real file path for stat
         if (currentTrack.url.startsWith('ipod-library://')) {
           statPath = await exportTrackToFile(currentTrack.url);
         }
-        const stat = await RNFS.stat(statPath);
+        // On Android, try url as fallback if filePath stat fails
+        let bytes = 0;
+        try {
+          const stat = await RNFS.stat(statPath);
+          bytes = Number(stat.size);
+        } catch {
+          if (Platform.OS === 'android' && currentTrack.url && !currentTrack.url.startsWith('ipod-library://')) {
+            try {
+              const stat = await RNFS.stat(currentTrack.url);
+              bytes = Number(stat.size);
+            } catch {}
+          }
+        }
         if (cancelled) return;
-        const bytes = Number(stat.size);
-        setFileSize(formatFileSize(bytes));
 
-        if (currentTrack.duration && currentTrack.duration > 0) {
-          const kbps = Math.round((bytes * 8) / currentTrack.duration / 1000);
-          setEstimatedBitrate(`~${kbps} kbps`);
+        if (bytes > 0) {
+          setFileSize(formatFileSize(bytes));
+          if (duration && duration > 0) {
+            const kbps = Math.round((bytes * 8) / duration / 1000);
+            setEstimatedBitrate(`~${kbps} kbps`);
+          } else {
+            setEstimatedBitrate('N/A');
+          }
         } else {
+          setFileSize('N/A');
           setEstimatedBitrate('N/A');
         }
       } catch {
@@ -146,7 +177,7 @@ const AudioAnalyzer: React.FC = () => {
         <InfoRow
           icon="time-outline"
           label={t('audioAnalyzer.duration')}
-          value={formatDuration(currentTrack.duration)}
+          value={formatDuration(actualDuration ?? currentTrack.duration)}
           colors={colors}
           isLast
         />

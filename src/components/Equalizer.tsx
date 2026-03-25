@@ -1,6 +1,7 @@
 // src/components/Equalizer.tsx
-import React, { memo, useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, PanResponder, LayoutChangeEvent, Platform } from 'react-native';
+import React, { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, LayoutChangeEvent, Platform } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { applyEQPreset, getSavedPresetId, applyCustomBands, getSavedCustomBands, getBandFrequencies, getDefaultBands } from '../utils/equalizer';
 import { useTheme } from '../contexts/ThemeContext';
@@ -45,52 +46,42 @@ const BandSlider: React.FC<{
   const [localValue, setLocalValue] = useState(value);
   const isDragging = useRef(false);
 
-  // Sync external value when not dragging
   useEffect(() => {
     if (!isDragging.current) setLocalValue(value);
   }, [value]);
 
   const clamp = (v: number) => Math.round(Math.max(MIN_DB, Math.min(MAX_DB, v)));
 
-  const yToDb = (pageY: number) => {
+  const yToDb = useCallback((absoluteY: number) => {
     const { y, h } = layoutRef.current;
     if (h <= 0) return 0;
-    const ratio = 1 - (pageY - y) / h; // 0 = bottom, 1 = top
+    const ratio = 1 - (absoluteY - y) / h;
     return clamp(MIN_DB + ratio * (MAX_DB - MIN_DB));
-  };
+  }, []);
 
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
-  // Check if touch is near the knob
-  const isTouchOnKnob = useCallback((pageY: number) => {
-    const { y, h } = layoutRef.current;
-    if (h <= 0) return false;
-    const currentPct = ((valueRef.current - MIN_DB) / (MAX_DB - MIN_DB));
-    const knobCenterY = y + h * (1 - currentPct);
-    return Math.abs(pageY - knobCenterY) <= (KNOB_SIZE / 2 + KNOB_HIT_SLOP);
-  }, []);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (e) => isTouchOnKnob(e.nativeEvent.pageY),
-      onMoveShouldSetPanResponder: (e, gs) =>
-        Math.abs(gs.dy) > Math.abs(gs.dx) && Math.abs(gs.dy) > 4 && isTouchOnKnob(e.nativeEvent.pageY),
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
+  const pan = useMemo(() =>
+    Gesture.Pan()
+      .runOnJS(true)
+      .activeOffsetY([-8, 8])
+      .failOffsetX([-10, 10])
+      .onStart((e) => {
         isDragging.current = true;
-      },
-      onPanResponderMove: (e) => {
-        const v = yToDb(e.nativeEvent.pageY);
+        const v = yToDb(e.absoluteY);
         setLocalValue(v);
         onChangeRef.current(v);
-      },
-      onPanResponderRelease: () => { isDragging.current = false; },
-      onPanResponderTerminate: () => { isDragging.current = false; },
-    }),
-  ).current;
+      })
+      .onUpdate((e) => {
+        const v = yToDb(e.absoluteY);
+        setLocalValue(v);
+        onChangeRef.current(v);
+      })
+      .onEnd(() => { isDragging.current = false; })
+      .onFinalize(() => { isDragging.current = false; }),
+    [yToDb],
+  );
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     e.target.measureInWindow((_x: number, y: number, _w: number, h: number) => {
@@ -98,36 +89,35 @@ const BandSlider: React.FC<{
     });
   }, []);
 
-  // Knob position: 0 dB = center
   const displayVal = localValue;
   const pct = ((displayVal - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
 
   return (
     <View style={sliderStyles.col}>
       <Text style={[sliderStyles.dbLabel, { color: textColor }]}>{displayVal > 0 ? `+${displayVal}` : `${displayVal}`}</Text>
-      <View
-        style={sliderStyles.trackWrapper}
-        onLayout={handleLayout}
-        {...panResponder.panHandlers}
-      >
-        <View style={[sliderStyles.track, { backgroundColor: trackColor }]}>
-          {/* Center line (0 dB) */}
-          <View style={[sliderStyles.centerLine, { backgroundColor: textColor, opacity: 0.2 }]} />
-          {/* Filled portion */}
+      <GestureDetector gesture={pan}>
+        <View
+          style={sliderStyles.trackWrapper}
+          onLayout={handleLayout}
+        >
+          <View style={[sliderStyles.track, { backgroundColor: trackColor }]}>
+            <View style={[sliderStyles.centerLine, { backgroundColor: textColor, opacity: 0.2 }]} />
+            <View
+              style={[
+                sliderStyles.fill,
+                {
+                  backgroundColor: accentColor,
+                  bottom: displayVal >= 0 ? '50%' : `${pct}%`,
+                  height: `${Math.abs(displayVal) / (MAX_DB - MIN_DB) * 100}%`,
+                },
+              ]}
+            />
+          </View>
           <View
-            style={[
-              sliderStyles.fill,
-              {
-                backgroundColor: accentColor,
-                bottom: displayVal >= 0 ? '50%' : `${pct}%`,
-                height: `${Math.abs(displayVal) / (MAX_DB - MIN_DB) * 100}%`,
-              },
-            ]}
+            style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: `${pct - 5}%` }]}
           />
         </View>
-        {/* Knob positioned outside overflow:hidden track */}
-        <View style={[sliderStyles.knob, { backgroundColor: accentColor, bottom: `${pct - 5}%` }]} />
-      </View>
+      </GestureDetector>
       <Text style={[sliderStyles.freqLabel, { color: textColor }]}>{formatFreq(freq)}</Text>
     </View>
   );
@@ -189,6 +179,7 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={onClose}>
         <Pressable style={[styles.sheet, { backgroundColor: colors.bgElevated }]} onPress={() => {}}>
           {/* Header */}
@@ -278,6 +269,7 @@ const Equalizer: React.FC<Props> = ({ visible, onClose }) => {
           )}
         </Pressable>
       </Pressable>
+      </GestureHandlerRootView>
     </Modal>
   );
 };

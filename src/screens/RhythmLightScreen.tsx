@@ -22,16 +22,11 @@ import {
   addAudioLevelListener,
 } from '../utils/audioLevel';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTranslation } from 'react-i18next';
+import {useTranslation} from 'react-i18next';
 import VUMeter from '../components/visualizers/VUMeter';
 import WaveformView from '../components/visualizers/WaveformView';
-import Spectrum3D from '../components/visualizers/Spectrum3D';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const SPEAKER_IMAGES = [
-  require('../assets/fg2.jpeg'),
-  require('../assets/fg4.jpeg'),
-];
+const SPEAKER_IMAGES = [require('../assets/fg2.jpeg'), require('../assets/fg4.jpeg')];
 
 const NUM_COLS = 16;
 const NUM_ROWS = 28;
@@ -50,17 +45,15 @@ const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
-type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'radar' | 'matrix' | 'vumeter' | 'waveform' | 'spectrum3d';
+type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'matrix' | 'vumeter' | 'waveform';
 
 const VISUALIZER_MODES: Array<{key: VisualizerMode; labelKey: string; icon: string}> = [
   {key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline'},
   {key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline'},
   {key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline'},
-  {key: 'radar', labelKey: 'rhythmLight.modes.radar', icon: 'scan-outline'},
   {key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline'},
   {key: 'vumeter', labelKey: 'rhythmLight.modes.vumeter', icon: 'speedometer-outline'},
   {key: 'waveform', labelKey: 'rhythmLight.modes.waveform', icon: 'pulse-outline'},
-  {key: 'spectrum3d', labelKey: 'rhythmLight.modes.spectrum3d', icon: 'cube-outline'},
 ];
 
 /** LED color gradient: green (bottom) → yellow → orange → red (top) */
@@ -107,12 +100,14 @@ const RhythmLightScreen: React.FC = () => {
   const navigation = useNavigation();
   const {currentTrack, isPlaying} = useAppSelector(s => s.music);
   const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
-  const { t } = useTranslation();
+  const {t} = useTranslation();
   const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [mode, setMode] = useState<VisualizerMode>('classic');
-  const [speakerImgIdx, setSpeakerImgIdx] = useState(() => Math.floor(Math.random() * SPEAKER_IMAGES.length));
-  const [motionPhase, setMotionPhase] = useState(0);
+  const [speakerImgIdx, setSpeakerImgIdx] = useState(() =>
+    Math.floor(Math.random() * SPEAKER_IMAGES.length),
+  );
+  const [, setMotionPhase] = useState(0);
   const [spkBeatMode, setSpkBeatMode] = useState(true);
 
   const rawTargetsRef = useRef(new Array(NUM_COLS).fill(0));
@@ -136,7 +131,9 @@ const RhythmLightScreen: React.FC = () => {
     const loadPrefs = async () => {
       try {
         const raw = await AsyncStorage.getItem(RHYTHM_PREFS_KEY);
-        if (!raw || cancelled) return;
+        if (!raw || cancelled) {
+          return;
+        }
         const parsed = JSON.parse(raw) as {
           mode?: VisualizerMode;
           spkBeatMode?: boolean;
@@ -150,7 +147,10 @@ const RhythmLightScreen: React.FC = () => {
           setSpkBeatMode(parsed.spkBeatMode);
         }
         if (typeof parsed.speakerImgIdx === 'number') {
-          const safeIdx = Math.max(0, Math.min(SPEAKER_IMAGES.length - 1, Math.floor(parsed.speakerImgIdx)));
+          const safeIdx = Math.max(
+            0,
+            Math.min(SPEAKER_IMAGES.length - 1, Math.floor(parsed.speakerImgIdx)),
+          );
           setSpeakerImgIdx(safeIdx);
         }
       } catch {
@@ -172,11 +172,15 @@ const RhythmLightScreen: React.FC = () => {
 
   // Helper: start audio monitoring + animation
   const startMonitoring = useCallback(() => {
-    if (monitoringActiveRef.current) return;
+    if (monitoringActiveRef.current) {
+      return;
+    }
     monitoringActiveRef.current = true;
 
     startAudioLevelMonitoring().then(ok => {
-      if (!monitoringActiveRef.current) return;
+      if (!monitoringActiveRef.current) {
+        return;
+      }
       if (ok) {
         listenerRemoverRef.current = addAudioLevelListener(event => {
           if (typeof event.volume === 'number') {
@@ -201,7 +205,9 @@ const RhythmLightScreen: React.FC = () => {
 
   // Helper: stop audio monitoring
   const stopMonitoring = useCallback(() => {
-    if (!monitoringActiveRef.current) return;
+    if (!monitoringActiveRef.current) {
+      return;
+    }
     monitoringActiveRef.current = false;
     if (listenerRemoverRef.current) {
       listenerRemoverRef.current();
@@ -220,7 +226,9 @@ const RhythmLightScreen: React.FC = () => {
   // Animation loop – smooth interpolation with peak hold
   const startAnimLoop = useCallback(() => {
     const animate = () => {
-      if (!appActiveRef.current) return;
+      if (!appActiveRef.current) {
+        return;
+      }
 
       const curr = currentRef.current;
       const gain = 1;
@@ -247,7 +255,9 @@ const RhythmLightScreen: React.FC = () => {
 
       const fluxHist = fluxHistoryRef.current;
       fluxHist.push(flux);
-      if (fluxHist.length > 40) fluxHist.shift();
+      if (fluxHist.length > 40) {
+        fluxHist.shift();
+      }
       const avgFlux = fluxHist.reduce((s, v) => s + v, 0) / fluxHist.length;
 
       if (flux > avgFlux * 1.5 && flux > 0.015) {
@@ -277,7 +287,7 @@ const RhythmLightScreen: React.FC = () => {
 
   // Pause monitoring when app goes to background, resume on foreground
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState) => {
+    const sub = AppState.addEventListener('change', nextState => {
       if (nextState === 'active') {
         appActiveRef.current = true;
         startMonitoring();
@@ -309,14 +319,18 @@ const RhythmLightScreen: React.FC = () => {
   const minLevel = useMemo(() => Math.min(...levels), [levels]);
   // 非speaker模式：节律=按节拍缩放频谱形状，音量=原始频谱跟能量走
   const volLevel = useMemo(() => {
-    if (!spkBeatMode) return levels; // 音量模式：原始频谱
+    if (!spkBeatMode) {
+      return levels;
+    } // 音量模式：原始频谱
     // 节律模式：保留各列频谱形状，整体高度跟随节拍脉冲
     const beat = beatLevelRef.current;
     const scale = overallLevel > 0.01 ? beat / overallLevel : 0;
     return levels.map(v => Math.min(1, v * scale));
   }, [spkBeatMode, levels, overallLevel]);
   const volPeak = useMemo(() => {
-    if (!spkBeatMode) return peakLevels;
+    if (!spkBeatMode) {
+      return peakLevels;
+    }
     const beat = beatLevelRef.current;
     const scale = overallLevel > 0.01 ? beat / overallLevel : 0;
     return peakLevels.map(v => Math.min(1, v * scale));
@@ -383,12 +397,24 @@ const RhythmLightScreen: React.FC = () => {
 
   const getBarCellColor = (rowFromBottom: number): string => {
     const ratio = rowFromBottom / SPKR_BAR_ROWS;
-    if (ratio <= 0.28) return '#00FF44';
-    if (ratio <= 0.46) return '#55FF00';
-    if (ratio <= 0.60) return '#AAFF00';
-    if (ratio <= 0.73) return '#FFD700';
-    if (ratio <= 0.84) return '#FF8C00';
-    if (ratio <= 0.92) return '#FF4500';
+    if (ratio <= 0.28) {
+      return '#00FF44';
+    }
+    if (ratio <= 0.46) {
+      return '#55FF00';
+    }
+    if (ratio <= 0.6) {
+      return '#AAFF00';
+    }
+    if (ratio <= 0.73) {
+      return '#FFD700';
+    }
+    if (ratio <= 0.84) {
+      return '#FF8C00';
+    }
+    if (ratio <= 0.92) {
+      return '#FF4500';
+    }
     return '#FF0000';
   };
 
@@ -443,7 +469,15 @@ const RhythmLightScreen: React.FC = () => {
     );
 
     return (
-      <View style={{width: areaW, height: areaH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12}}>
+      <View
+        style={{
+          width: areaW,
+          height: areaH,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+        }}>
         {/* Left bars */}
         {renderBar('L')}
 
@@ -452,20 +486,20 @@ const RhythmLightScreen: React.FC = () => {
           activeOpacity={0.9}
           onPress={() => setSpeakerImgIdx(prev => (prev + 1) % SPEAKER_IMAGES.length)}
           style={{
-          flex: 1,
-          height: barH,
-          backgroundColor: '#0a0a0a',
-          borderRadius: 16,
-          borderWidth: 1.5,
-          borderColor: '#2a2a2a',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          shadowColor: '#000',
-          shadowOffset: {width: 0, height: 4},
-          shadowOpacity: 0.8,
-          shadowRadius: 12,
-        }}>
+            flex: 1,
+            height: barH,
+            backgroundColor: '#0a0a0a',
+            borderRadius: 16,
+            borderWidth: 1.5,
+            borderColor: '#2a2a2a',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: {width: 0, height: 4},
+            shadowOpacity: 0.8,
+            shadowRadius: 12,
+          }}>
           <Image
             source={SPEAKER_IMAGES[speakerImgIdx]}
             style={{
@@ -478,142 +512,6 @@ const RhythmLightScreen: React.FC = () => {
 
         {/* Right bars */}
         {renderBar('R')}
-      </View>
-    );
-  };
-
-  const renderRadar = () => {
-    const sz = Math.min(SCREEN_W - GRID_H_PAD * 2, Math.floor(SCREEN_H * 0.48));
-    const cx = sz / 2;
-    const cy = sz / 2;
-    const innerR = sz * 0.14;
-    const outerR = sz / 2 - 4;
-    const maxBarH = outerR - innerR;
-    const barW = 5;
-    const dotSz = 5;
-
-    return (
-      <View style={{width: sz, height: sz}}>
-        {/* Guide rings */}
-        {[0.33, 0.66, 1].map((frac, ri) => {
-          const r = innerR + maxBarH * frac;
-          return (
-            <View
-              key={`ring-${ri}`}
-              style={{
-                position: 'absolute',
-                left: cx - r,
-                top: cy - r,
-                width: r * 2,
-                height: r * 2,
-                borderRadius: r,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: `rgba(0,229,255,${0.08 + ri * 0.04})`,
-              }}
-            />
-          );
-        })}
-
-        {/* Cross-hair guides */}
-        <View style={{position: 'absolute', left: cx - outerR, top: cy - 0.25, width: outerR * 2, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,229,255,0.08)'}} />
-        <View style={{position: 'absolute', left: cx - 0.25, top: cy - outerR, width: StyleSheet.hairlineWidth, height: outerR * 2, backgroundColor: 'rgba(0,229,255,0.08)'}} />
-
-        {/* Scan sweep line */}
-        <View style={{
-          position: 'absolute',
-          left: cx - 1,
-          top: cy - outerR,
-          width: 2,
-          height: outerR * 2,
-          transform: [{rotate: `${(motionPhase * 180) / Math.PI}deg`}],
-        }}>
-          <View style={{width: 2, height: maxBarH, borderRadius: 1, backgroundColor: 'rgba(0,229,255,0.2)'}} />
-        </View>
-
-        {/* Frequency bars + peak dots */}
-        {COLS_ARR.map(i => {
-          const lv = volLevel[i] || 0;
-          const pk = volPeak[i] || 0;
-          const barH = Math.max(2, lv * maxBarH);
-          const peakH = pk * maxBarH;
-          const angle = (360 / NUM_COLS) * i;
-
-          return (
-            <View
-              key={i}
-              style={{
-                position: 'absolute',
-                left: cx - barW / 2,
-                top: cy - outerR,
-                width: barW,
-                height: outerR * 2,
-                transform: [{rotate: `${angle}deg`}],
-              }}>
-              {/* Active bar */}
-              <View
-                style={{
-                  position: 'absolute',
-                  top: maxBarH - barH,
-                  width: barW,
-                  height: barH,
-                  borderRadius: barW / 2,
-                  backgroundColor: `rgba(0,229,255,${0.35 + lv * 0.65})`,
-                  shadowColor: '#00E5FF',
-                  shadowOffset: {width: 0, height: 0},
-                  shadowOpacity: lv * 0.9,
-                  shadowRadius: 2 + lv * 8,
-                }}
-              />
-              {/* Peak dot */}
-              {peakH > 3 && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: maxBarH - peakH - dotSz / 2,
-                    left: (barW - dotSz) / 2,
-                    width: dotSz,
-                    height: dotSz,
-                    borderRadius: dotSz / 2,
-                    backgroundColor: '#fff',
-                    shadowColor: '#00E5FF',
-                    shadowOffset: {width: 0, height: 0},
-                    shadowOpacity: 0.9,
-                    shadowRadius: 5,
-                  }}
-                />
-              )}
-            </View>
-          );
-        })}
-
-        {/* Center pulse circle */}
-        <View
-          style={{
-            position: 'absolute',
-            left: cx - innerR,
-            top: cy - innerR,
-            width: innerR * 2,
-            height: innerR * 2,
-            borderRadius: innerR,
-            backgroundColor: `rgba(0,229,255,${(0.04 + overallLevel * 0.16).toFixed(3)})`,
-            borderWidth: 1.5,
-            borderColor: `rgba(0,229,255,${(0.2 + overallLevel * 0.5).toFixed(3)})`,
-            shadowColor: '#00E5FF',
-            shadowOffset: {width: 0, height: 0},
-            shadowOpacity: 0.3 + overallLevel * 0.5,
-            shadowRadius: 8 + overallLevel * 18,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: `rgba(0,229,255,${(0.5 + overallLevel * 0.5).toFixed(3)})`,
-            }}
-          />
-        </View>
       </View>
     );
   };
@@ -651,7 +549,7 @@ const RhythmLightScreen: React.FC = () => {
           hitSlop={12}>
           <Icon name="chevron-back" size={26} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>律动灯</Text>
+        <Text style={styles.headerTitle}>{t('rhythmLight.title')}</Text>
         <View style={styles.headerSide} />
       </View>
 
@@ -659,11 +557,11 @@ const RhythmLightScreen: React.FC = () => {
         {mode === 'classic' ? renderClassic() : null}
         {mode === 'mirror' ? renderMirror() : null}
         {mode === 'speaker' ? renderSpeaker() : null}
-        {mode === 'radar' ? renderRadar() : null}
         {mode === 'matrix' ? renderMatrix() : null}
-        {mode === 'vumeter' ? <VUMeter levels={levels} beatLevel={beatLevelRef.current} /> : null}
-        {mode === 'waveform' ? <WaveformView levels={levels} beatLevel={beatLevelRef.current} /> : null}
-        {mode === 'spectrum3d' ? <Spectrum3D levels={levels} beatLevel={beatLevelRef.current} /> : null}
+        {mode === 'vumeter' ? <VUMeter levels={volLevel} beatLevel={beatLevelRef.current} /> : null}
+        {mode === 'waveform' ? (
+          <WaveformView levels={volLevel} beatLevel={beatLevelRef.current} />
+        ) : null}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -671,9 +569,7 @@ const RhythmLightScreen: React.FC = () => {
           style={styles.beatSwitchRow}
           activeOpacity={0.7}
           onPress={() => setSpkBeatMode(prev => !prev)}>
-          <Text style={styles.beatSwitchLabel}>
-            {spkBeatMode ? '节律' : '音量'}
-          </Text>
+          <Text style={styles.beatSwitchLabel}>{spkBeatMode ? t('rhythmLight.rhythmMode') : t('rhythmLight.volumeMode')}</Text>
           <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
             <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
           </View>

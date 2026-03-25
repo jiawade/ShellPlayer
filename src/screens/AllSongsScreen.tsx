@@ -57,9 +57,8 @@ import AlbumsScreen from './AlbumsScreen';
 import AlbumDetailScreen from './AlbumDetailScreen';
 import ArtistsScreen from './ArtistsScreen';
 import ArtistDetailScreen from './ArtistDetailScreen';
-import BrowseScreen from './BrowseScreen';
 
-type LibrarySegment = 'songs' | 'albums' | 'artists' | 'folders';
+type LibrarySegment = 'songs' | 'albums' | 'artists';
 
 const SORT_OPTIONS_KEYS: {mode: SortMode; labelKey: string; icon: string}[] = [
   {mode: 'title', labelKey: 'allSongs.sort.byName', icon: 'text-outline'},
@@ -416,7 +415,7 @@ const AllSongsScreen: React.FC = () => {
               marginTop: 8,
               fontVariant: ['tabular-nums'],
             }}>
-            {p.current} / {p.total} 首
+            {p.current} / {p.total} {t('common.song')}
           </Text>
         )}
       </View>
@@ -544,7 +543,7 @@ const AllSongsScreen: React.FC = () => {
       </View>
 
       <View style={styles.segmentRow}>
-        {(['songs', 'albums', 'artists', 'folders'] as LibrarySegment[]).map(seg => (
+        {(['songs', 'albums', 'artists'] as LibrarySegment[]).map(seg => (
           <TouchableOpacity
             key={seg}
             style={[
@@ -581,8 +580,6 @@ const AllSongsScreen: React.FC = () => {
         ) : (
           <ArtistsScreen onSelectArtist={setSelectedArtist} />
         )
-      ) : activeSegment === 'folders' ? (
-        <BrowseScreen />
       ) : (
       <>
 
@@ -641,7 +638,7 @@ const AllSongsScreen: React.FC = () => {
                 color: colors.accent,
                 fontWeight: '600',
               }}>
-              取消
+              {t('allSongs.batch.cancel')}
             </Text>
           </TouchableOpacity>
           <Text
@@ -669,11 +666,11 @@ const AllSongsScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => {
               Alert.alert(
-                '批量删除',
-                `确定从列表移除 ${batchSelectedIds.length} 首歌曲？`,
+                t('allSongs.batch.deleteTitle'),
+                t('allSongs.batch.deleteMessage', { count: batchSelectedIds.length }),
                 [
-                  {text: '取消'},
-                  {text: '确定', onPress: () => dispatch(batchHide())},
+                  {text: t('common.cancel')},
+                  {text: t('common.confirm'), onPress: () => dispatch(batchHide())},
                 ],
               );
             }}
@@ -703,10 +700,10 @@ const AllSongsScreen: React.FC = () => {
           paddingBottom: 4,
         }}>
         {searchQuery
-          ? `找到 ${filteredTracks.length} 首`
+          ? t('allSongs.songCount.found', { count: filteredTracks.length })
           : hideDuplicates
-            ? `共 ${filteredTracks.length} 首（已去重）`
-            : `共 ${tracks.length} 首`}
+            ? t('allSongs.songCount.totalDedup', { count: filteredTracks.length })
+            : t('allSongs.songCount.total', { count: tracks.length })}
       </Text>
 
       <View style={{flex: 1}}>
@@ -744,7 +741,7 @@ const AllSongsScreen: React.FC = () => {
                     color: colors.textMuted,
                     marginTop: 12,
                   }}>
-                  没有找到匹配的歌曲
+                  {t('allSongs.noMatch')}
                 </Text>
               </View>
             ) : null

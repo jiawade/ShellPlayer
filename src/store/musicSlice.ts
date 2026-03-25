@@ -9,6 +9,7 @@ import {scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress} from '../
 import {parseLRC, parseTextLyrics} from '../utils/lrcParser';
 import {getDefaultLrcDir, ensureDefaultDirs} from '../utils/defaultDirs';
 import {requestStoragePermission} from '../utils/permissions';
+import {SUPPORTED_FORMATS, UNSUPPORTED_FORMATS} from '../utils/theme';
 import {logCrash, logInfo} from '../utils/crashLogger';
 import {saveArtworkFile, getCachedArtwork, batchGetCachedArtworks} from '../utils/artworkCache';
 import {importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile, getLyricsForUrl} from '../utils/mediaLibrary';
@@ -72,6 +73,7 @@ const initialState: MusicState = {
   batchSelectedIds: [],
   customAccent: null,
   language: '',
+  playbackErrorMsg: null as string | null,
 };
 
 const serializeArtworkForCache = (artwork?: string): string | undefined => {
@@ -247,11 +249,16 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
       return [];
     }
     const cached = JSON.parse(data) as Track[];
-    // 快速返回：仅做最小处理，让歌曲列表立即显示
-    return cached.map(t => ({
-      ...t,
-      artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
-    }));
+    // Filter out any tracks with unsupported/encrypted formats
+    return cached
+      .filter(t => {
+        const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
+        return !ext || !UNSUPPORTED_FORMATS.includes(ext);
+      })
+      .map(t => ({
+        ...t,
+        artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
+      }));
   } catch {
     return [];
   }
@@ -413,6 +420,24 @@ let playTrackGeneration = 0;
 export const playTrack = createAsyncThunk('music/playTrack', async ({track, queue, shuffle}: {track: Track; queue: Track[]; shuffle?: boolean}, {dispatch, getState}) => {
   try {
     const gen = ++playTrackGeneration;
+
+    // Validate file format before attempting to play
+    const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
+    if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
+      // Skip unsupported format - show error and play next
+      dispatch(setPlaybackErrorMsg(
+        `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
+      ));
+      const nextIdx = queue.findIndex(t => t.id === track.id);
+      setTimeout(() => {
+        dispatch(setPlaybackErrorMsg(null));
+        if (nextIdx >= 0 && queue.length > 1) {
+          const ni = (nextIdx + 1) % queue.length;
+          dispatch(playTrack({track: queue[ni], queue}));
+        }
+      }, 1500);
+      return {track, index: nextIdx};
+    }
 
     let idx = queue.findIndex(t => t.id === track.id);
     if (idx < 0) {
@@ -620,6 +645,9 @@ const musicSlice = createSlice({
     setPlaybackSpeed: (s, a: PayloadAction<number>) => {
       s.playbackSpeed = a.payload;
     },
+    setPlaybackErrorMsg: (s, a: PayloadAction<string | null>) => {
+      s.playbackErrorMsg = a.payload;
+    },
     // Sleep timer
     setSleepTimer: (s, a: PayloadAction<number | null>) => {
       s.sleepTimerEnd = a.payload;
@@ -753,6 +781,16 @@ const musicSlice = createSlice({
           for (const t of s.tracks) {
             if (updates[t.id]) t.artwork = updates[t.id];
           }
+          // Update lock screen artwork for currently playing track
+          if (s.currentTrack && updates[s.currentTrack.id]) {
+            s.currentTrack.artwork = updates[s.currentTrack.id];
+            const artwork = updates[s.currentTrack.id];
+            TrackPlayer.updateMetadataForTrack(
+              s.tracks.findIndex(t => t.id === s.currentTrack!.id),
+              { artwork },
+            ).catch(() => {});
+            TrackPlayer.updateNowPlayingMetadata({ artwork }).catch(() => {});
+          }
         }
       })
       .addCase(loadFavorites.fulfilled, (s, a) => {
@@ -834,5 +872,6 @@ export const {
   setLanguage,
   updateTrackMetadata,
   updateTrackArtwork,
+  setPlaybackErrorMsg,
 } = musicSlice.actions;
 export default musicSlice.reducer;

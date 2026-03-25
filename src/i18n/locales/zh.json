@@ -22,6 +22,12 @@
   },
   "allSongs": {
     "title": "全部歌曲",
+    "songCount": {
+      "found": "找到 {{count}} 首",
+      "total": "共 {{count}} 首",
+      "totalDedup": "共 {{count}} 首（已去重）"
+    },
+    "noMatch": "没有找到匹配的歌曲",
     "sort": {
       "byName": "按名称",
       "byArtist": "按歌手",
@@ -53,8 +59,11 @@
     "batch": {
       "selectedCount": "已选 {{count}} 首",
       "selectAll": "全选",
+      "cancel": "取消",
       "favorite": "收藏",
-      "hide": "隐藏"
+      "hide": "隐藏",
+      "deleteTitle": "批量删除",
+      "deleteMessage": "确定从列表移除 {{count}} 首歌曲？"
     }
   },
   "settings": {
@@ -280,6 +289,9 @@
     }
   },
   "rhythmLight": {
+    "title": "律动灯",
+    "volumeMode": "音量",
+    "rhythmMode": "节律",
     "modes": {
       "classic": "经典灯柱",
       "mirror": "中轴波形",
@@ -564,5 +576,8 @@
     "step3": "设置为「不优化」或「无限制」",
     "step4": "如有「自启动」权限选项，也请开启",
     "openSettings": "打开设置"
+  },
+  "playback": {
+    "unsupportedFormat": "\"{{title}}\" 格式不支持，即将跳过..."
   }
 }

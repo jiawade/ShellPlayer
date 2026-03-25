@@ -9,6 +9,7 @@ const STORAGE_KEY = '@bt_lyrics_enabled';
 let enabled = false;
 let originalTitle = '';
 let originalArtist = '';
+let originalArtwork: string | undefined;
 
 export async function loadBluetoothLyricsSetting(): Promise<boolean> {
   try {
@@ -35,9 +36,10 @@ export function isBluetoothLyricsEnabled(): boolean {
 }
 
 /** Call when a new track starts to remember its real title/artist. */
-export function setOriginalTrackInfo(title: string, artist: string): void {
+export function setOriginalTrackInfo(title: string, artist: string, artwork?: string): void {
   originalTitle = title;
   originalArtist = artist;
+  originalArtwork = artwork;
 }
 
 /** Push the current lyric line into NowPlaying metadata so car displays show it. */
@@ -48,6 +50,7 @@ export function pushLyricToNowPlaying(lyricText: string): void {
   TrackPlayer.updateNowPlayingMetadata({
     title: lyricText,
     artist: `${originalTitle} - ${originalArtist}`,
+    artwork: originalArtwork,
   }).catch(() => {});
 }
 
@@ -59,5 +62,6 @@ export function restoreOriginalMetadata(): void {
   TrackPlayer.updateNowPlayingMetadata({
     title: originalTitle,
     artist: originalArtist,
+    artwork: originalArtwork,
   }).catch(() => {});
 }

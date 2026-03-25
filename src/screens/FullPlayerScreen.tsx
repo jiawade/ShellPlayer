@@ -115,7 +115,7 @@ const FullPlayerScreen: React.FC = () => {
   if (!currentTrack) return null;
 
   const headerTitle = (() => {
-    const hasArtist = currentTrack.artist && currentTrack.artist !== '未知歌手';
+    const hasArtist = currentTrack.artist && currentTrack.artist !== t('common.unknownArtist') && currentTrack.artist !== 'Unknown Artist' && currentTrack.artist !== '未知歌手';
     const hasTitle = currentTrack.title && currentTrack.title !== currentTrack.fileName;
     if (hasArtist && hasTitle) return `${currentTrack.artist} - ${currentTrack.title}`;
     if (hasTitle) return currentTrack.title;

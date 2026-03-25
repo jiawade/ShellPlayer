@@ -2,10 +2,12 @@
 import TrackPlayer, {Event} from 'react-native-track-player';
 import {rebindEqualizer} from './utils/equalizer';
 import {store} from './store';
-import {playTrack} from './store/musicSlice';
+import {playTrack, setPlaybackErrorMsg} from './store/musicSlice';
 import {exportTrackToFile} from './utils/mediaLibrary';
 import {recordPlay} from './utils/reviewPrompt';
 import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
+import {startLiveActivity, stopLiveActivity} from './utils/liveActivity';
+import i18n from './i18n';
 
 /**
  * Preload the next track into TrackPlayer's queue for gapless playback.
@@ -133,11 +135,37 @@ export async function PlaybackService() {
     TrackPlayer.seekTo(e.position),
   );
 
+  // Handle playback errors (unsupported format, corrupted files, etc.)
+  TrackPlayer.addEventListener(Event.PlaybackError, async (e) => {
+    console.warn('[PlaybackError]', e.message, e.code);
+    const state = store.getState().music;
+    const trackTitle = state.currentTrack?.title || '';
+    store.dispatch(setPlaybackErrorMsg(
+      i18n.t('playback.unsupportedFormat', { title: trackTitle }),
+    ));
+    // Auto-dismiss after 1.5s and skip to next track
+    setTimeout(() => {
+      store.dispatch(setPlaybackErrorMsg(null));
+      const s = store.getState().music;
+      const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
+      if (queue.length > 0 && s.currentTrack) {
+        const idx = queue.findIndex(t => t.id === s.currentTrack!.id);
+        if (idx >= 0) {
+          const nextIdx = (idx + 1) % queue.length;
+          store.dispatch(playTrack({track: queue[nextIdx], queue}));
+        }
+      }
+    }, 1500);
+  });
+
   // When a new track starts playing, rebind the equalizer and preload next track
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, () => {
     rebindEqualizer();
     preloadNextTrack();
     recordPlay().catch(() => {});
+
+    // Live Activity disabled: iOS lock screen already shows Now Playing widget;
+    // starting a Live Activity creates a duplicate entry.
   });
 
   // Handle queue exhaustion: when TrackPlayer finishes its internal queue,

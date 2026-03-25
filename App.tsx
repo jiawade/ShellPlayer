@@ -56,7 +56,7 @@ function PlaylistStackScreen() {
 }
 
 function TabsWithMiniPlayer() {
-  const { currentTrack, showFullPlayer } = useAppSelector(s => s.music);
+  const { currentTrack, showFullPlayer, playbackErrorMsg } = useAppSelector(s => s.music);
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
 
@@ -85,6 +85,12 @@ function TabsWithMiniPlayer() {
         <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tabs.settings') }} />
       </Tab.Navigator>
       {currentTrack && !showFullPlayer && <MiniPlayer />}
+      {!!playbackErrorMsg && (
+        <View style={{ position: 'absolute', top: 80, left: 20, right: 20, backgroundColor: colors.bgElevated, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, borderWidth: 1, borderColor: colors.border, zIndex: 9999 }}>
+          <Icon name="warning-outline" size={20} color={colors.secondary} />
+          <Text style={{ flex: 1, fontSize: 13, color: colors.textPrimary }} numberOfLines={2}>{playbackErrorMsg}</Text>
+        </View>
+      )}
     </View>
   );
 }

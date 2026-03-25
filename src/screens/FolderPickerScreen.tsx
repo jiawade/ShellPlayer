@@ -29,9 +29,9 @@ const COMMON_DIRS =
         {name: 'Music', path: `${STORAGE_ROOT}/Music`},
         {name: 'Download', path: `${STORAGE_ROOT}/Download`},
         {name: 'Documents', path: `${STORAGE_ROOT}/Documents`},
-        {name: '网易云音乐', path: `${STORAGE_ROOT}/netease/cloudmusic/Music`},
-        {name: 'QQ音乐', path: `${STORAGE_ROOT}/qqmusic/song`},
-        {name: '酷狗音乐', path: `${STORAGE_ROOT}/kugou/download`},
+        {name: 'NetEase Music', nameKey: 'folderPicker.commonDirs.netease', path: `${STORAGE_ROOT}/netease/cloudmusic/Music`},
+        {name: 'QQ Music', nameKey: 'folderPicker.commonDirs.qq', path: `${STORAGE_ROOT}/qqmusic/song`},
+        {name: 'Kugou Music', nameKey: 'folderPicker.commonDirs.kugou', path: `${STORAGE_ROOT}/kugou/download`},
       ]
     : [
         {name: 'music', path: `${RNFS.DocumentDirectoryPath}/music`},
@@ -521,7 +521,7 @@ const FolderPickerScreen: React.FC<Props> = ({
                 <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
                 <View style={{flex: 1, marginLeft: 10}}>
                   <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
-                    {dir.name}
+                    {(dir as any).nameKey ? t((dir as any).nameKey) : dir.name}
                   </Text>
                   <Text style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}>
                     {dir.path.replace(STORAGE_ROOT + '/', '')}

@@ -22,6 +22,12 @@ import {
   isBluetoothLyricsEnabled, setOriginalTrackInfo, pushLyricToNowPlaying,
   restoreOriginalMetadata,
 } from '../utils/bluetoothLyrics';
+import {
+  updateLiveActivity, stopLiveActivity, isLiveActivityActive,
+} from '../utils/liveActivity';
+import {
+  startAudioLevelMonitoring, stopAudioLevelMonitoring, addAudioLevelListener,
+} from '../utils/audioLevel';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
@@ -64,7 +70,7 @@ export function usePlayerSync() {
     if (!matched) return;
     dispatch(setCurrentTrack(matched));
     dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
-    setOriginalTrackInfo(matched.title, matched.artist);
+    setOriginalTrackInfo(matched.title, matched.artist, matched.artwork);
 
     const loadLyrics = async () => {
       let lines: import('../types').LyricLine[] = [];
@@ -162,6 +168,51 @@ export function usePlayerSync() {
       trackId: activeTrack.id, position,
     })).catch(() => {});
   }, [position, activeTrack]);
+
+  // Dynamic Island: start audio monitoring and push updates
+  const liveActivityLevelsRef = useRef<number[]>(Array(7).fill(0));
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const playing = playbackState.state === State.Playing;
+    if (!playing || !activeTrack) {
+      stopAudioLevelMonitoring().catch(() => {});
+      return;
+    }
+    // Start monitoring and listen for audio levels
+    startAudioLevelMonitoring().catch(() => {});
+    const unsub = addAudioLevelListener((event: {levels: number[]}) => {
+      // Pick 7 evenly spaced bands for rainbow bars
+      const lvls = event.levels || [];
+      const step = Math.max(1, Math.floor(lvls.length / 7));
+      liveActivityLevelsRef.current = Array.from({length: 7}, (_, i) => lvls[i * step] ?? 0);
+    });
+    return () => { unsub(); stopAudioLevelMonitoring().catch(() => {}); };
+  }, [playbackState.state, activeTrack?.id]);
+
+  // Push to Dynamic Island every ~1 second
+  const lastLAUpdate = useRef(0);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const now = Date.now();
+    if (now - lastLAUpdate.current < 1000) return;
+    lastLAUpdate.current = now;
+
+    const playing = playbackState.state === State.Playing;
+    const matched = tracks.find(t => t.id === activeTrack?.id);
+    if (!matched) {
+      if (isLiveActivityActive()) stopLiveActivity().catch(() => {});
+      return;
+    }
+    const progress = duration > 0 ? position / duration : 0;
+    updateLiveActivity(
+      playing,
+      matched.title,
+      matched.artist || '',
+      progress,
+      liveActivityLevelsRef.current,
+      matched.artwork,
+    ).catch(() => {});
+  }, [position, playbackState.state, activeTrack?.id, duration, tracks]);
 
   return { position, duration };
 }

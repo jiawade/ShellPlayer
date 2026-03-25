@@ -22,6 +22,12 @@
   },
   "allSongs": {
     "title": "All Songs",
+    "songCount": {
+      "found": "Found {{count}}",
+      "total": "{{count}} total",
+      "totalDedup": "{{count}} total (deduplicated)"
+    },
+    "noMatch": "No matching songs found",
     "sort": {
       "byName": "By Name",
       "byArtist": "By Artist",
@@ -53,8 +59,11 @@
     "batch": {
       "selectedCount": "{{count}} selected",
       "selectAll": "Select All",
+      "cancel": "Cancel",
       "favorite": "Favorite",
-      "hide": "Hide"
+      "hide": "Hide",
+      "deleteTitle": "Batch Remove",
+      "deleteMessage": "Remove {{count}} songs from the list?"
     }
   },
   "settings": {
@@ -280,6 +289,9 @@
     }
   },
   "rhythmLight": {
+    "title": "Rhythm Light",
+    "volumeMode": "Volume",
+    "rhythmMode": "Rhythm",
     "modes": {
       "classic": "Classic Bars",
       "mirror": "Mirror Wave",
@@ -564,5 +576,8 @@
     "step3": "Set to \"Don't optimize\" or \"Unrestricted\"",
     "step4": "Also check \"Auto-start\" permissions if available",
     "openSettings": "Open Settings"
+  },
+  "playback": {
+    "unsupportedFormat": "\"{{title}}\" format not supported, skipping..."
   }
 }

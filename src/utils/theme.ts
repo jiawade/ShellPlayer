@@ -62,7 +62,7 @@ export const SIZES = {
 export const SUPPORTED_FORMATS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.aac', '.wma', '.aiff', '.alac', '.opus', '.ape', '.webm'];
 
 // Known encrypted / proprietary formats that cannot be decoded
-export const UNSUPPORTED_FORMATS = ['.kgg', '.ncm', '.qmc', '.mflac', '.mgg', '.tm0', '.tm3', '.vpr'];
+export const UNSUPPORTED_FORMATS = ['.kgg', '.kgm', '.ncm', '.qmc', '.qmc0', '.qmc3', '.qmcflac', '.mflac', '.mgg', '.mgg1', '.tm0', '.tm3', '.tm6', '.vpr', '.tkm', '.bkcmp3', '.bkcflac', '.joox'];
 
 // --- Preset Themes ---
 

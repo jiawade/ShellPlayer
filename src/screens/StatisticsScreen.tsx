@@ -90,7 +90,15 @@ export default function StatisticsScreen() {
   const formatStats = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const track of tracks) {
-      const ext = (track.filePath || '').split('.').pop()?.toLowerCase() || 'unknown';
+      // Use fileName first (cleaner), fallback to filePath.
+      // Strip query params (e.g. ipod-library URLs: "item.mp3?id=123")
+      const name = track.fileName || track.filePath || '';
+      const dotIdx = name.lastIndexOf('.');
+      let ext = dotIdx > 0 ? name.substring(dotIdx + 1).toLowerCase() : 'unknown';
+      // Remove anything after '?' (query params from iPod library URIs)
+      const qIdx = ext.indexOf('?');
+      if (qIdx > 0) ext = ext.substring(0, qIdx);
+      if (!ext) ext = 'unknown';
       counts[ext] = (counts[ext] || 0) + 1;
     }
     const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);

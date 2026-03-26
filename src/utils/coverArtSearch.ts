@@ -1,6 +1,6 @@
 // src/utils/coverArtSearch.ts
 import RNFS from 'react-native-fs';
-import {saveArtworkFile} from './artworkCache';
+import {saveArtworkFile, saveArtworkFromFile} from './artworkCache';
 
 export interface CoverSearchResult {
   id: number;
@@ -90,15 +90,18 @@ async function searchBing(artist: string): Promise<CoverSearchResult[]> {
     }
 
     for (let i = 0; i < murls.length; i++) {
-      const murl = murls[i];
+      const murl = ensureHttps(murls[i]);
       if (seen.has(murl)) {
         continue;
       }
       seen.add(murl);
 
-      let thumbUrl = turls[i] || murl;
-      if (thumbUrl.includes('bing.net/th')) {
-        thumbUrl += '&w=200&h=200&c=7';
+      // Use Bing thumbnail proxy for display (more reliable than original URLs).
+      // Construct a clean Bing proxy thumbnail from the murl.
+      let thumbUrl = turls[i] ? ensureHttps(turls[i]) : '';
+      if (!thumbUrl) {
+        // Build a Bing proxy thumbnail URL manually
+        thumbUrl = `https://tse1.mm.bing.net/th?q=${encodeURIComponent(query)}&w=200&h=200&c=7&rs=1&p=0&pid=InlineBlock&mkt=zh-CN`;
       }
 
       results.push({
@@ -118,13 +121,13 @@ async function searchBing(artist: string): Promise<CoverSearchResult[]> {
     if (results.length === 0) {
       const imgSrcRegex = /<img[^>]*class="mimg[^"]*"[^>]*src="(https?:\/\/[^"]+)"/g;
       while ((m = imgSrcRegex.exec(html)) !== null) {
-        const url = m[1].replace(/&amp;/g, '&');
+        const url = ensureHttps(m[1].replace(/&amp;/g, '&'));
         if (seen.has(url)) {
           continue;
         }
         seen.add(url);
         const highRes = url.includes('bing.net/th')
-          ? url.replace(/&w=\d+/, '&w=600').replace(/&h=\d+/, '&h=600') + '&w=600&h=600'
+          ? url.replace(/&w=\d+/, '&w=600').replace(/&h=\d+/, '&h=600')
           : url;
         results.push({
           id: results.length + 300000,
@@ -145,6 +148,8 @@ async function searchBing(artist: string): Promise<CoverSearchResult[]> {
 }
 
 // 只用Bing搜索，参数为歌手名（可手动输入）
+// 返回搜索结果列表，thumbUrl 仍为远程 URL。
+// 缩略图的本地化下载由调用方（UI 层）按需逐张进行。
 export async function searchCoverArt(artist: string): Promise<CoverSearchResult[]> {
   const query = artist.trim();
   if (!query) {
@@ -154,9 +159,45 @@ export async function searchCoverArt(artist: string): Promise<CoverSearchResult[
 }
 
 /**
+ * 下载单张缩略图到本地缓存，返回 file:// URI。
+ * 如果下载失败返回 undefined（调用方应显示占位图）。
+ */
+export async function downloadThumbToLocal(result: CoverSearchResult): Promise<string | undefined> {
+  const urlsToTry = [result.thumbUrl, result.artworkUrl].filter(Boolean);
+  for (const url of urlsToTry) {
+    try {
+      const localPath = `${RNFS.CachesDirectoryPath}/thumb_${result.id}_${Date.now() % 100000}.jpg`;
+      const dl = await RNFS.downloadFile({
+        fromUrl: ensureHttps(url),
+        toFile: localPath,
+        headers: {
+          'User-Agent': BING_HEADERS['User-Agent'],
+          Accept: 'image/webp,image/apng,image/*,*/*;q=0.8',
+          Referer: 'https://cn.bing.com/',
+        },
+        connectionTimeout: 10000,
+        readTimeout: 10000,
+      }).promise;
+      if (dl.statusCode >= 200 && dl.statusCode < 400 && dl.bytesWritten > 500) {
+        return `file://${localPath}`;
+      }
+      await RNFS.unlink(localPath).catch(() => {});
+    } catch {
+      // try next URL
+    }
+  }
+  return undefined;
+}
+
+// Maximum image file size: 5 MB. Anything larger is likely to cause OOM on Android.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/**
  * Download a cover image and save to artwork cache.
  * Returns the local file:// URI on success.
- * Uses RNFS.downloadFile for reliable binary downloads with redirect support.
+ *
+ * IMPORTANT: Does NOT load file into JS memory (no base64 conversion).
+ * Uses RNFS.copyFile to move from tmp → cache, keeping memory footprint near zero.
  */
 export async function downloadCoverArt(
   trackId: string,
@@ -183,23 +224,22 @@ export async function downloadCoverArt(
       toFile: tmpPath,
       headers,
     }).promise;
+
     if (result.statusCode < 200 || result.statusCode >= 400 || result.bytesWritten < 1000) {
       await RNFS.unlink(tmpPath).catch(() => {});
       return undefined;
     }
 
-    const base64Data = await RNFS.readFile(tmpPath, 'base64');
-    if (!base64Data) {
+    // Reject oversized images to prevent OOM
+    if (result.bytesWritten > MAX_IMAGE_BYTES) {
       await RNFS.unlink(tmpPath).catch(() => {});
       return undefined;
     }
 
-    const detectedFormat = detectImageFormat(base64Data);
+    // Directly copy file to cache — ZERO base64, ZERO JS memory allocation
+    const cachedUri = await saveArtworkFromFile(trackId, tmpPath);
     await RNFS.unlink(tmpPath).catch(() => {});
-
-    const mimeType = detectedFormat === 'png' ? 'image/png' : 'image/jpeg';
-    const dataUri = `data:${mimeType};base64,${base64Data}`;
-    return await saveArtworkFile(trackId, dataUri);
+    return cachedUri;
   } catch {
     return undefined;
   }
@@ -245,9 +285,11 @@ export async function downloadCoverToFile(imageUrl: string): Promise<string | un
  * 一键搜索+下载+保存封面（终极方案）
  * 1. Bing搜索歌手图片
  * 2. 随机选一张（最多尝试3张，有的URL可能无法下载）
- * 3. 下载并保存到 album 调试目录
- * 4. 保存到 artworkCache，返回 file:// URI
- * 5. 同时下载到临时文件供写入歌曲标签
+ * 3. 下载到临时文件（只下载一次！）
+ * 4. 复制到 artworkCache，返回 file:// URI
+ * 5. 同时保留临时文件供写入歌曲标签
+ *
+ * 整个过程零 base64 转换，不会导致 Android OOM 闪退。
  *
  * @returns { cachedUri, tmpPath } on success, undefined on failure
  */
@@ -255,39 +297,65 @@ export async function searchAndApplyCover(
   trackId: string,
   artist: string,
 ): Promise<{cachedUri: string; tmpPath?: string} | undefined> {
-  // Step 1: Search
-  const results = await searchBing(artist.trim()).catch(() => [] as CoverSearchResult[]);
-  if (results.length === 0) {
-    return undefined;
-  }
-
-  // Step 2: Try up to 3 random picks
-  const maxAttempts = Math.min(3, results.length);
-  const tried = new Set<number>();
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    let idx: number;
-    do {
-      idx = Math.floor(Math.random() * results.length);
-    } while (tried.has(idx) && tried.size < results.length);
-    tried.add(idx);
-
-    const picked = results[idx];
-
-    // Step 3: Download
-    const cachedUri = await downloadCoverArt(trackId, picked.artworkUrl);
-    if (!cachedUri) {
-      continue;
+  try {
+    // Step 1: Search
+    const results = await searchBing(artist.trim()).catch(() => [] as CoverSearchResult[]);
+    if (results.length === 0) {
+      return undefined;
     }
 
-    // Step 4: Also download to tmp file for tag writing (best effort)
-    let tmpPath: string | undefined;
-    try {
-      tmpPath = await downloadCoverToFile(picked.artworkUrl);
-    } catch {}
+    // Step 2: Try up to 3 random picks
+    const maxAttempts = Math.min(3, results.length);
+    const tried = new Set<number>();
 
-    return {cachedUri, tmpPath};
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      let idx: number;
+      do {
+        idx = Math.floor(Math.random() * results.length);
+      } while (tried.has(idx) && tried.size < results.length);
+      tried.add(idx);
+
+      const picked = results[idx];
+
+      try {
+        // Step 3: Download to temp file ONCE
+        const url = ensureHttps(picked.artworkUrl);
+        let origin = '';
+        try { const u = new URL(url); origin = u.origin; } catch {}
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          Accept: 'image/webp,image/apng,image/*,*/*;q=0.8',
+        };
+        if (origin) headers.Referer = origin + '/';
+
+        const tmpPath = `${RNFS.CachesDirectoryPath}/cover_apply_${Date.now()}.jpg`;
+        const dl = await RNFS.downloadFile({fromUrl: url, toFile: tmpPath, headers}).promise;
+
+        if (dl.statusCode < 200 || dl.statusCode >= 400 || dl.bytesWritten < 1000) {
+          await RNFS.unlink(tmpPath).catch(() => {});
+          continue;
+        }
+        if (dl.bytesWritten > MAX_IMAGE_BYTES) {
+          await RNFS.unlink(tmpPath).catch(() => {});
+          continue;
+        }
+
+        // Step 4: Copy to artwork cache (no base64, no memory spike)
+        const cachedUri = await saveArtworkFromFile(trackId, tmpPath);
+        if (!cachedUri) {
+          await RNFS.unlink(tmpPath).catch(() => {});
+          continue;
+        }
+
+        // tmpPath is kept alive for tag writing; caller should clean up
+        return {cachedUri, tmpPath};
+      } catch {
+        continue;
+      }
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
   }
-
-  return undefined;
 }

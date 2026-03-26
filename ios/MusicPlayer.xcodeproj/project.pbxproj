@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -18,15 +18,14 @@
 		182417652F73B4BC007B0D3A /* MusicActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182417632F73B4BC007B0D3A /* MusicActivityAttributes.swift */; };
 		182417662F73B4BC007B0D3A /* LiveActivityBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 182417612F73B4BC007B0D3A /* LiveActivityBridge.m */; };
 		182417672F73B4BC007B0D3A /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182417622F73B4BC007B0D3A /* LiveActivityManager.swift */; };
-
 		7699B88040F8A987B510C191 /* libPods-MusicPlayer-MusicPlayerTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-MusicPlayer-MusicPlayerTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A1B2C3D61234567800AABBCC /* MediaLibraryModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D51234567800AABBCC /* MediaLibraryModule.m */; };
-		B1C2D3E61234567800BBCCDD /* iOSEqualizerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */; };
-		C1D2E3F61234567800CCDDEE /* AudioLevelModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */; };
 		AA0000012F73B5AA00000001 /* MusicActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000012F73B5AA00000011 /* MusicActivityAttributes.swift */; };
 		AA0000012F73B5AA00000002 /* MusicPlayerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000012F73B5AA00000012 /* MusicPlayerWidgetBundle.swift */; };
 		AA0000012F73B5AA00000003 /* MusicPlayerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */; };
+		B1C2D3E61234567800BBCCDD /* iOSEqualizerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */; };
+		C1D2E3F61234567800CCDDEE /* AudioLevelModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,7 +76,6 @@
 		182417622F73B4BC007B0D3A /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiveActivityManager.swift; path = MusicPlayer/LiveActivityManager.swift; sourceTree = "<group>"; };
 		182417632F73B4BC007B0D3A /* MusicActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MusicActivityAttributes.swift; path = MusicPlayer/MusicActivityAttributes.swift; sourceTree = "<group>"; };
 		182417642F73B4BC007B0D3A /* MusicPlayer-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "MusicPlayer-Bridging-Header.h"; path = "MusicPlayer/MusicPlayer-Bridging-Header.h"; sourceTree = "<group>"; };
-
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-MusicPlayer-MusicPlayerTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MusicPlayer-MusicPlayerTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-MusicPlayer.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MusicPlayer.debug.xcconfig"; path = "Target Support Files/Pods-MusicPlayer/Pods-MusicPlayer.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-MusicPlayer.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MusicPlayer.release.xcconfig"; path = "Target Support Files/Pods-MusicPlayer/Pods-MusicPlayer.release.xcconfig"; sourceTree = "<group>"; };
@@ -87,15 +85,15 @@
 		89C6BE57DB24E9ADA2F236DE /* Pods-MusicPlayer-MusicPlayerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MusicPlayer-MusicPlayerTests.release.xcconfig"; path = "Target Support Files/Pods-MusicPlayer-MusicPlayerTests/Pods-MusicPlayer-MusicPlayerTests.release.xcconfig"; sourceTree = "<group>"; };
 		A1B2C3D41234567800AABBCC /* MediaLibraryModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MediaLibraryModule.h; path = MusicPlayer/MediaLibraryModule.h; sourceTree = "<group>"; };
 		A1B2C3D51234567800AABBCC /* MediaLibraryModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MediaLibraryModule.m; path = MusicPlayer/MediaLibraryModule.m; sourceTree = "<group>"; };
+		AA0000012F73B5AA00000011 /* MusicActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicActivityAttributes.swift; sourceTree = "<group>"; };
+		AA0000012F73B5AA00000012 /* MusicPlayerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerWidgetBundle.swift; sourceTree = "<group>"; };
+		AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerLiveActivity.swift; sourceTree = "<group>"; };
+		AA0000012F73B5AA00000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1C2D3E41234567800BBCCDD /* iOSEqualizerModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iOSEqualizerModule.h; path = MusicPlayer/iOSEqualizerModule.h; sourceTree = "<group>"; };
 		B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = iOSEqualizerModule.m; path = MusicPlayer/iOSEqualizerModule.m; sourceTree = "<group>"; };
 		C1D2E3F41234567800CCDDEE /* AudioLevelModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AudioLevelModule.h; path = MusicPlayer/AudioLevelModule.h; sourceTree = "<group>"; };
 		C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AudioLevelModule.m; path = MusicPlayer/AudioLevelModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		AA0000012F73B5AA00000011 /* MusicActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicActivityAttributes.swift; sourceTree = "<group>"; };
-		AA0000012F73B5AA00000012 /* MusicPlayerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerWidgetBundle.swift; sourceTree = "<group>"; };
-		AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerLiveActivity.swift; sourceTree = "<group>"; };
-		AA0000012F73B5AA00000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,17 +125,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		1824173C2F73B15A007B0D3A /* MusicPlayerWidgets */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000012F73B5AA00000011 /* MusicActivityAttributes.swift */,
-				AA0000012F73B5AA00000012 /* MusicPlayerWidgetBundle.swift */,
-				AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */,
-				AA0000012F73B5AA00000014 /* Info.plist */,
-			);
-			path = MusicPlayerWidgets;
-			sourceTree = "<group>";
-		};
 		00E356EF1AD99517003FC87E /* MusicPlayerTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -176,6 +163,17 @@
 				182417642F73B4BC007B0D3A /* MusicPlayer-Bridging-Header.h */,
 			);
 			name = MusicPlayer;
+			sourceTree = "<group>";
+		};
+		1824173C2F73B15A007B0D3A /* MusicPlayerWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000012F73B5AA00000011 /* MusicActivityAttributes.swift */,
+				AA0000012F73B5AA00000012 /* MusicPlayerWidgetBundle.swift */,
+				AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */,
+				AA0000012F73B5AA00000014 /* Info.plist */,
+			);
+			path = MusicPlayerWidgets;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -294,8 +292,6 @@
 			dependencies = (
 			);
 			name = MusicPlayerWidgetsExtension;
-			packageProductDependencies = (
-			);
 			productName = MusicPlayerWidgetsExtension;
 			productReference = 182417392F73B15A007B0D3A /* MusicPlayerWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -577,7 +573,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "MusicPlayerTests-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MusicPlayer.app/MusicPlayer";
 			};
 			name = Debug;
@@ -605,7 +601,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "MusicPlayerTests-Bridging-Header.h";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MusicPlayer.app/MusicPlayer";
 			};
 			name = Release;
@@ -826,7 +822,10 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
@@ -894,7 +893,10 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

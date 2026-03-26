@@ -252,10 +252,14 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
     }
     const cached = JSON.parse(data) as Track[];
     // Filter out any tracks with unsupported/encrypted formats
+    // Use whitelist: only keep tracks whose extension is in SUPPORTED_FORMATS,
+    // or tracks from iPod library (no file extension on disk)
     return cached
       .filter(t => {
         const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
-        return !ext || !UNSUPPORTED_FORMATS.includes(ext);
+        // iPod library tracks may not have a normal extension — keep them
+        if (!ext || t.url?.startsWith('ipod-library://')) return true;
+        return SUPPORTED_FORMATS.includes(ext);
       })
       .map(t => ({
         ...t,

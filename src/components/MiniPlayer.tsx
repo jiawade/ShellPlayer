@@ -14,7 +14,7 @@ const MiniPlayer: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigation = useNavigation<any>();
   const { currentTrack, isPlaying } = useAppSelector(s => s.music);
-  const { togglePlayPause, skipToNext } = usePlayerControls();
+  const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
   const { position, duration } = usePlayerSync();
   const { colors, sizes } = useTheme();
 
@@ -43,8 +43,11 @@ const MiniPlayer: React.FC = () => {
           <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 }} numberOfLines={1}>{currentTrack.title}</Text>
           <Text style={{ fontSize: sizes.xs, color: colors.textSecondary }} numberOfLines={1}>{currentTrack.artist}</Text>
         </View>
+        <Pressable onPress={() => { hapticLight(); skipToPrevious(); }} style={styles.btn} hitSlop={10} accessibilityLabel="Previous track" accessibilityRole="button">
+          <Icon name="play-back" size={22} color={colors.textSecondary} />
+        </Pressable>
         <Pressable onPress={() => { hapticMedium(); togglePlayPause(); }} style={styles.btn} hitSlop={10} accessibilityLabel={isPlaying ? 'Pause' : 'Play'} accessibilityRole="button">
-          <Icon name={isPlaying ? 'pause' : 'play'} size={26} color={colors.textPrimary} />
+          <Icon name={isPlaying ? 'pause' : 'play'} size={26} color={colors.textPrimary} style={isPlaying ? undefined : {marginLeft: 2}} />
         </Pressable>
         <Pressable onPress={() => { hapticLight(); skipToNext(); }} style={styles.btn} hitSlop={10} accessibilityLabel="Next track" accessibilityRole="button">
           <Icon name="play-forward" size={22} color={colors.textSecondary} />

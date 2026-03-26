@@ -53,6 +53,29 @@ export async function saveArtworkFile(trackId: string, dataUri: string): Promise
 }
 
 /**
+ * 将已下载的图片文件直接移入缓存目录（零 base64，零内存膨胀）
+ */
+export async function saveArtworkFromFile(trackId: string, srcFilePath: string): Promise<string | undefined> {
+  await ensureDir();
+  try {
+    // Detect extension from source path
+    const srcExt = srcFilePath.substring(srcFilePath.lastIndexOf('.')).toLowerCase();
+    const ext = srcExt === '.png' ? 'png' : 'jpg';
+    const fileName = `${hashKey(trackId)}.${ext}`;
+    const destPath = `${CACHE_DIR}/${fileName}`;
+
+    if (await RNFS.exists(destPath)) {
+      return `file://${destPath}`;
+    }
+
+    await RNFS.copyFile(srcFilePath, destPath);
+    return `file://${destPath}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * 尝试获取已缓存的封面 file:// URI
  */
 export async function getCachedArtwork(trackId: string): Promise<string | undefined> {

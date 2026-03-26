@@ -42,16 +42,16 @@ import {useTheme} from '../contexts/ThemeContext';
 import {useTranslation} from 'react-i18next';
 import {RepeatMode} from '../types';
 import {hapticMedium, hapticLight, hapticSelection} from '../utils/haptics';
+import RNFS from 'react-native-fs';
 import {
   searchCoverArt,
   downloadCoverArt,
-  downloadCoverToFile,
   searchAndApplyCover,
   CoverSearchResult,
 } from '../utils/coverArtSearch';
-import {writeTrackArtwork} from '../utils/tagWriter';
+import {getCachedArtwork} from '../utils/artworkCache';
 
-const COVER = Dimensions.get('window').width * 0.7;
+const COVER = Dimensions.get('window').width * 0.84;
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 // Feature flag: Bing image scraping has copyright/ToS risk for App Store/Google Play.
@@ -65,6 +65,34 @@ const PLAY_MODES: {mode: RepeatMode; icon: string; labelKey: string}[] = [
   {mode: 'queue', icon: 'shuffle-outline', labelKey: 'fullPlayer.playModes.shuffle'},
   {mode: 'track', icon: 'sync-outline', labelKey: 'fullPlayer.playModes.repeatOne'},
 ];
+
+// Thumbnail for cover search results — loads Bing CDN URL directly via RN Image
+const CoverThumb: React.FC<{url: string; accentColor: string; mutedColor: string; bgColor: string}> = memo(({url, accentColor, mutedColor, bgColor}) => {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  if (!url) {
+    return (
+      <View style={[styles.coverThumb, {backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center'}]}>
+        <Icon name="image-outline" size={32} color={mutedColor} />
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.coverThumb, {backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'}]}>
+      {status !== 'error' ? (
+        <Image
+          source={{uri: url}}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+          onLoad={() => setStatus('loaded')}
+          onError={() => setStatus('error')}
+        />
+      ) : (
+        <Icon name="image-outline" size={32} color={mutedColor} />
+      )}
+      {status === 'loading' && <ActivityIndicator size="small" color={accentColor} />}
+    </View>
+  );
+});
 
 const FullPlayerScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -130,6 +158,8 @@ const FullPlayerScreen: React.FC = () => {
     }
   }, [currentTrack?.id, dispatch]);
 
+
+
   // 打开封面搜索弹窗并自动搜索
   const handleSearchCover = useCallback(() => {
     if (!currentTrack) {
@@ -194,14 +224,8 @@ const FullPlayerScreen: React.FC = () => {
           setCoverSaving(false);
           return;
         }
+        // 直接将 album 缓存图片关联到歌曲，不写入 tag
         dispatch(updateTrackArtwork({trackId: currentTrack.id, artwork: cachedUri}));
-
-        if (Platform.OS !== 'ios') {
-          const tmpPath = await downloadCoverToFile(selected.artworkUrl);
-          if (tmpPath) {
-            await writeTrackArtwork(currentTrack.filePath, tmpPath).catch(() => false);
-          }
-        }
 
         setShowCoverSearch(false);
         Alert.alert(t('coverSearch.title'), t('coverSearch.applySuccess'));
@@ -226,30 +250,56 @@ const FullPlayerScreen: React.FC = () => {
     })();
   }, [dispatch]);
 
-  // Auto-download cover art when entering FullPlayer if track has no artwork
-  const autoDownloadAttemptedRef = React.useRef<string | null>(null);
+  // Auto-download cover art: search Bing when track has no artwork.
+  // Uses file-copy approach (zero base64) to avoid Android OOM crashes.
+  const autoDownloadAttemptedRef = React.useRef<Set<string>>(new Set());
+  const autoDownloadActiveRef = React.useRef(false);
+
   useEffect(() => {
-    if (!COVER_SEARCH_ENABLED) return;
-    if (!currentTrack) return;
+    if (!COVER_SEARCH_ENABLED || !currentTrack?.id) return;
     if (currentTrack.artwork) return;
-    if (autoDownloadAttemptedRef.current === currentTrack.id) return;
-    autoDownloadAttemptedRef.current = currentTrack.id;
+    if (autoDownloadAttemptedRef.current.has(currentTrack.id)) return;
 
-    const query = getCoverSearchQuery();
-    if (!query) return;
+    autoDownloadAttemptedRef.current.add(currentTrack.id);
+    const trackId = currentTrack.id;
+    const artist = currentTrack.artist || '';
+    const isUnknown = !artist || artist === 'Unknown Artist' || artist === '未知歌手';
+    const query = isUnknown ? (currentTrack.title || '') : artist;
+    let cancelled = false;
 
-    (async () => {
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
       try {
-        const autoResult = await searchAndApplyCover(currentTrack.id, query);
-        if (autoResult) {
-          dispatch(updateTrackArtwork({trackId: currentTrack.id, artwork: autoResult.cachedUri}));
-          if (Platform.OS !== 'ios' && autoResult.tmpPath) {
-            await writeTrackArtwork(currentTrack.filePath, autoResult.tmpPath).catch(() => {});
-          }
+        const cached = await getCachedArtwork(trackId);
+        if (cached && !cancelled) {
+          dispatch(updateTrackArtwork({trackId, artwork: cached}));
+          return;
         }
       } catch {}
-    })();
-  }, [currentTrack?.id, currentTrack?.artwork, dispatch, getCoverSearchQuery]);
+
+      if (cancelled || !query.trim() || autoDownloadActiveRef.current) return;
+      autoDownloadActiveRef.current = true;
+
+      try {
+        const result = await searchAndApplyCover(trackId, query);
+        if (result && !cancelled) {
+          dispatch(updateTrackArtwork({trackId, artwork: result.cachedUri}));
+          if (result.tmpPath) {
+            RNFS.unlink(result.tmpPath).catch(() => {});
+          }
+        }
+      } catch {
+        // Silently fail — never crash
+      } finally {
+        autoDownloadActiveRef.current = false;
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [currentTrack?.id, currentTrack?.artwork, dispatch]);
 
   useEffect(() => {
     const unsub = navigation.addListener('beforeRemove', () => {
@@ -531,7 +581,7 @@ const FullPlayerScreen: React.FC = () => {
             activeOpacity={0.8}
             accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
             accessibilityRole="button">
-            <Icon name={isPlaying ? 'pause' : 'play'} size={32} color={colors.bg} />
+            <Icon name={isPlaying ? 'pause' : 'play'} size={32} color={colors.bg} style={isPlaying ? undefined : {marginLeft: 3}} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -844,11 +894,7 @@ const FullPlayerScreen: React.FC = () => {
                           activeOpacity={0.7}
                           onPress={() => !coverSaving && setSelectedCoverId(r.id)}
                           disabled={coverSaving}>
-                          <Image
-                            source={{uri: r.thumbUrl}}
-                            style={styles.coverThumb}
-                            resizeMode="cover"
-                          />
+                          <CoverThumb url={r.thumbUrl} accentColor={colors.accent} mutedColor={colors.textMuted} bgColor={colors.bgElevated} />
                           {isSelected && (
                             <View style={styles.coverSelectedBadge}>
                               <Icon name="checkmark-circle" size={20} color={colors.accent} />
@@ -898,7 +944,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 12,
   },
-  trackInfo: {alignItems: 'center', marginTop: 28, paddingHorizontal: 40},
+  trackInfo: {alignItems: 'center', marginTop: 36, paddingHorizontal: 40},
   lyrHint: {
     flexDirection: 'row',
     alignItems: 'center',

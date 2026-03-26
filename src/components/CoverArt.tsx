@@ -1,5 +1,5 @@
 // src/components/CoverArt.tsx
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -12,13 +12,15 @@ interface Props {
 
 const CoverArt: React.FC<Props> = ({ artwork, size, borderRadius = 12 }) => {
   const { colors } = useTheme();
+  const [loadError, setLoadError] = useState(false);
 
-  if (artwork) {
+  if (artwork && !loadError) {
     return (
       <Image
         source={{ uri: artwork }}
         style={{ width: size, height: size, borderRadius, backgroundColor: colors.bgCard }}
         resizeMode="cover"
+        onError={() => setLoadError(true)}
       />
     );
   }

@@ -1,6 +1,6 @@
 // src/utils/coverArtSearch.ts
 import RNFS from 'react-native-fs';
-import {saveArtworkFile, saveArtworkFromFile} from './artworkCache';
+import {saveArtworkFromFile} from './artworkCache';
 
 export interface CoverSearchResult {
   id: number;
@@ -13,36 +13,6 @@ export interface CoverSearchResult {
 
 function ensureHttps(url: string): string {
   return url.replace(/^http:\/\//i, 'https://');
-}
-
-function hashKey(s: string): string {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h).toString(36);
-}
-
-/**
- * Detect image format from base64 header bytes.
- */
-function detectImageFormat(base64Data: string): string {
-  // Check first few bytes for magic headers
-  const header = base64Data.substring(0, 16);
-  if (header.startsWith('/9j/')) {
-    return 'jpg';
-  }
-  if (header.startsWith('iVBOR')) {
-    return 'png';
-  }
-  if (header.startsWith('R0lGO')) {
-    return 'gif';
-  }
-  if (header.startsWith('UklGR')) {
-    return 'webp';
-  }
-  return 'unknown';
 }
 
 // ── Bing Image Search ───────────────────────────────────────────────────

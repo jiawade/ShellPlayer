@@ -28,7 +28,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
   const { t } = useTranslation();
 
   const handlePlayFromQueue = useCallback(
-    async (track: Track, index: number) => {
+    async (track: Track, _index: number) => {
       try {
         const queue = await TrackPlayer.getQueue();
         const queueIdx = queue.findIndex(t => t.id === track.id);

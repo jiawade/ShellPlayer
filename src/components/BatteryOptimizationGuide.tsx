@@ -1,5 +1,5 @@
 // src/components/BatteryOptimizationGuide.tsx
-import React, {memo, useState} from 'react';
+import React, {memo} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, ScrollView, Platform, Linking} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../contexts/ThemeContext';
@@ -11,7 +11,7 @@ interface Props {
 }
 
 const BatteryOptimizationGuide: React.FC<Props> = ({visible, onClose}) => {
-  const {colors, sizes} = useTheme();
+  const {colors} = useTheme();
   const {t} = useTranslation();
 
   if (Platform.OS !== 'android') return null;

@@ -27,11 +27,6 @@ const extractFormat = (filePath: string): string => {
   return ext || 'N/A';
 };
 
-const truncatePath = (path: string, maxLen = 40): string => {
-  if (path.length <= maxLen) return path;
-  return '...' + path.slice(-(maxLen - 3));
-};
-
 interface InfoRowProps {
   icon: string;
   label: string;
@@ -145,7 +140,6 @@ const AudioAnalyzer: React.FC = () => {
   }
 
   const format = extractFormat(currentTrack.url || currentTrack.filePath);
-  const isIpod = currentTrack.url?.startsWith('ipod-library://');
 
   // Estimate sample rate based on format
   const sampleRate = (() => {

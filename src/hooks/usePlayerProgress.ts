@@ -1,6 +1,6 @@
 // src/hooks/usePlayerProgress.ts
 import { useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import TrackPlayer, {
   useProgress,
   usePlaybackState,
@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from '../store';
 import {
   setIsPlaying, setCurrentTrack, setCurrentLyricIndex,
   setLyrics, setCurrentIndex, playTrack,
+  shuffleHistoryBack, shuffleHistoryForward, prependShuffleHistory,
 } from '../store/musicSlice';
 import { recordListenTime } from '../store/statsSlice';
 import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
@@ -220,12 +221,42 @@ export function usePlayerSync() {
     ).catch(() => {});
   }, [position, playbackState.state, activeTrack?.id, duration, tracks]);
 
+  // Fix iOS lock screen progress: when app returns to foreground, update
+  // MPNowPlayingInfoCenter elapsed time without interrupting playback.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        try {
+          const { position: pos } = await TrackPlayer.getProgress();
+          if (pos > 0) {
+            await TrackPlayer.updateNowPlayingMetadata({ elapsedTime: pos });
+          }
+        } catch {}
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Periodically sync elapsed time to MPNowPlayingInfoCenter while playing.
+  // This prevents stale elapsedPlaybackTime from any metadata update calls.
+  const lastNPSync = useRef(0);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const playing = playbackState.state === State.Playing;
+    if (!playing || position < 1) return;
+    const now = Date.now();
+    if (now - lastNPSync.current < 10000) return;
+    lastNPSync.current = now;
+    TrackPlayer.updateNowPlayingMetadata({ elapsedTime: position }).catch(() => {});
+  }, [position, playbackState.state]);
+
   return { position, duration };
 }
 
 export function usePlayerControls() {
   const dispatch = useAppDispatch();
-  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playHistory, playQueue } = useAppSelector(s => s.music);
+  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playQueue, shuffleHistory, shuffleHistoryIndex } = useAppSelector(s => s.music);
 
   const togglePlayPause = useCallback(async () => {
     const s = await TrackPlayer.getPlaybackState();
@@ -237,13 +268,23 @@ export function usePlayerControls() {
   }, []);
 
   /**
-   * 下一曲：随机模式下从全部歌曲中随机选一首
+   * 下一曲：随机模式下使用 shuffle history 导航
    */
   const skipToNext = useCallback(async () => {
     const queue = playQueue.length > 0 ? playQueue : tracks;
 
     if (repeatMode === 'queue' && queue.length > 1) {
-      // 随机模式：从列表中随机选一首（排除当前歌曲）
+      // 随机模式：先检查是否在历史中部（用户按过上一曲），可以前进
+      if (shuffleHistoryIndex < shuffleHistory.length - 1) {
+        const nextId = shuffleHistory[shuffleHistoryIndex + 1];
+        const nextTrack = queue.find(t => t.id === nextId);
+        if (nextTrack) {
+          dispatch(shuffleHistoryForward());
+          dispatch(playTrack({ track: nextTrack, queue, navigatingShuffleHistory: true }));
+          return;
+        }
+      }
+      // 在历史末尾：随机选一首新歌
       const candidates = queue.filter(t => t.id !== currentTrack?.id);
       if (candidates.length > 0) {
         const random = candidates[Math.floor(Math.random() * candidates.length)];
@@ -270,24 +311,33 @@ export function usePlayerControls() {
         dispatch(playTrack({ track: queue[nextIdx], queue }));
       }
     }
-  }, [repeatMode, tracks, currentTrack, playQueue, dispatch]);
+  }, [repeatMode, tracks, currentTrack, playQueue, shuffleHistory, shuffleHistoryIndex, dispatch]);
 
   /**
-   * 上一曲：随机模式下播放上一次播放的歌曲（从播放历史中获取）
+   * 上一曲：随机模式下通过 shuffle history 向后导航
    */
   const skipToPrevious = useCallback(async () => {
     const queue = playQueue.length > 0 ? playQueue : tracks;
 
     if (repeatMode === 'queue' && queue.length > 1) {
-      // playHistory[0] is the current track, [1] is the one before
-      if (playHistory.length >= 2) {
-        const prevEntry = playHistory[1];
-        const prevTrack = queue.find(t => t.id === prevEntry.trackId);
+      // 随机模式：在 shuffle history 中后退
+      if (shuffleHistoryIndex > 0) {
+        const prevId = shuffleHistory[shuffleHistoryIndex - 1];
+        const prevTrack = queue.find(t => t.id === prevId);
         if (prevTrack) {
-          dispatch(playTrack({ track: prevTrack, queue }));
+          dispatch(shuffleHistoryBack());
+          dispatch(playTrack({ track: prevTrack, queue, navigatingShuffleHistory: true }));
           return;
         }
       }
+      // 已在历史起点：随机选一首插入历史开头并播放
+      const candidates = queue.filter(t => t.id !== currentTrack?.id);
+      if (candidates.length > 0) {
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        dispatch(prependShuffleHistory(pick.id));
+        dispatch(playTrack({ track: pick, queue, navigatingShuffleHistory: true }));
+      }
+      return;
     }
 
     // 非随机：检查 TP 队列是否有上一首
@@ -307,7 +357,7 @@ export function usePlayerControls() {
         dispatch(playTrack({ track: queue[prevIdx], queue }));
       }
     }
-  }, [repeatMode, tracks, playHistory, playQueue, currentTrack, dispatch]);
+  }, [repeatMode, tracks, playQueue, shuffleHistory, shuffleHistoryIndex, currentTrack, dispatch]);
 
   /** 播放指定歌词行，到该行结束自动暂停 */
   const seekAndStop = useCallback(async (lyricIdx: number) => {

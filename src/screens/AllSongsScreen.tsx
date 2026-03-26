@@ -15,6 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
@@ -103,6 +104,7 @@ const AllSongsScreen: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [loading, setLoading] = useState(true);
+  const savedTrackIdRef = useRef<string | null>(null);
   const [shuffleSeed, setShuffleSeed] = useState(() => Date.now());
   const [userTriggeredImport, setUserTriggeredImport] = useState(false);
   const [activeSegment, setActiveSegment] = useState<LibrarySegment>('songs');
@@ -129,11 +131,19 @@ const AllSongsScreen: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       // 并行加载所有缓存数据，加速启动
-      const [, , cacheResult] = await Promise.all([
+      const [, , cacheResult, lastPlaybackRaw] = await Promise.all([
         dispatch(loadFavorites()),
         dispatch(loadHiddenTracks()),
         dispatch(loadCachedTracks()),
+        AsyncStorage.getItem('@lastPlayback'),
       ]);
+      // 保存上次播放 trackId，用于 FlatList initialScrollIndex
+      try {
+        if (lastPlaybackRaw) {
+          const parsed = JSON.parse(lastPlaybackRaw);
+          if (parsed?.trackId) savedTrackIdRef.current = parsed.trackId;
+        }
+      } catch {}
       const cachedCount = ((cacheResult as any).payload || []).length;
       // 二次校验：Redux state 中的 tracks（reducer 已在 dispatch 返回前写入）
       const storeTrackCount = store.getState().music.tracks.length;
@@ -173,16 +183,22 @@ const AllSongsScreen: React.FC = () => {
   // 恢复上次播放的歌曲和进度（不自动播放）
   const restoredRef = useRef(false);
   useEffect(() => {
-    if (loading || tracks.length === 0 || restoredRef.current || currentTrack) return;
+    if (loading || tracks.length === 0 || restoredRef.current || currentTrack) {
+      return;
+    }
     restoredRef.current = true;
 
     const restore = async () => {
       const result = await dispatch(loadLastPlayback());
       const payload = (result as any).payload as {trackId: string; position: number} | null;
-      if (!payload?.trackId) return;
+      if (!payload?.trackId) {
+        return;
+      }
 
       const track = tracks.find(t => t.id === payload.trackId);
-      if (!track) return;
+      if (!track) {
+        return;
+      }
 
       // 设置 Redux 状态（显示 MiniPlayer、进度条等）
       dispatch(setCurrentTrack(track));
@@ -205,18 +221,6 @@ const AllSongsScreen: React.FC = () => {
           await TrackPlayer.seekTo(payload.position);
         }
       } catch {}
-
-      // 延迟滚动到该歌曲位置（等待 FlatList 渲染完成）
-      setTimeout(() => {
-        if (!flatListRef.current) return;
-        const idx = filteredTracksRef.current.findIndex(t => t.id === payload.trackId);
-        if (idx >= 0) {
-          flatListRef.current.scrollToOffset({
-            offset: Math.max(0, idx * 76 - 76 * 2),
-            animated: false,
-          });
-        }
-      }, 300);
     };
     restore();
   }, [loading, tracks, currentTrack, dispatch]);
@@ -224,7 +228,6 @@ const AllSongsScreen: React.FC = () => {
   const {
     sortedTracks: pinyinSorted,
     letters,
-    indexVisible,
     onSelectLetter,
     onIndexTouchStart,
     onIndexTouchEnd,
@@ -276,6 +279,14 @@ const AllSongsScreen: React.FC = () => {
 
   const filteredTracksRef = useRef(filteredTracks);
   filteredTracksRef.current = filteredTracks;
+
+  // 计算首次渲染的滚动位置，避免列表闪烁
+  const initialScrollIndex = useMemo(() => {
+    if (!savedTrackIdRef.current) return undefined;
+    const idx = filteredTracks.findIndex(t => t.id === savedTrackIdRef.current);
+    if (idx < 0) return undefined;
+    return Math.max(0, idx - 2);
+  }, [filteredTracks]);
 
   const handlePlay = useCallback(
     (t: Track) => {
@@ -726,6 +737,7 @@ const AllSongsScreen: React.FC = () => {
             if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
             locateRef.current?.show();
           }}
+          initialScrollIndex={initialScrollIndex}
           initialNumToRender={20}
           maxToRenderPerBatch={15}
           windowSize={11}

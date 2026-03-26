@@ -87,6 +87,11 @@ export async function importFromMediaLibrary(): Promise<Track[]> {
       filePath: item.filePath || item.url,
       isFavorite: false,
       embeddedLyrics: item.lyrics || undefined,
+      year: item.year || undefined,
+      genre: item.genre || undefined,
+      trackNumber: item.trackNumber || undefined,
+      composer: item.composer || undefined,
+      comment: item.comment || undefined,
     }));
 
     tracks.sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));

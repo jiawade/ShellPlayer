@@ -13,6 +13,11 @@ export interface Track {
   isFavorite: boolean;
   lrcPath?: string;
   embeddedLyrics?: string;
+  year?: string;
+  genre?: string;
+  trackNumber?: string;
+  composer?: string;
+  comment?: string;
 }
 
 export interface LyricLine {

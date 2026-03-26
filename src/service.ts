@@ -2,7 +2,7 @@
 import TrackPlayer, {Event} from 'react-native-track-player';
 import {rebindEqualizer} from './utils/equalizer';
 import {store} from './store';
-import {playTrack, setPlaybackErrorMsg} from './store/musicSlice';
+import {playTrack, setPlaybackErrorMsg, setCurrentTrack, addToHistory, shuffleHistoryBack, shuffleHistoryForward} from './store/musicSlice';
 import {exportTrackToFile} from './utils/mediaLibrary';
 import {recordPlay} from './utils/reviewPrompt';
 import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
@@ -22,20 +22,17 @@ async function preloadNextTrack() {
     // Don't preload if repeat-one mode
     if (state.repeatMode === 'track') return;
 
+    // Don't preload in shuffle mode — next track is determined at play time,
+    // and preloading a random track causes race conditions with skip/queue-end handlers
+    if (state.repeatMode === 'queue') return;
+
     const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
     if (currentIdx < 0) return;
 
     let nextTrack: typeof queue[number] | undefined;
-    if (state.repeatMode === 'queue') {
-      // Shuffle: pick a random next (deterministic preload for gapless)
-      const candidates = queue.filter(t => t.id !== state.currentTrack!.id);
-      if (candidates.length === 0) return;
-      nextTrack = candidates[Math.floor(Math.random() * candidates.length)];
-    } else {
-      // Sequential: preload next in order (don't wrap around at end)
-      if (currentIdx >= queue.length - 1) return;
-      nextTrack = queue[currentIdx + 1];
-    }
+    // Sequential: preload next in order (don't wrap around at end)
+    if (currentIdx >= queue.length - 1) return;
+    nextTrack = queue[currentIdx + 1];
 
     // Check if already in TP queue
     if (!nextTrack) return;
@@ -65,8 +62,19 @@ export async function PlaybackService() {
     const state = store.getState().music;
     const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
 
-    // Shuffle mode: random next
+    // Shuffle mode: use shuffle history for navigation
     if (state.repeatMode === 'queue' && queue.length > 1) {
+      // If we went back in history, go forward through existing history first
+      if (state.shuffleHistoryIndex < state.shuffleHistory.length - 1) {
+        const nextId = state.shuffleHistory[state.shuffleHistoryIndex + 1];
+        const nextTrack = queue.find(t => t.id === nextId);
+        if (nextTrack) {
+          store.dispatch(shuffleHistoryForward());
+          store.dispatch(playTrack({track: nextTrack, queue, navigatingShuffleHistory: true}));
+          return;
+        }
+      }
+      // At end of history: pick new random track
       const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
       if (candidates.length > 0) {
         const random = candidates[Math.floor(Math.random() * candidates.length)];
@@ -99,16 +107,19 @@ export async function PlaybackService() {
     const state = store.getState().music;
     const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
 
-    // Shuffle mode: use play history
+    // Shuffle mode: navigate back through shuffle history
     if (state.repeatMode === 'queue' && queue.length > 1) {
-      if (state.playHistory.length >= 2) {
-        const prevEntry = state.playHistory[1];
-        const prevTrack = queue.find(t => t.id === prevEntry.trackId);
+      if (state.shuffleHistoryIndex > 0) {
+        const prevId = state.shuffleHistory[state.shuffleHistoryIndex - 1];
+        const prevTrack = queue.find(t => t.id === prevId);
         if (prevTrack) {
-          store.dispatch(playTrack({track: prevTrack, queue}));
+          store.dispatch(shuffleHistoryBack());
+          store.dispatch(playTrack({track: prevTrack, queue, navigatingShuffleHistory: true}));
           return;
         }
       }
+      // At beginning of shuffle history — do nothing
+      return;
     }
 
     // Non-shuffle: check if TP queue has a previous track
@@ -159,7 +170,22 @@ export async function PlaybackService() {
   });
 
   // When a new track starts playing, rebind the equalizer and preload next track
-  TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, () => {
+  TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: any) => {
+    // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
+    // This ensures currentTrack is always in sync before preloadNextTrack reads it.
+    const nextTrack = event?.track;
+    if (nextTrack?.id) {
+      const state = store.getState().music;
+      if (state.currentTrack?.id !== nextTrack.id) {
+        const q = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+        const matched = q.find(t => t.id === nextTrack.id);
+        if (matched) {
+          store.dispatch(setCurrentTrack(matched));
+          store.dispatch(addToHistory(matched.id));
+        }
+      }
+    }
+
     rebindEqualizer();
     preloadNextTrack();
     recordPlay().catch(() => {});

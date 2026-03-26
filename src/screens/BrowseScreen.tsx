@@ -93,16 +93,6 @@ const BrowseScreen: React.FC = () => {
     [currentPath],
   );
 
-  const navigateBack = useCallback(() => {
-    if (pathHistory.length > 0) {
-      const prev = pathHistory[pathHistory.length - 1];
-      setPathHistory(h => h.slice(0, -1));
-      setCurrentPath(prev);
-    } else if (showRootList) {
-      setCurrentPath(null);
-    }
-  }, [pathHistory, showRootList]);
-
   const navigateToBreadcrumb = useCallback(
     (index: number) => {
       if (index === -1) {

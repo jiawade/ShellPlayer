@@ -39,7 +39,7 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
   const {colors, sizes} = useTheme();
   const {t} = useTranslation();
   const dispatch = useAppDispatch();
-  const {tracks, currentTrack, favoriteIds} = useAppSelector(s => s.music);
+  const {tracks, currentTrack} = useAppSelector(s => s.music);
 
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);

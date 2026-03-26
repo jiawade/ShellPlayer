@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSelector } from '../store';
 import { usePlayerControls } from '../hooks/usePlayerProgress';
 import { useTheme } from '../contexts/ThemeContext';

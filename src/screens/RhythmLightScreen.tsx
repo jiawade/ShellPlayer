@@ -30,7 +30,7 @@ import SpeakerView, {SPEAKER_IMAGES} from '../components/visualizers/SpeakerView
 import MatrixGrid from '../components/visualizers/MatrixGrid';
 
 const NUM_COLS = 16;
-const SCREEN_H = Dimensions.get('window').height;
+Dimensions.get('window').height;
 const GRID_H_PAD = 20;
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';

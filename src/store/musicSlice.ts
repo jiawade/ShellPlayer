@@ -11,7 +11,7 @@ import {getDefaultLrcDir, ensureDefaultDirs} from '../utils/defaultDirs';
 import {requestStoragePermission} from '../utils/permissions';
 import {SUPPORTED_FORMATS, UNSUPPORTED_FORMATS} from '../utils/theme';
 import {logCrash, logInfo} from '../utils/crashLogger';
-import {saveArtworkFile, getCachedArtwork, batchGetCachedArtworks} from '../utils/artworkCache';
+import {saveArtworkFile, batchGetCachedArtworks} from '../utils/artworkCache';
 import {importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile, getLyricsForUrl} from '../utils/mediaLibrary';
 
 interface MusicState {
@@ -44,6 +44,9 @@ interface MusicState {
   customAccent: string | null;
   language: string;
   lyricsOffset: number; // seconds, per-track offset for lyrics sync
+  playbackErrorMsg: string | null;
+  shuffleHistory: string[]; // ordered track IDs for shuffle navigation
+  shuffleHistoryIndex: number; // cursor position in shuffleHistory (-1 = empty)
 }
 
 const initialState: MusicState = {
@@ -76,6 +79,8 @@ const initialState: MusicState = {
   language: '',
   lyricsOffset: 0,
   playbackErrorMsg: null as string | null,
+  shuffleHistory: [],
+  shuffleHistoryIndex: -1,
 };
 
 const serializeArtworkForCache = (artwork?: string): string | undefined => {
@@ -423,7 +428,7 @@ export const loadLastPlayback = createAsyncThunk('music/loadLastPlayback', async
 // Generation counter to cancel stale background queue-add tasks
 let playTrackGeneration = 0;
 
-export const playTrack = createAsyncThunk('music/playTrack', async ({track, queue, shuffle}: {track: Track; queue: Track[]; shuffle?: boolean}, {dispatch, getState}) => {
+export const playTrack = createAsyncThunk('music/playTrack', async ({track, queue, shuffle: _shuffle, navigatingShuffleHistory}: {track: Track; queue: Track[]; shuffle?: boolean; navigatingShuffleHistory?: boolean}, {dispatch, getState}) => {
   try {
     const gen = ++playTrackGeneration;
 
@@ -543,6 +548,12 @@ export const playTrack = createAsyncThunk('music/playTrack', async ({track, queu
     // Add to play history
     dispatch(addToHistory(track.id));
 
+    // Push to shuffle navigation history (if in shuffle mode and not navigating back/forward)
+    const currentState = getState() as {music: MusicState};
+    if (currentState.music.repeatMode === 'queue' && !navigatingShuffleHistory) {
+      dispatch(pushShuffleHistory(track.id));
+    }
+
     // Store play queue
     dispatch(setPlayQueue(queue));
 
@@ -598,7 +609,17 @@ const musicSlice = createSlice({
       s.showLyrics = !s.showLyrics;
     },
     setRepeatMode: (s, a: PayloadAction<RepeatMode>) => {
+      const wasShuffleMode = s.repeatMode === 'queue';
       s.repeatMode = a.payload;
+      if (a.payload === 'queue' && s.currentTrack) {
+        // Entering shuffle mode: init history with current track
+        s.shuffleHistory = [s.currentTrack.id];
+        s.shuffleHistoryIndex = 0;
+      } else if (wasShuffleMode) {
+        // Leaving shuffle mode: clear history
+        s.shuffleHistory = [];
+        s.shuffleHistoryIndex = -1;
+      }
     },
     toggleFavorite: (s, a: PayloadAction<string>) => {
       const id = a.payload;
@@ -608,9 +629,13 @@ const musicSlice = createSlice({
       } else {
         s.favoriteIds.push(id);
       }
+      const isFav = idx < 0;
       const t = s.tracks.find(x => x.id === id);
       if (t) {
-        t.isFavorite = idx < 0;
+        t.isFavorite = isFav;
+      }
+      if (s.currentTrack && s.currentTrack.id === id) {
+        s.currentTrack.isFavorite = isFav;
       }
     },
     setCurrentIndex: (s, a: PayloadAction<number>) => {
@@ -649,6 +674,33 @@ const musicSlice = createSlice({
     },
     clearHistory: s => {
       s.playHistory = [];
+    },
+    // Shuffle navigation history
+    pushShuffleHistory: (s, a: PayloadAction<string>) => {
+      // Trim any "future" entries (e.g. user went back then plays a new track)
+      s.shuffleHistory = s.shuffleHistory.slice(0, s.shuffleHistoryIndex + 1);
+      s.shuffleHistory.push(a.payload);
+      s.shuffleHistoryIndex = s.shuffleHistory.length - 1;
+      // Limit total size
+      if (s.shuffleHistory.length > 200) {
+        const excess = s.shuffleHistory.length - 200;
+        s.shuffleHistory = s.shuffleHistory.slice(excess);
+        s.shuffleHistoryIndex -= excess;
+      }
+    },
+    shuffleHistoryBack: s => {
+      if (s.shuffleHistoryIndex > 0) {
+        s.shuffleHistoryIndex--;
+      }
+    },
+    prependShuffleHistory: (s, a: PayloadAction<string>) => {
+      s.shuffleHistory.unshift(a.payload);
+      // index stays at 0 → now points to the newly prepended track
+    },
+    shuffleHistoryForward: s => {
+      if (s.shuffleHistoryIndex < s.shuffleHistory.length - 1) {
+        s.shuffleHistoryIndex++;
+      }
     },
     // Playback speed
     setPlaybackSpeed: (s, a: PayloadAction<number>) => {
@@ -798,7 +850,10 @@ const musicSlice = createSlice({
               s.tracks.findIndex(t => t.id === s.currentTrack!.id),
               { artwork },
             ).catch(() => {});
-            TrackPlayer.updateNowPlayingMetadata({ artwork }).catch(() => {});
+            // Include elapsed time to prevent stale elapsedPlaybackTime from resetting lock screen progress
+            TrackPlayer.getProgress().then(({ position }) => {
+              TrackPlayer.updateNowPlayingMetadata({ artwork, elapsedTime: position }).catch(() => {});
+            }).catch(() => {});
           }
         }
       })
@@ -872,6 +927,10 @@ export const {
   setThemeMode,
   addToHistory,
   clearHistory,
+  pushShuffleHistory,
+  prependShuffleHistory,
+  shuffleHistoryBack,
+  shuffleHistoryForward,
   setPlaybackSpeed,
   setSleepTimer,
   setPlayQueue,

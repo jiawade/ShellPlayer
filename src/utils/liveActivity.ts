@@ -50,7 +50,7 @@ export async function startLiveActivity(
   trackId: string,
   title: string,
   artist: string,
-  artwork?: string,
+  _artwork?: string,
 ): Promise<void> {
   if (Platform.OS !== 'ios' || !LiveActivityManager) return;
   try {
@@ -77,7 +77,7 @@ export async function updateLiveActivity(
   artist: string,
   progress: number,
   audioLevels: number[],
-  artwork?: string,
+  _artwork?: string,
 ): Promise<void> {
   if (!active || Platform.OS !== 'ios' || !LiveActivityManager) return;
   try {

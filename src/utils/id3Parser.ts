@@ -13,6 +13,11 @@ interface ID3Result {
   album?: string;
   artwork?: string;
   lyrics?: string;
+  year?: string;
+  genre?: string;
+  trackNumber?: string;
+  composer?: string;
+  comment?: string;
 }
 
 export async function parseID3(filePath: string): Promise<ID3Result> {
@@ -58,6 +63,11 @@ export async function parseID3(filePath: string): Promise<ID3Result> {
         else if (fid === 'TALB') result.album = decTextFrame(fd);
         else if (fid === 'APIC') result.artwork = decAPIC(fd);
         else if (fid === 'USLT') result.lyrics = decUSLT(fd);
+        else if (fid === 'TDRC' || fid === 'TYER') result.year = result.year || decTextFrame(fd);
+        else if (fid === 'TCON') result.genre = decTextFrame(fd);
+        else if (fid === 'TRCK') result.trackNumber = decTextFrame(fd);
+        else if (fid === 'TCOM') result.composer = decTextFrame(fd);
+        else if (fid === 'COMM') result.comment = decCOMM(fd);
 
         off = de;
       } else {
@@ -79,6 +89,11 @@ export async function parseID3(filePath: string): Promise<ID3Result> {
         else if (fid === 'TAL') result.album = decTextFrame(fd);
         else if (fid === 'PIC') result.artwork = decPIC(fd);
         else if (fid === 'ULT') result.lyrics = decUSLT(fd);
+        else if (fid === 'TYE') result.year = decTextFrame(fd);
+        else if (fid === 'TCO') result.genre = decTextFrame(fd);
+        else if (fid === 'TRK') result.trackNumber = decTextFrame(fd);
+        else if (fid === 'TCM') result.composer = decTextFrame(fd);
+        else if (fid === 'COM') result.comment = decCOMM(fd);
 
         off = de;
       }
@@ -101,6 +116,15 @@ function decUSLT(d: Uint8Array): string {
   const enc = d[0];
   let o = 4; // skip encoding + 3 bytes language
   o = skipNullTerm(d, o, enc);
+  if (o >= d.length) return '';
+  return decStr(d.slice(o), enc);
+}
+
+function decCOMM(d: Uint8Array): string {
+  if (d.length < 5) return '';
+  const enc = d[0];
+  let o = 4; // skip encoding + 3 bytes language
+  o = skipNullTerm(d, o, enc); // skip short content description
   if (o >= d.length) return '';
   return decStr(d.slice(o), enc);
 }

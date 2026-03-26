@@ -102,6 +102,11 @@ export async function scanAllMusic(
           isFavorite: false,
           lrcPath,
           embeddedLyrics: id3.lyrics,
+          year: id3.year,
+          genre: id3.genre,
+          trackNumber: id3.trackNumber,
+          composer: id3.composer,
+          comment: id3.comment,
         } as Track;
       }),
     );

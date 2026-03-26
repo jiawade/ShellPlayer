@@ -92,6 +92,11 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
               <InfoRow label={t('trackMenu.infoPanel.titleLabel')} value={track.title} />
               <InfoRow label={t('trackMenu.infoPanel.artistLabel')} value={track.artist} />
               <InfoRow label={t('trackMenu.infoPanel.albumLabel')} value={track.album} />
+              {track.year ? <InfoRow label={t('trackMenu.infoPanel.yearLabel')} value={track.year} /> : null}
+              {track.genre ? <InfoRow label={t('trackMenu.infoPanel.genreLabel')} value={track.genre} /> : null}
+              {track.trackNumber ? <InfoRow label={t('trackMenu.infoPanel.trackNumberLabel')} value={track.trackNumber} /> : null}
+              {track.composer ? <InfoRow label={t('trackMenu.infoPanel.composerLabel')} value={track.composer} /> : null}
+              {track.comment ? <InfoRow label={t('trackMenu.infoPanel.commentLabel')} value={track.comment} /> : null}
               <InfoRow label={t('trackMenu.infoPanel.formatLabel')} value={ext} />
               <InfoRow label={t('trackMenu.infoPanel.filenameLabel')} value={track.fileName} />
               <InfoRow label={t('trackMenu.infoPanel.lyricsLabel')} value={track.lrcPath ? t('trackMenu.infoPanel.hasLyrics') : track.embeddedLyrics ? t('trackMenu.infoPanel.hasLyrics') : t('trackMenu.infoPanel.noLyrics')} />

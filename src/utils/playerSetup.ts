@@ -16,8 +16,7 @@ export async function setupPlayer(): Promise<boolean> {
       maxBuffer: 50,
       playBuffer: 2,
       backBuffer: 5,
-      progressUpdateEventInterval: 1,
-    });
+    } as any);
 
     await TrackPlayer.updateOptions({
       capabilities: [

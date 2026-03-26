@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { applyEQPreset, getSavedPresetId, applyCustomBands, getSavedCustomBands, getBandFrequencies, getDefaultBands } from '../utils/equalizer';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { hapticLight, hapticSelection } from '../utils/haptics';
+import { hapticLight } from '../utils/haptics';
 
 const EQ_PRESETS = [
   { id: 0, nameKey: 'equalizer.presets.off.name', icon: 'ban-outline', descKey: 'equalizer.presets.off.desc' },

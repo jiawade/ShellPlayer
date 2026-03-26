@@ -308,8 +308,29 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
           }
         }
 
-        NSString *fileName = assetURL.lastPathComponent ?: title;
+        NSString *rawFileName = assetURL.lastPathComponent ?: @"";
+        // iPod library URLs return generic names like "item.mp3"; use title instead
+        NSString *fileName;
+        if ([rawFileName isEqualToString:@""] || [rawFileName hasPrefix:@"item."]) {
+          // Build a meaningful fileName from the title + original extension
+          NSString *ext = [rawFileName pathExtension];
+          if (ext.length == 0) ext = @"m4a";
+          fileName = [NSString stringWithFormat:@"%@.%@", title, ext];
+        } else {
+          fileName = rawFileName;
+        }
         NSString *lyrics = [item valueForProperty:MPMediaItemPropertyLyrics];
+        NSString *genre = [item valueForProperty:MPMediaItemPropertyGenre];
+        NSString *composer = [item valueForProperty:MPMediaItemPropertyComposer];
+        NSDate *releaseDate = [item valueForProperty:MPMediaItemPropertyReleaseDate];
+        NSString *year = nil;
+        if (releaseDate) {
+          NSCalendar *cal = [NSCalendar currentCalendar];
+          NSInteger y = [cal component:NSCalendarUnitYear fromDate:releaseDate];
+          if (y > 0) year = [@(y) stringValue];
+        }
+        NSNumber *trackNum = [item valueForProperty:MPMediaItemPropertyAlbumTrackNumber];
+        NSString *comments = [item valueForProperty:MPMediaItemPropertyComments];
 
         NSMutableDictionary *track = [NSMutableDictionary dictionaryWithDictionary:@{
           @"id": trackId,
@@ -327,6 +348,21 @@ RCT_EXPORT_METHOD(getAllSongs:(RCTPromiseResolveBlock)resolve
         }
         if (lyrics && lyrics.length > 0) {
           track[@"lyrics"] = lyrics;
+        }
+        if (genre && genre.length > 0) {
+          track[@"genre"] = genre;
+        }
+        if (composer && composer.length > 0) {
+          track[@"composer"] = composer;
+        }
+        if (year) {
+          track[@"year"] = year;
+        }
+        if (trackNum && trackNum.integerValue > 0) {
+          track[@"trackNumber"] = [trackNum stringValue];
+        }
+        if (comments && comments.length > 0) {
+          track[@"comment"] = comments;
         }
 
         [results addObject:track];

@@ -43,25 +43,33 @@ export function setOriginalTrackInfo(title: string, artist: string, artwork?: st
 }
 
 /** Push the current lyric line into NowPlaying metadata so car displays show it. */
-export function pushLyricToNowPlaying(lyricText: string): void {
+export async function pushLyricToNowPlaying(lyricText: string): Promise<void> {
   if (!enabled || !lyricText) {
     return;
   }
-  TrackPlayer.updateNowPlayingMetadata({
-    title: lyricText,
-    artist: `${originalTitle} - ${originalArtist}`,
-    artwork: originalArtwork,
-  }).catch(() => {});
+  try {
+    const { position } = await TrackPlayer.getProgress();
+    await TrackPlayer.updateNowPlayingMetadata({
+      title: lyricText,
+      artist: `${originalTitle} - ${originalArtist}`,
+      artwork: originalArtwork,
+      elapsedTime: position,
+    });
+  } catch {}
 }
 
 /** Restore the real song title in NowPlaying metadata. */
-export function restoreOriginalMetadata(): void {
+export async function restoreOriginalMetadata(): Promise<void> {
   if (!originalTitle) {
     return;
   }
-  TrackPlayer.updateNowPlayingMetadata({
-    title: originalTitle,
-    artist: originalArtist,
-    artwork: originalArtwork,
-  }).catch(() => {});
+  try {
+    const { position } = await TrackPlayer.getProgress();
+    await TrackPlayer.updateNowPlayingMetadata({
+      title: originalTitle,
+      artist: originalArtist,
+      artwork: originalArtwork,
+      elapsedTime: position,
+    });
+  } catch {}
 }

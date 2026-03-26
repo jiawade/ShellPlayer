@@ -9,7 +9,6 @@ import { useAppSelector } from '../store';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HEATMAP_DAYS = 35;
-const HEATMAP_COLS = 5;
 
 export default function StatisticsScreen() {
   const { t } = useTranslation();

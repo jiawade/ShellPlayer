@@ -21,7 +21,7 @@ const ThemeEditorScreen: React.FC = () => {
   const navigation = useNavigation();
   const {t} = useTranslation();
   const dispatch = useAppDispatch();
-  const {colors, sizes, isDark} = useTheme();
+  const {colors} = useTheme();
   const themeMode = useAppSelector(s => s.music.themeMode);
   const customAccent = useAppSelector(s => s.music.customAccent);
 

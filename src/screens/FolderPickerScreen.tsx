@@ -19,23 +19,12 @@ import {SUPPORTED_FORMATS} from '../utils/theme';
 import RNFS from 'react-native-fs';
 
 const STORAGE_ROOT =
-  Platform.OS === 'android'
-    ? RNFS.ExternalStorageDirectoryPath
-    : RNFS.DocumentDirectoryPath;
+  Platform.OS === 'android' ? RNFS.ExternalStorageDirectoryPath : RNFS.DocumentDirectoryPath;
 
 const COMMON_DIRS =
   Platform.OS === 'android'
-    ? [
-        {name: 'Music', path: `${STORAGE_ROOT}/Music`},
-        {name: 'Download', path: `${STORAGE_ROOT}/Download`},
-        {name: 'Documents', path: `${STORAGE_ROOT}/Documents`},
-        {name: 'NetEase Music', nameKey: 'folderPicker.commonDirs.netease', path: `${STORAGE_ROOT}/netease/cloudmusic/Music`},
-        {name: 'QQ Music', nameKey: 'folderPicker.commonDirs.qq', path: `${STORAGE_ROOT}/qqmusic/song`},
-        {name: 'Kugou Music', nameKey: 'folderPicker.commonDirs.kugou', path: `${STORAGE_ROOT}/kugou/download`},
-      ]
-    : [
-        {name: 'music', path: `${RNFS.DocumentDirectoryPath}/music`},
-      ];
+    ? [{name: 'music', path: `${STORAGE_ROOT}/Music`}]
+    : [{name: 'music', path: `${RNFS.DocumentDirectoryPath}/music`}];
 
 export {STORAGE_ROOT, COMMON_DIRS};
 
@@ -53,28 +42,24 @@ interface Props {
   onIOSImport?: (opts: {includeIPod: boolean; localDirs: string[]; localFiles: string[]}) => void;
 }
 
-async function listDirEntries(
-  dirPath: string,
-  showFiles: boolean,
-): Promise<DirEntry[]> {
+async function listDirEntries(dirPath: string, showFiles: boolean): Promise<DirEntry[]> {
   const entries: DirEntry[] = [];
   try {
-    if (!(await RNFS.exists(dirPath))) return entries;
+    if (!(await RNFS.exists(dirPath))) {
+      return entries;
+    }
     const items = await RNFS.readDir(dirPath);
     for (const item of items) {
-      if (item.name.startsWith('.')) continue;
+      if (item.name.startsWith('.')) {
+        continue;
+      }
       if (item.isDirectory()) {
-        if (
-          Platform.OS === 'ios' &&
-          IOS_HIDDEN_DIR_NAMES.includes(item.name)
-        ) {
+        if (Platform.OS === 'ios' && IOS_HIDDEN_DIR_NAMES.includes(item.name)) {
           continue;
         }
         entries.push({name: item.name, path: item.path, isDir: true});
       } else if (showFiles && item.isFile()) {
-        const ext = item.name
-          .substring(item.name.lastIndexOf('.'))
-          .toLowerCase();
+        const ext = item.name.substring(item.name.lastIndexOf('.')).toLowerCase();
         if (SUPPORTED_FORMATS.includes(ext)) {
           entries.push({name: item.name, path: item.path, isDir: false});
         }
@@ -82,7 +67,9 @@ async function listDirEntries(
     }
   } catch {}
   entries.sort((a, b) => {
-    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    if (a.isDir !== b.isDir) {
+      return a.isDir ? -1 : 1;
+    }
     return a.name.localeCompare(b.name);
   });
   return entries;
@@ -98,9 +85,7 @@ const FolderPickerScreen: React.FC<Props> = ({
   const {t} = useTranslation();
   const isIOS = Platform.OS === 'ios';
 
-  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(
-    new Set(initialSelected),
-  );
+  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(new Set(initialSelected));
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [browsePath, setBrowsePath] = useState<string | null>(null);
   const [browseEntries, setBrowseEntries] = useState<DirEntry[]>([]);
@@ -110,7 +95,9 @@ const FolderPickerScreen: React.FC<Props> = ({
   const [iosDocLoading, setIosDocLoading] = useState(isIOS);
 
   useEffect(() => {
-    if (!isIOS) return;
+    if (!isIOS) {
+      return;
+    }
     setIosDocLoading(true);
     listDirEntries(RNFS.DocumentDirectoryPath, true).then(entries => {
       setIosDocEntries(entries);
@@ -119,7 +106,10 @@ const FolderPickerScreen: React.FC<Props> = ({
   }, [isIOS]);
 
   useEffect(() => {
-    if (!browsePath) return;
+    if (!browsePath) {
+      setBrowseEntries([]);
+      return;
+    }
     setLoading(true);
     listDirEntries(browsePath, isIOS).then(entries => {
       setBrowseEntries(entries);
@@ -130,8 +120,11 @@ const FolderPickerScreen: React.FC<Props> = ({
   const toggleDir = useCallback((dir: string) => {
     setSelectedDirs(prev => {
       const next = new Set(prev);
-      if (next.has(dir)) next.delete(dir);
-      else next.add(dir);
+      if (next.has(dir)) {
+        next.delete(dir);
+      } else {
+        next.add(dir);
+      }
       return next;
     });
   }, []);
@@ -139,8 +132,11 @@ const FolderPickerScreen: React.FC<Props> = ({
   const toggleFile = useCallback((file: string) => {
     setSelectedFiles(prev => {
       const next = new Set(prev);
-      if (next.has(file)) next.delete(file);
-      else next.add(file);
+      if (next.has(file)) {
+        next.delete(file);
+      } else {
+        next.add(file);
+      }
       return next;
     });
   }, []);
@@ -176,7 +172,8 @@ const FolderPickerScreen: React.FC<Props> = ({
     }
   }, [iosDocEntries, selectedDirs, selectedFiles]);
 
-  const isAllDocSelected = iosDocEntries.length > 0 &&
+  const isAllDocSelected =
+    iosDocEntries.length > 0 &&
     iosDocEntries.filter(e => e.isDir).every(e => selectedDirs.has(e.path)) &&
     iosDocEntries.filter(e => !e.isDir).every(e => selectedFiles.has(e.path));
 
@@ -199,7 +196,10 @@ const FolderPickerScreen: React.FC<Props> = ({
   const handleConfirm = () => {
     if (isIOS && onIOSImport) {
       if (!includeIPod && selectedDirs.size === 0 && selectedFiles.size === 0) {
-        Alert.alert(t('folderPicker.alerts.selectSourceTitle'), t('folderPicker.alerts.selectSourceMessage'));
+        Alert.alert(
+          t('folderPicker.alerts.selectSourceTitle'),
+          t('folderPicker.alerts.selectSourceMessage'),
+        );
         return;
       }
       onIOSImport({
@@ -212,7 +212,10 @@ const FolderPickerScreen: React.FC<Props> = ({
 
     const dirs = Array.from(selectedDirs);
     if (dirs.length === 0) {
-      Alert.alert(t('folderPicker.alerts.selectDirTitle'), t('folderPicker.alerts.selectDirMessage'));
+      Alert.alert(
+        t('folderPicker.alerts.selectDirTitle'),
+        t('folderPicker.alerts.selectDirMessage'),
+      );
       return;
     }
     onConfirm(dirs);
@@ -228,12 +231,15 @@ const FolderPickerScreen: React.FC<Props> = ({
 
   const dirName = (path: string) => path.substring(path.lastIndexOf('/') + 1);
   const navigateUp = () => {
-    if (!browsePath) return;
+    if (!browsePath) {
+      return;
+    }
     const parent = browsePath.substring(0, browsePath.lastIndexOf('/'));
-    if (parent.length >= STORAGE_ROOT.length) {
-      setBrowsePath(parent);
-    } else {
+    // If parent is the storage root or above, go back to the main screen directly
+    if (parent.length <= STORAGE_ROOT.length) {
       setBrowsePath(null);
+    } else {
+      setBrowsePath(parent);
     }
   };
 
@@ -256,11 +262,6 @@ const FolderPickerScreen: React.FC<Props> = ({
               }}>
               {t('folderPicker.selectFolder')}
             </Text>
-            <Text
-              style={{fontSize: sizes.xs, color: colors.textMuted, marginTop: 2}}
-              numberOfLines={1}>
-              {browsePath.replace(STORAGE_ROOT, '📱')}
-            </Text>
           </View>
           <View style={{width: 40}} />
         </View>
@@ -270,15 +271,16 @@ const FolderPickerScreen: React.FC<Props> = ({
             styles.selectCurrent,
             {backgroundColor: colors.bgCard},
             selectedDirs.has(browsePath) && {backgroundColor: colors.accentDim},
+            !loading && browseEntries.length === 0 && {opacity: 0.4},
           ]}
-          onPress={() => toggleDir(browsePath)}>
+          onPress={() => toggleDir(browsePath)}
+          disabled={!loading && browseEntries.length === 0}>
           <Icon
             name={selectedDirs.has(browsePath) ? 'checkbox' : 'square-outline'}
             size={22}
             color={selectedDirs.has(browsePath) ? colors.accent : colors.textMuted}
           />
-          <Text
-            style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+          <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
             {t('folderPicker.selectCurrent')}
           </Text>
         </TouchableOpacity>
@@ -304,14 +306,26 @@ const FolderPickerScreen: React.FC<Props> = ({
                       size={20}
                       color={selectedDirs.has(item.path) ? colors.accent : colors.textMuted}
                     />
-                    <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 10}} />
+                    <Icon
+                      name="folder"
+                      size={20}
+                      color={colors.secondary}
+                      style={{marginLeft: 10}}
+                    />
                     <Text
-                      style={{flex: 1, fontSize: sizes.md, color: colors.textPrimary, marginLeft: 10}}
+                      style={{
+                        flex: 1,
+                        fontSize: sizes.md,
+                        color: colors.textPrimary,
+                        marginLeft: 10,
+                      }}
                       numberOfLines={1}>
                       {dirName(item.path)}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setBrowsePath(item.path)} style={styles.enterBtn}>
+                  <TouchableOpacity
+                    onPress={() => setBrowsePath(item.path)}
+                    style={styles.enterBtn}>
                     <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -328,7 +342,12 @@ const FolderPickerScreen: React.FC<Props> = ({
                     size={20}
                     color={selectedFiles.has(item.path) ? colors.accent : colors.textMuted}
                   />
-                  <Icon name="musical-note" size={18} color={colors.accent} style={{marginLeft: 10}} />
+                  <Icon
+                    name="musical-note"
+                    size={18}
+                    color={colors.accent}
+                    style={{marginLeft: 10}}
+                  />
                   <Text
                     style={{flex: 1, fontSize: sizes.sm, color: colors.textPrimary, marginLeft: 10}}
                     numberOfLines={1}>
@@ -343,23 +362,47 @@ const FolderPickerScreen: React.FC<Props> = ({
                   style={[styles.selectAllRow, {borderBottomColor: colors.border}]}
                   onPress={selectAllFiles}>
                   <Icon name="checkmark-done" size={20} color={colors.accent} />
-                  <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600', marginLeft: 8}}>
-                    {fileEntries.every(e => selectedFiles.has(e.path)) ? t('folderPicker.selectAllFiles.deselectAll') : t('folderPicker.selectAllFiles.selectAll')} ({fileEntries.length})
+                  <Text
+                    style={{
+                      fontSize: sizes.sm,
+                      color: colors.accent,
+                      fontWeight: '600',
+                      marginLeft: 8,
+                    }}>
+                    {fileEntries.every(e => selectedFiles.has(e.path))
+                      ? t('folderPicker.selectAllFiles.deselectAll')
+                      : t('folderPicker.selectAllFiles.selectAll')}{' '}
+                    ({fileEntries.length})
                   </Text>
                 </TouchableOpacity>
               ) : null
             }
             ListEmptyComponent={
-              <Text style={{fontSize: sizes.md, color: colors.textMuted, textAlign: 'center', marginTop: 40}}>
-                {isIOS ? t('folderPicker.emptyMessage.iosFolders') : t('folderPicker.emptyMessage.androidFolders')}
+              <Text
+                style={{
+                  fontSize: sizes.md,
+                  color: colors.textMuted,
+                  textAlign: 'center',
+                  marginTop: 40,
+                }}>
+                {isIOS
+                  ? t('folderPicker.emptyMessage.iosFolders')
+                  : t('folderPicker.emptyMessage.androidFolders')}
               </Text>
             }
           />
         )}
 
-        <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
+        <View
+          style={[
+            styles.bottomBar,
+            {backgroundColor: colors.bgElevated, borderTopColor: colors.border},
+          ]}>
           <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
-            {t('folderPicker.buttons.selectedDirs', {count: selectedDirs.size})}{isIOS && selectedFiles.size > 0 ? `, ${selectedFiles.size} ${t('folderPicker.buttons.filesFormat')}` : ''}
+            {t('folderPicker.buttons.selectedDirs', {count: selectedDirs.size})}
+            {isIOS && selectedFiles.size > 0
+              ? `, ${selectedFiles.size} ${t('folderPicker.buttons.filesFormat')}`
+              : ''}
           </Text>
           <TouchableOpacity
             style={[styles.confirmBtn, {backgroundColor: colors.accent}]}
@@ -378,29 +421,44 @@ const FolderPickerScreen: React.FC<Props> = ({
     <View style={[styles.root, {backgroundColor: colors.bg}]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onCancel} style={styles.backBtn}>
-          <Icon name="close" size={24} color={colors.textPrimary} />
+          <Icon name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text
-          style={{flex: 1, fontSize: sizes.xl, fontWeight: '700', color: colors.textPrimary, textAlign: 'center'}}>
-          {isIOS ? t('folderPicker.headers.iosSelectSource') : t('folderPicker.headers.androidSelectDirectory')}
+          style={{
+            flex: 1,
+            fontSize: sizes.xl,
+            fontWeight: '700',
+            color: colors.textPrimary,
+            textAlign: 'center',
+          }}>
+          {isIOS
+            ? t('folderPicker.headers.iosSelectSource')
+            : t('folderPicker.headers.androidSelectDirectory')}
         </Text>
         <View style={{width: 40}} />
       </View>
 
-      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={[styles.scanAllBtn, {backgroundColor: colors.accent}]}
           onPress={handleScanAll}
           activeOpacity={0.7}>
           <Icon name={isIOS ? 'cloud-download' : 'scan'} size={20} color={colors.bg} />
           <Text style={{fontSize: sizes.lg, fontWeight: '700', color: colors.bg}}>
-            {isIOS ? t('folderPicker.buttons.iosImportAll') : t('folderPicker.buttons.androidScanAll')}
+            {isIOS
+              ? t('folderPicker.buttons.iosImportAll')
+              : t('folderPicker.buttons.androidScanAll')}
           </Text>
         </TouchableOpacity>
 
         {isIOS && (
           <>
-            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>{t('folderPicker.sections.library')}</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>
+              {t('folderPicker.sections.library')}
+            </Text>
             <TouchableOpacity
               style={[
                 styles.commonRow,
@@ -413,7 +471,12 @@ const FolderPickerScreen: React.FC<Props> = ({
                 size={22}
                 color={includeIPod ? colors.accent : colors.textMuted}
               />
-              <Icon name="musical-notes" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+              <Icon
+                name="musical-notes"
+                size={20}
+                color={colors.secondary}
+                style={{marginLeft: 12}}
+              />
               <View style={{flex: 1, marginLeft: 10}}>
                 <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
                   {t('folderPicker.itunesSource')}
@@ -428,73 +491,124 @@ const FolderPickerScreen: React.FC<Props> = ({
 
         {isIOS ? (
           <>
-            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginHorizontal: 20, marginBottom: 8}}>
-              <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 0, marginHorizontal: 0, marginBottom: 0}]}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: 24,
+                marginHorizontal: 20,
+                marginBottom: 8,
+              }}>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  {color: colors.textMuted, marginTop: 0, marginHorizontal: 0, marginBottom: 0},
+                ]}>
                 {t('folderPicker.sections.documents')}
               </Text>
               {iosDocEntries.length > 0 && (
                 <TouchableOpacity onPress={selectAllDocEntries} hitSlop={8}>
                   <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600'}}>
-                    {isAllDocSelected ? t('folderPicker.selectAll.deselectAll') : t('folderPicker.selectAll.selectAll')}
+                    {isAllDocSelected
+                      ? t('folderPicker.selectAll.deselectAll')
+                      : t('folderPicker.selectAll.selectAll')}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
             {iosDocLoading ? (
-              <ActivityIndicator size="small" color={colors.accent} style={{marginTop: 16, marginBottom: 16}} />
+              <ActivityIndicator
+                size="small"
+                color={colors.accent}
+                style={{marginTop: 16, marginBottom: 16}}
+              />
             ) : (
               <>
-                {iosDocEntries.filter(e => e.isDir).map(entry => (
-                  <View
-                    key={entry.path}
-                    style={[styles.browseRow, {borderBottomColor: colors.border}]}>
+                {iosDocEntries
+                  .filter(e => e.isDir)
+                  .map(entry => (
+                    <View
+                      key={entry.path}
+                      style={[styles.browseRow, {borderBottomColor: colors.border}]}>
+                      <TouchableOpacity
+                        onPress={() => toggleDir(entry.path)}
+                        style={[
+                          styles.checkArea,
+                          selectedDirs.has(entry.path) && {backgroundColor: colors.accentDim},
+                        ]}>
+                        <Icon
+                          name={selectedDirs.has(entry.path) ? 'checkbox' : 'square-outline'}
+                          size={22}
+                          color={selectedDirs.has(entry.path) ? colors.accent : colors.textMuted}
+                        />
+                        <Icon
+                          name="folder"
+                          size={20}
+                          color={colors.secondary}
+                          style={{marginLeft: 12}}
+                        />
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontSize: sizes.md,
+                            color: colors.textPrimary,
+                            fontWeight: '600',
+                            marginLeft: 10,
+                          }}
+                          numberOfLines={1}>
+                          {entry.name}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setBrowsePath(entry.path)}
+                        style={styles.enterBtn}>
+                        <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                {iosDocEntries
+                  .filter(e => !e.isDir)
+                  .map(entry => (
                     <TouchableOpacity
-                      onPress={() => toggleDir(entry.path)}
+                      key={entry.path}
                       style={[
-                        styles.checkArea,
-                        selectedDirs.has(entry.path) && {backgroundColor: colors.accentDim},
-                      ]}>
+                        styles.fileRow,
+                        {borderBottomColor: colors.border},
+                        selectedFiles.has(entry.path) && {backgroundColor: colors.accentDim},
+                      ]}
+                      onPress={() => toggleFile(entry.path)}>
                       <Icon
-                        name={selectedDirs.has(entry.path) ? 'checkbox' : 'square-outline'}
-                        size={22}
-                        color={selectedDirs.has(entry.path) ? colors.accent : colors.textMuted}
+                        name={selectedFiles.has(entry.path) ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={selectedFiles.has(entry.path) ? colors.accent : colors.textMuted}
                       />
-                      <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
+                      <Icon
+                        name="musical-note"
+                        size={18}
+                        color={colors.accent}
+                        style={{marginLeft: 10}}
+                      />
                       <Text
-                        style={{flex: 1, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600', marginLeft: 10}}
+                        style={{
+                          flex: 1,
+                          fontSize: sizes.sm,
+                          color: colors.textPrimary,
+                          marginLeft: 10,
+                        }}
                         numberOfLines={1}>
                         {entry.name}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setBrowsePath(entry.path)} style={styles.enterBtn}>
-                      <Icon name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {iosDocEntries.filter(e => !e.isDir).map(entry => (
-                  <TouchableOpacity
-                    key={entry.path}
-                    style={[
-                      styles.fileRow,
-                      {borderBottomColor: colors.border},
-                      selectedFiles.has(entry.path) && {backgroundColor: colors.accentDim},
-                    ]}
-                    onPress={() => toggleFile(entry.path)}>
-                    <Icon
-                      name={selectedFiles.has(entry.path) ? 'checkbox' : 'square-outline'}
-                      size={20}
-                      color={selectedFiles.has(entry.path) ? colors.accent : colors.textMuted}
-                    />
-                    <Icon name="musical-note" size={18} color={colors.accent} style={{marginLeft: 10}} />
-                    <Text
-                      style={{flex: 1, fontSize: sizes.sm, color: colors.textPrimary, marginLeft: 10}}
-                      numberOfLines={1}>
-                      {entry.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                  ))}
                 {iosDocEntries.length === 0 && (
-                  <Text style={{fontSize: sizes.sm, color: colors.textMuted, textAlign: 'center', paddingVertical: 16}}>
+                  <Text
+                    style={{
+                      fontSize: sizes.sm,
+                      color: colors.textMuted,
+                      textAlign: 'center',
+                      paddingVertical: 16,
+                    }}>
                     {t('folderPicker.emptyMessage.documentsFolder')}
                   </Text>
                 )}
@@ -503,7 +617,9 @@ const FolderPickerScreen: React.FC<Props> = ({
           </>
         ) : (
           <>
-            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>{t('folderPicker.sections.common')}</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>
+              {t('folderPicker.sections.common')}
+            </Text>
             {COMMON_DIRS.map(dir => (
               <TouchableOpacity
                 key={dir.path}
@@ -529,7 +645,9 @@ const FolderPickerScreen: React.FC<Props> = ({
                 </View>
               </TouchableOpacity>
             ))}
-            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>{t('folderPicker.sections.custom')}</Text>
+            <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>
+              {t('folderPicker.sections.custom')}
+            </Text>
             <TouchableOpacity
               style={styles.browseStartBtn}
               onPress={() => setBrowsePath(STORAGE_ROOT)}>
@@ -550,7 +668,13 @@ const FolderPickerScreen: React.FC<Props> = ({
                   <Icon name="checkbox" size={22} color={colors.accent} />
                   <Icon name="folder" size={20} color={colors.secondary} style={{marginLeft: 12}} />
                   <Text
-                    style={{flex: 1, marginLeft: 10, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}
+                    style={{
+                      flex: 1,
+                      marginLeft: 10,
+                      fontSize: sizes.md,
+                      color: colors.textPrimary,
+                      fontWeight: '600',
+                    }}
                     numberOfLines={1}>
                     {dir.replace(STORAGE_ROOT + '/', '')}
                   </Text>
@@ -567,9 +691,20 @@ const FolderPickerScreen: React.FC<Props> = ({
             <Text style={[styles.sectionLabel, {color: colors.textMuted, marginTop: 24}]}>
               {t('folderPicker.sections.selectedFiles')}
             </Text>
-            <View style={[styles.commonRow, {borderBottomColor: colors.border, backgroundColor: colors.accentDim}]}>
+            <View
+              style={[
+                styles.commonRow,
+                {borderBottomColor: colors.border, backgroundColor: colors.accentDim},
+              ]}>
               <Icon name="musical-note" size={20} color={colors.accent} />
-              <Text style={{flex: 1, marginLeft: 10, fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+              <Text
+                style={{
+                  flex: 1,
+                  marginLeft: 10,
+                  fontSize: sizes.md,
+                  color: colors.textPrimary,
+                  fontWeight: '600',
+                }}>
                 {selectedFiles.size} {t('folderPicker.buttons.filesFormat')}
               </Text>
               <TouchableOpacity onPress={() => setSelectedFiles(new Set())} hitSlop={8}>
@@ -582,7 +717,11 @@ const FolderPickerScreen: React.FC<Props> = ({
         <View style={{height: 100}} />
       </ScrollView>
 
-      <View style={[styles.bottomBar, {backgroundColor: colors.bgElevated, borderTopColor: colors.border}]}>
+      <View
+        style={[
+          styles.bottomBar,
+          {backgroundColor: colors.bgElevated, borderTopColor: colors.border},
+        ]}>
         <Text style={{fontSize: sizes.md, color: colors.textSecondary}}>
           {isIOS
             ? t('folderPicker.buttons.selectedItems', {count: totalSelected})

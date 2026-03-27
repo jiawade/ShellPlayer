@@ -259,17 +259,30 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
     // Filter out any tracks with unsupported/encrypted formats
     // Use whitelist: only keep tracks whose extension is in SUPPORTED_FORMATS,
     // or tracks from iPod library (no file extension on disk)
-    return cached
+    const filtered = cached
       .filter(t => {
         const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
         // iPod library tracks may not have a normal extension — keep them
         if (!ext || t.url?.startsWith('ipod-library://')) return true;
         return SUPPORTED_FORMATS.includes(ext);
-      })
-      .map(t => ({
-        ...t,
-        artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
-      }));
+      });
+
+    // Resolve '<<HAS>>' artwork placeholders from disk cache before returning,
+    // so the list renders with correct cover images and avoids a visible flash.
+    const needResolve = filtered.filter(t => t.artwork === '<<HAS>>');
+    let artMap = new Map<string, string>();
+    if (needResolve.length > 0) {
+      try {
+        artMap = await batchGetCachedArtworks(needResolve.map(t => t.id));
+      } catch {}
+    }
+
+    return filtered.map(t => ({
+      ...t,
+      artwork: t.artwork === '<<HAS>>'
+        ? (artMap.get(t.id) || undefined)
+        : t.artwork,
+    }));
   } catch {
     return [];
   }

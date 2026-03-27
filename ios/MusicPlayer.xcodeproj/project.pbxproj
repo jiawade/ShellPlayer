@@ -626,7 +626,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fxiao.shellplayer;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.fxiao.shellplayer;
 				PRODUCT_NAME = MusicPlayer;
 				SWIFT_OBJC_BRIDGING_HEADER = "MusicPlayer/MusicPlayer-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -654,7 +655,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.fxiao.shellplayer;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.--PRODUCT-NAME-rfc1034identifier-";
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.fxiao.shellplayer;
 				PRODUCT_NAME = MusicPlayer;
 				SWIFT_OBJC_BRIDGING_HEADER = "MusicPlayer/MusicPlayer-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

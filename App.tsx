@@ -1,6 +1,6 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator, Text, NativeModules, Platform } from 'react-native';
+import { View, StyleSheet, StatusBar, Text, NativeModules, Platform, Appearance } from 'react-native';
 
 NativeModules.DevLoadingView?.hide?.();
 import { Provider } from 'react-redux';
@@ -40,7 +40,11 @@ import { ensureDefaultDirs } from './src/utils/defaultDirs';
 import { initIAP } from './src/utils/iap';
 import { checkAndPromptReview } from './src/utils/reviewPrompt';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
-import { DARK_COLORS, SIZES } from './src/utils/theme';
+import { DARK_COLORS, LIGHT_COLORS, SIZES } from './src/utils/theme';
+
+// Synchronous: read once at module load to match native splash background
+const _sysIsDark = Appearance.getColorScheme() !== 'light';
+const _loadingColors = _sysIsDark ? DARK_COLORS : LIGHT_COLORS;
 
 const Tab = createBottomTabNavigator();
 const PlaylistStack = createNativeStackNavigator();
@@ -100,19 +104,7 @@ function MainApp() {
   const { colors, isDark } = useTheme();
 
   useEffect(() => {
-    dispatch(loadUserPrefs()).then((result: any) => {
-      const lang = result.payload?.language;
-      if (lang) {
-        i18n.changeLanguage(lang);
-      } else {
-        // No saved preference — re-detect device language
-        // (native bridge may not be ready at module-init time on iOS)
-        const deviceLang = getDeviceLanguage();
-        if (i18n.language !== deviceLang) {
-          i18n.changeLanguage(deviceLang);
-        }
-      }
-    });
+    // loadUserPrefs already dispatched in App() setup phase
     dispatch(loadPlayHistory());
     dispatch(loadProStatus());
     dispatch(loadStats());
@@ -211,15 +203,26 @@ function MainApp() {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const { t } = useTranslation();
 
   useEffect(() => {
     (async () => {
-      const [ok, onboardingDone] = await Promise.all([
+      // Load user prefs early so theme is correct on first MainApp render
+      const [ok, onboardingDone, , prefsResult] = await Promise.all([
         setupPlayer(),
         AsyncStorage.getItem('@onboarding_done'),
         ensureDefaultDirs(),
+        store.dispatch(loadUserPrefs()),
       ]);
+      // Apply language from loaded prefs
+      const lang = (prefsResult as any)?.payload?.language;
+      if (lang) {
+        i18n.changeLanguage(lang);
+      } else {
+        const deviceLang = getDeviceLanguage();
+        if (i18n.language !== deviceLang) {
+          i18n.changeLanguage(deviceLang);
+        }
+      }
       if (ok) {
         initEqualizer(); // fire-and-forget, non-blocking
       }
@@ -232,10 +235,8 @@ export default function App() {
 
   if (!ready) {
     return (
-      <View style={styles.loading}>
-        <StatusBar barStyle="light-content" backgroundColor={DARK_COLORS.bg} />
-        <ActivityIndicator size="large" color={DARK_COLORS.accent} />
-        <Text style={styles.loadTxt}>{t('loading.initPlayer')}</Text>
+      <View style={[styles.loading, { backgroundColor: _loadingColors.bg }]}>
+        <StatusBar barStyle={_sysIsDark ? 'light-content' : 'dark-content'} backgroundColor={_loadingColors.bg} />
       </View>
     );
   }
@@ -255,6 +256,5 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, backgroundColor: DARK_COLORS.bg, alignItems: 'center', justifyContent: 'center' },
-  loadTxt: { color: DARK_COLORS.textSecondary, fontSize: SIZES.md, marginTop: 16 },
+  loading: { flex: 1 },
 });

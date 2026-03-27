@@ -43,6 +43,12 @@
     reactRootView.loadingViewFadeDuration = 0.0;
   }
 
+  // Match JS loading screen color to avoid flash between native → JS render
+  BOOL isDark = UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+  rootView.backgroundColor = isDark
+    ? [UIColor colorWithRed:11.0/255.0 green:14.0/255.0 blue:23.0/255.0 alpha:1.0]   // #0B0E17
+    : [UIColor colorWithRed:245.0/255.0 green:246.0/255.0 blue:250.0/255.0 alpha:1.0]; // #F5F6FA
+
   return rootView;
 }
 

@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
   Modal,
   Alert,
   Platform,
@@ -324,6 +325,15 @@ const AllSongsScreen: React.FC = () => {
     setShowMenu(false);
     setMenuTrack(null);
   }, []);
+  const handleRefresh = useCallback(() => {
+    setUserTriggeredImport(true);
+    setPrevTrackCount(tracks.length);
+    if (Platform.OS === 'ios') {
+      dispatch(importiOSMediaLibrary(undefined));
+    } else if (scanDirectories.length > 0) {
+      dispatch(scanMusic(scanDirectories));
+    }
+  }, [dispatch, scanDirectories, tracks.length]);
   const handleFolderConfirm = useCallback(
     (dirs: string[]) => {
       setShowFolderPicker(false);
@@ -373,7 +383,7 @@ const AllSongsScreen: React.FC = () => {
 
   if (isScanning && (tracks.length === 0 || userTriggeredImport)) {
     const p = scanProgress;
-    const pct = p && p.phase === 'parsing' && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+    const pct = p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
     return (
       <View style={[styles.center, {backgroundColor: colors.bg}]}>
         <ActivityIndicator size="large" color={colors.accent} />
@@ -715,6 +725,14 @@ const AllSongsScreen: React.FC = () => {
           keyExtractor={keyExtractor}
           contentContainerStyle={{paddingBottom: 140}}
           showsVerticalScrollIndicator={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={handleRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          }
           onScrollBeginDrag={() => {
             if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
             locateRef.current?.show();

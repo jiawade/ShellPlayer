@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-iap/ios/IapSerializationUtils.swift b/node_modules/react-native-iap/ios/IapSerializationUtils.swift
-index 1234567..abcdefg 100644
 --- a/node_modules/react-native-iap/ios/IapSerializationUtils.swift
 +++ b/node_modules/react-native-iap/ios/IapSerializationUtils.swift
-@@ -205,11 +205,6 @@
+@@ -204,12 +204,6 @@
+         "webOrderLineItemID": t.webOrderLineItemID
      ]
  
 -    #if compiler(>=5.10)
@@ -13,3 +13,4 @@ index 1234567..abcdefg 100644
 -
      return result
  }
+ @available(iOS 15.0, tvOS 15.0, *)

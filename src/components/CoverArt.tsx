@@ -1,6 +1,6 @@
 // src/components/CoverArt.tsx
 import React, { memo, useState } from 'react';
-import { View, Image } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -13,25 +13,22 @@ interface Props {
 const CoverArt: React.FC<Props> = ({ artwork, size, borderRadius = 12 }) => {
   const { colors } = useTheme();
   const [loadError, setLoadError] = useState(false);
+  const showImage = !!artwork && !loadError;
 
-  if (artwork && !loadError) {
-    return (
-      <Image
-        source={{ uri: artwork }}
-        style={{ width: size, height: size, borderRadius, backgroundColor: colors.bgCard }}
-        resizeMode="cover"
-        onError={() => setLoadError(true)}
-      />
-    );
-  }
   return (
-    <View style={{
-      width: size, height: size, borderRadius,
-      backgroundColor: colors.bgElevated,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: colors.border,
+    <View style={{ width: size, height: size, borderRadius, overflow: 'hidden',
+      backgroundColor: colors.bgElevated, alignItems: 'center', justifyContent: 'center',
+      borderWidth: showImage ? 0 : 1, borderColor: colors.border,
     }}>
       <Icon name="musical-notes" size={size * 0.4} color={colors.accent} />
+      {showImage && (
+        <Image
+          source={{ uri: artwork }}
+          style={[StyleSheet.absoluteFill, { borderRadius }]}
+          resizeMode="cover"
+          onError={() => setLoadError(true)}
+        />
+      )}
     </View>
   );
 };

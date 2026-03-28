@@ -9,6 +9,8 @@ import {
   addToHistory,
   shuffleHistoryBack,
   shuffleHistoryForward,
+  removeFromPlayQueue,
+  hideTrack,
 } from './store/musicSlice';
 import { exportTrackToFile } from './utils/mediaLibrary';
 import { recordPlay } from './utils/reviewPrompt';
@@ -155,20 +157,27 @@ export async function PlaybackService() {
     console.warn('[PlaybackError]', e.message, e.code);
     const state = store.getState().music;
     const trackTitle = state.currentTrack?.title || '';
+    const failedTrackId = state.currentTrack?.id;
     store.dispatch(
       setPlaybackErrorMsg(i18n.t('playback.unsupportedFormat', { title: trackTitle })),
     );
+
+    // Remove the failed track from both playQueue AND tracks (hide it)
+    if (failedTrackId) {
+      store.dispatch(removeFromPlayQueue(failedTrackId));
+      store.dispatch(hideTrack(failedTrackId));
+    }
+
     // Auto-dismiss after 1.5s and skip to next track
     setTimeout(() => {
       store.dispatch(setPlaybackErrorMsg(null));
+      if (!failedTrackId) return;
       const s = store.getState().music;
       const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
-      if (queue.length > 0 && s.currentTrack) {
-        const idx = queue.findIndex(t => t.id === s.currentTrack!.id);
-        if (idx >= 0) {
-          const nextIdx = (idx + 1) % queue.length;
-          store.dispatch(playTrack({ track: queue[nextIdx], queue }));
-        }
+      // Only auto-play if there are remaining tracks different from the failed one
+      const remaining = queue.filter(t => t.id !== failedTrackId);
+      if (remaining.length > 0) {
+        store.dispatch(playTrack({ track: remaining[0], queue: remaining }));
       }
     }, 1500);
   });

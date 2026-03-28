@@ -28,6 +28,8 @@ end
 target 'MusicPlayer' do
   config = use_native_modules!
 
+  pod 'GCDWebServer', '~> 3.5'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # Enables Flipper.

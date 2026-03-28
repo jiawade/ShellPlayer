@@ -536,7 +536,6 @@ const FullPlayerScreen: React.FC = () => {
                     styles.modeToastInner,
                     { backgroundColor: colors.bgElevated, borderColor: colors.border },
                   ]}>
-                  <Icon name={cfg.icon} size={14} color={colors.accent} />
                   <Text style={{ fontSize: 12, color: colors.accent, fontWeight: '600' }}>
                     {showModeToast}
                   </Text>

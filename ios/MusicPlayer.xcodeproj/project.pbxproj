@@ -26,6 +26,7 @@
 		AA0000012F73B5AA00000003 /* MusicPlayerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */; };
 		B1C2D3E61234567800BBCCDD /* iOSEqualizerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */; };
 		C1D2E3F61234567800CCDDEE /* AudioLevelModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */; };
+		D1E2F3061234567800DDEEFF /* WifiTransferModule.m in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3051234567800DDEEFF /* WifiTransferModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +94,8 @@
 		B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = iOSEqualizerModule.m; path = MusicPlayer/iOSEqualizerModule.m; sourceTree = "<group>"; };
 		C1D2E3F41234567800CCDDEE /* AudioLevelModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AudioLevelModule.h; path = MusicPlayer/AudioLevelModule.h; sourceTree = "<group>"; };
 		C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AudioLevelModule.m; path = MusicPlayer/AudioLevelModule.m; sourceTree = "<group>"; };
+		D1E2F3041234567800DDEEFF /* WifiTransferModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WifiTransferModule.h; path = MusicPlayer/WifiTransferModule.h; sourceTree = "<group>"; };
+		D1E2F3051234567800DDEEFF /* WifiTransferModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = WifiTransferModule.m; path = MusicPlayer/WifiTransferModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -157,6 +160,8 @@
 				B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */,
 				C1D2E3F41234567800CCDDEE /* AudioLevelModule.h */,
 				C1D2E3F51234567800CCDDEE /* AudioLevelModule.m */,
+				D1E2F3041234567800DDEEFF /* WifiTransferModule.h */,
+				D1E2F3051234567800DDEEFF /* WifiTransferModule.m */,
 				182417612F73B4BC007B0D3A /* LiveActivityBridge.m */,
 				182417622F73B4BC007B0D3A /* LiveActivityManager.swift */,
 				182417632F73B4BC007B0D3A /* MusicActivityAttributes.swift */,
@@ -517,6 +522,7 @@
 				182417662F73B4BC007B0D3A /* LiveActivityBridge.m in Sources */,
 				182417672F73B4BC007B0D3A /* LiveActivityManager.swift in Sources */,
 				C1D2E3F61234567800CCDDEE /* AudioLevelModule.m in Sources */,
+				D1E2F3061234567800DDEEFF /* WifiTransferModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

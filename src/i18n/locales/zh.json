@@ -54,7 +54,8 @@
       "setupMessageIOS": "可导入 iTunes/iPod 音乐库，或将音乐文件放入 Documents/music 目录后导入。",
       "setupMessageAndroid": "请选择目录以扫描音乐文件。",
       "selectSource": "选择导入来源",
-      "selectDirectory": "选择扫描目录"
+      "selectDirectory": "选择扫描目录",
+      "importSongs": "导入歌曲"
     },
     "batch": {
       "selectedCount": "已选 {{count}} 首",
@@ -316,6 +317,7 @@
       "kugou": "酷狗音乐"
     },
     "selectFolder": "选择文件夹",
+    "scanning": "正在导入",
     "selectCurrent": "选择此目录",
     "emptyMessage": {
       "iosFolders": "此目录下没有子文件夹或音乐文件",
@@ -328,7 +330,7 @@
     },
     "sections": {
       "library": "音乐库",
-      "documents": "本地目录（Documents）",
+      "documents": "本地目录",
       "common": "常用目录",
       "custom": "自定义",
       "selectedFiles": "已选文件"
@@ -345,7 +347,7 @@
       "androidSelectDirectory": "选择扫描目录"
     },
     "buttons": {
-      "iosImportAll": "导入全部（音乐库 + 本地文件）",
+      "iosImportAll": "导入全部（iTunes/iPod音乐库）",
       "androidScanAll": "扫描全部常用目录",
       "iosStart": "开始导入",
       "androidStart": "开始扫描",
@@ -358,6 +360,40 @@
       "selectSourceMessage": "请至少选择一个导入来源",
       "selectDirTitle": "提示",
       "selectDirMessage": "请至少选择一个目录"
+    }
+  },
+  "importSongs": {
+    "title": "导入歌曲",
+    "library": "音乐库",
+    "songCount": "首歌曲",
+    "withLyrics": "有歌词",
+    "favorites": "收藏",
+    "actions": "导入操作",
+    "localImport": "本地导入",
+    "wifiImport": "通过 WiFi 导入",
+    "scanning": "正在扫描...",
+    "importingProgress": "正在导入... {{percent}}%"
+  },
+  "wifiTransfer": {
+    "title": "WiFi 传输",
+    "startError": "启动服务失败",
+    "status": {
+      "connected": "连接成功",
+      "ready": "服务已就绪，等待电脑连接",
+      "starting": "正在启动..."
+    },
+    "openInBrowser": "在电脑浏览器中打开",
+    "copyAddress": "复制地址",
+    "copied": "已复制",
+    "switchPort": "切换端口",
+    "switchPortWithCurrent": "切换端口 (当前: {{port}})",
+    "receivedFiles": "已接收 {{count}} 个文件",
+    "importingToLibrary": "正在导入到音乐库...",
+    "completeImport": "完成导入 ({{count}})",
+    "tips": {
+      "sameNetwork": "确保手机和电脑连接同一 WiFi 网络",
+      "backgroundSafe": "传输过程中可切换到其他页面，导入不会中断",
+      "supportedFormats": "支持 MP3, FLAC, WAV, AAC, APE 等音频及 LRC 歌词"
     }
   },
   "equalizer": {

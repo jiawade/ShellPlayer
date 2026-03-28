@@ -7,7 +7,6 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
-  RefreshControl,
   Modal,
   Alert,
   Platform,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
@@ -81,6 +81,7 @@ const hashToUnit = (input: string): number => {
 
 const AllSongsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const {
     tracks,
     currentTrack,
@@ -133,6 +134,12 @@ const AllSongsScreen: React.FC = () => {
           t('allSongs.importAlerts.noNewSongsMessage', { totalCount: tracks.length }),
         );
       }
+      // Update prevTrackCount so next import calculates correctly
+      setPrevTrackCount(tracks.length);
+    }
+    // When scanning starts, snapshot current count
+    if (!prevScanningRef.current && isScanning) {
+      setPrevTrackCount(tracks.length);
     }
     prevScanningRef.current = isScanning;
   }, [isScanning, loading, tracks.length, prevTrackCount, userTriggeredImport]);
@@ -332,18 +339,9 @@ const AllSongsScreen: React.FC = () => {
     setShowMenu(false);
     setMenuTrack(null);
   }, []);
-  const handleRefresh = useCallback(() => {
-    setUserTriggeredImport(true);
-    setPrevTrackCount(tracks.length);
-    if (Platform.OS === 'ios') {
-      dispatch(importiOSMediaLibrary(undefined));
-    } else if (scanDirectories.length > 0) {
-      dispatch(scanMusic(scanDirectories));
-    }
-  }, [dispatch, scanDirectories, tracks.length]);
   const handleFolderConfirm = useCallback(
     (dirs: string[]) => {
-      setShowFolderPicker(false);
+      // Keep picker open to show in-page import progress
       setPrevTrackCount(0);
       setUserTriggeredImport(true);
       dispatch(scanMusic(dirs));
@@ -352,7 +350,7 @@ const AllSongsScreen: React.FC = () => {
   );
   const handleIOSImport = useCallback(
     (opts: IOSImportOptions) => {
-      setShowFolderPicker(false);
+      // Keep picker open to show in-page import progress
       setPrevTrackCount(tracks.length);
       setUserTriggeredImport(true);
       dispatch(importiOSMediaLibrary(opts));
@@ -383,7 +381,8 @@ const AllSongsScreen: React.FC = () => {
 
   if (isScanning && (tracks.length === 0 || userTriggeredImport)) {
     const p = scanProgress;
-    const pct = p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+    const pct =
+      p && p.total > 0 && p.phase === 'parsing' ? Math.round((p.current / p.total) * 100) : 0;
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.accent} />
@@ -457,40 +456,12 @@ const AllSongsScreen: React.FC = () => {
         ) : null}
         <TouchableOpacity
           style={[styles.retryBtn, { backgroundColor: colors.accent }]}
-          onPress={() => setShowFolderPicker(true)}>
-          <Icon
-            name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'}
-            size={18}
-            color={colors.bg}
-          />
+          onPress={() => navigation.navigate('ImportSongs')}>
+          <Icon name="add-circle-outline" size={18} color={colors.bg} />
           <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>
-            {Platform.OS === 'ios'
-              ? t('allSongs.emptyState.selectSource')
-              : t('allSongs.emptyState.selectDirectory')}
+            {t('allSongs.emptyState.importSongs')}
           </Text>
         </TouchableOpacity>
-        {Platform.OS === 'ios' && (
-          <Text
-            style={{
-              fontSize: sizes.xs,
-              color: colors.textMuted,
-              marginTop: 16,
-              textAlign: 'center',
-              paddingHorizontal: 32,
-            }}>
-            {t('allSongs.emptyState.setupMessageIOS')}
-          </Text>
-        )}
-        <Modal visible={showFolderPicker} animationType="slide">
-          <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
-            <FolderPickerScreen
-              onConfirm={handleFolderConfirm}
-              onCancel={() => setShowFolderPicker(false)}
-              initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
-              onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
-            />
-          </SwipeBackWrapper>
-        </Modal>
       </View>
     );
   }
@@ -523,12 +494,8 @@ const AllSongsScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowSort(!showSort)}
-            hitSlop={8}
-            style={{ marginRight: 10 }}>
+            hitSlop={8}>
             <Icon name="swap-vertical-outline" size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowFolderPicker(true)} hitSlop={8}>
-            <Icon name="folder-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -709,14 +676,6 @@ const AllSongsScreen: React.FC = () => {
               keyExtractor={keyExtractor}
               contentContainerStyle={{ paddingBottom: 140 }}
               showsVerticalScrollIndicator={true}
-              refreshControl={
-                <RefreshControl
-                  refreshing={false}
-                  onRefresh={handleRefresh}
-                  tintColor={colors.accent}
-                  colors={[colors.accent]}
-                />
-              }
               onScrollBeginDrag={() => {
                 if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
                 locateRef.current?.show();

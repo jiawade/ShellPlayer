@@ -464,21 +464,22 @@ export const playTrack = createAsyncThunk(
       // Validate file format before attempting to play
       const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
       if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
-        // Skip unsupported format - show error and play next
+        // Skip unsupported format - show error and hide the track
         dispatch(
           setPlaybackErrorMsg(
             `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
           ),
         );
-        const nextIdx = queue.findIndex(t => t.id === track.id);
+        dispatch(removeFromPlayQueue(track.id));
+        dispatch(hideTrack(track.id));
+        const filteredQueue = queue.filter(t => t.id !== track.id);
         setTimeout(() => {
           dispatch(setPlaybackErrorMsg(null));
-          if (nextIdx >= 0 && queue.length > 1) {
-            const ni = (nextIdx + 1) % queue.length;
-            dispatch(playTrack({ track: queue[ni], queue }));
+          if (filteredQueue.length > 0) {
+            dispatch(playTrack({ track: filteredQueue[0], queue: filteredQueue }));
           }
         }, 1500);
-        return { track, index: nextIdx };
+        return { track, index: 0 };
       }
 
       let idx = queue.findIndex(t => t.id === track.id);
@@ -702,6 +703,12 @@ const musicSlice = createSlice({
         s.hiddenTrackIds.push(id);
       }
       s.tracks = s.tracks.filter(t => t.id !== id);
+      s.playQueue = s.playQueue.filter(t => t.id !== id);
+      // Clear mini player if this was the current track
+      if (s.currentTrack?.id === id) {
+        s.currentTrack = null;
+        s.isPlaying = false;
+      }
     },
     // Sort
     setSortMode: (s, a: PayloadAction<SortMode>) => {
@@ -766,6 +773,9 @@ const musicSlice = createSlice({
     // Play queue
     setPlayQueue: (s, a: PayloadAction<Track[]>) => {
       s.playQueue = a.payload;
+    },
+    removeFromPlayQueue: (s, a: PayloadAction<string>) => {
+      s.playQueue = s.playQueue.filter(t => t.id !== a.payload);
     },
     // Batch select
     toggleBatchMode: s => {
@@ -840,13 +850,23 @@ const musicSlice = createSlice({
         s.isScanning = true;
         s.scanError = null;
         s.scanProgress = null;
-        s.hiddenTrackIds = [];
       })
       .addCase(scanMusic.fulfilled, (s, a) => {
         s.isScanning = false;
         s.scanProgress = null;
         const existingIds = new Set(s.tracks.map(t => t.id));
-        const newTracks = a.payload.tracks.filter(t => !existingIds.has(t.id));
+        const hiddenIds = new Set(s.hiddenTrackIds);
+        const newTracks = a.payload.tracks.filter(t => {
+          if (existingIds.has(t.id)) {
+            return false;
+          }
+          const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
+          // Do not re-import tracks that were hidden after unsupported playback failures.
+          if (hiddenIds.has(t.id) && ext && UNSUPPORTED_FORMATS.includes(ext)) {
+            return false;
+          }
+          return true;
+        });
         for (const t of newTracks) {
           t.isFavorite = s.favoriteIds.includes(t.id);
         }
@@ -862,13 +882,23 @@ const musicSlice = createSlice({
         s.isScanning = true;
         s.scanError = null;
         s.scanProgress = null;
-        s.hiddenTrackIds = [];
       })
       .addCase(importiOSMediaLibrary.fulfilled, (s, a) => {
         s.isScanning = false;
         s.scanProgress = null;
         const existingIds = new Set(s.tracks.map(t => t.id));
-        const newTracks = a.payload.tracks.filter(t => !existingIds.has(t.id));
+        const hiddenIds = new Set(s.hiddenTrackIds);
+        const newTracks = a.payload.tracks.filter(t => {
+          if (existingIds.has(t.id)) {
+            return false;
+          }
+          const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
+          // Do not re-import tracks that were hidden after unsupported playback failures.
+          if (hiddenIds.has(t.id) && ext && UNSUPPORTED_FORMATS.includes(ext)) {
+            return false;
+          }
+          return true;
+        });
         for (const t of newTracks) {
           t.isFavorite = s.favoriteIds.includes(t.id);
         }
@@ -960,6 +990,7 @@ const musicSlice = createSlice({
       })
       .addCase(deleteTrackPermanently.fulfilled, (s, a) => {
         s.tracks = s.tracks.filter(t => t.id !== a.payload);
+        s.playQueue = s.playQueue.filter(t => t.id !== a.payload);
       });
   },
 });
@@ -1002,5 +1033,6 @@ export const {
   updateTrackMetadata,
   updateTrackArtwork,
   setPlaybackErrorMsg,
+  removeFromPlayQueue,
 } = musicSlice.actions;
 export default musicSlice.reducer;

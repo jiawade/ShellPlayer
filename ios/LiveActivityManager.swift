@@ -30,7 +30,6 @@ class LiveActivityManager: NSObject {
       title: title,
       artist: artist,
       progress: 0,
-      audioLevels: Array(repeating: 0, count: 7),
       artworkBase64: artworkBase64
     )
     let content = ActivityContent(state: state, staleDate: nil)
@@ -61,7 +60,6 @@ class LiveActivityManager: NSObject {
     title: String,
     artist: String,
     progress: Double,
-    audioLevels: [Double],
     artworkBase64: String?,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
@@ -75,7 +73,6 @@ class LiveActivityManager: NSObject {
       title: title,
       artist: artist,
       progress: progress,
-      audioLevels: audioLevels,
       artworkBase64: artworkBase64
     )
     Task {
@@ -134,7 +131,6 @@ class LiveActivityManager: NSObject {
     title: String,
     artist: String,
     progress: Double,
-    audioLevels: [Double],
     artworkBase64: String?,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock

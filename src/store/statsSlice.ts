@@ -5,9 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STATS_KEY = '@play_stats';
 
 interface StatsState {
-  dailyListenTime: Record<string, number>;   // "2026-03-22" → seconds
-  trackPlayCounts: Record<string, number>;    // trackId → count
-  artistPlayTime: Record<string, number>;     // artistName → seconds
+  dailyListenTime: Record<string, number>; // "2026-03-22" → seconds
+  trackPlayCounts: Record<string, number>; // trackId → count
+  artistPlayTime: Record<string, number>; // artistName → seconds
 }
 
 const initialState: StatsState = {
@@ -28,7 +28,10 @@ const statsSlice = createSlice({
   name: 'stats',
   initialState,
   reducers: {
-    recordListenTime(state, action: PayloadAction<{ trackId: string; artist: string; seconds: number }>) {
+    recordListenTime(
+      state,
+      action: PayloadAction<{ trackId: string; artist: string; seconds: number }>,
+    ) {
       const { trackId, artist, seconds } = action.payload;
       const d = today();
       state.dailyListenTime[d] = (state.dailyListenTime[d] || 0) + seconds;
@@ -38,7 +41,7 @@ const statsSlice = createSlice({
       }
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder.addCase(loadStats.fulfilled, (_state, action) => {
       return action.payload;
     });

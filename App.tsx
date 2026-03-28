@@ -1,6 +1,6 @@
 // App.tsx
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, Text, NativeModules, Platform, Appearance } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, StyleSheet, StatusBar, Text, NativeModules, Platform, Appearance, Animated } from 'react-native';
 
 NativeModules.DevLoadingView?.hide?.();
 import { Provider } from 'react-redux';
@@ -202,7 +202,8 @@ function MainApp() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnBoarding, setShowOnBoarding] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     (async () => {
@@ -227,11 +228,17 @@ export default function App() {
         initEqualizer(); // fire-and-forget, non-blocking
       }
       if (!onboardingDone) {
-        setShowOnboarding(true);
+        setShowOnBoarding(true);
       }
       setReady(ok as boolean);
+      // Smooth fade-in transition
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 650,
+        useNativeDriver: true,
+      }).start();
     })();
-  }, []);
+  }, [fadeAnim]);
 
   if (!ready) {
     return (
@@ -241,16 +248,18 @@ export default function App() {
     );
   }
 
-  if (showOnboarding) {
-    return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
+  if (showOnBoarding) {
+    return <OnboardingScreen onDone={() => setShowOnBoarding(false)} />;
   }
 
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <MainApp />
-      </ThemeProvider>
-    </Provider>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Provider store={store}>
+        <ThemeProvider>
+          <MainApp />
+        </ThemeProvider>
+      </Provider>
+    </Animated.View>
   );
 }
 

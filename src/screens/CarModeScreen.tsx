@@ -1,36 +1,28 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useTheme} from '../contexts/ThemeContext';
-import {useTranslation} from 'react-i18next';
-import {useAppSelector} from '../store';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { useAppSelector } from '../store';
 import TrackPlayer from 'react-native-track-player';
 import CoverArt from '../components/CoverArt';
 import ProgressBar from '../components/ProgressBar';
-import {useNavigation} from '@react-navigation/native';
-import {usePlayerSync} from '../hooks/usePlayerProgress';
+import { useNavigation } from '@react-navigation/native';
+import { usePlayerSync } from '../hooks/usePlayerProgress';
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ART_SIZE = SCREEN_WIDTH * 0.7;
 
 const CarModeScreen: React.FC = () => {
-  const {colors} = useTheme();
-  const {t} = useTranslation();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const currentTrack = useAppSelector(s => s.music.currentTrack);
   const isPlaying = useAppSelector(s => s.music.isPlaying);
-  const {position, duration} = usePlayerSync();
+  const { position, duration } = usePlayerSync();
 
   const handlePrevious = () => TrackPlayer.skipToPrevious();
-  const handlePlayPause = () =>
-    isPlaying ? TrackPlayer.pause() : TrackPlayer.play();
+  const handlePlayPause = () => (isPlaying ? TrackPlayer.pause() : TrackPlayer.play());
   const handleNext = () => TrackPlayer.skipToNext();
 
   return (
@@ -38,20 +30,14 @@ const CarModeScreen: React.FC = () => {
       <StatusBar hidden />
 
       {/* Top bar */}
-      <TouchableOpacity
-        style={styles.exitButton}
-        onPress={() => navigation.goBack()}>
+      <TouchableOpacity style={styles.exitButton} onPress={() => navigation.goBack()}>
         <Icon name="arrow-back" size={28} color="#FFF" />
         <Text style={styles.exitText}>{t('carMode.exit')}</Text>
       </TouchableOpacity>
 
       {/* Center area */}
       <View style={styles.centerArea}>
-        <CoverArt
-          artwork={currentTrack?.artwork}
-          size={ART_SIZE}
-          borderRadius={20}
-        />
+        <CoverArt artwork={currentTrack?.artwork} size={ART_SIZE} borderRadius={20} />
         <Text style={styles.title} numberOfLines={1}>
           {currentTrack?.title ?? ''}
         </Text>
@@ -67,25 +53,17 @@ const CarModeScreen: React.FC = () => {
 
       {/* Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={handlePrevious}>
+        <TouchableOpacity style={styles.sideButton} onPress={handlePrevious}>
           <Icon name="play-skip-back" size={48} color="#FFF" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.playButton, {backgroundColor: colors.accent}]}
+          style={[styles.playButton, { backgroundColor: colors.accent }]}
           onPress={handlePlayPause}>
-          <Icon
-            name={isPlaying ? 'pause' : 'play'}
-            size={56}
-            color="#FFF"
-          />
+          <Icon name={isPlaying ? 'pause' : 'play'} size={56} color="#FFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={handleNext}>
+        <TouchableOpacity style={styles.sideButton} onPress={handleNext}>
           <Icon name="play-skip-forward" size={48} color="#FFF" />
         </TouchableOpacity>
       </View>

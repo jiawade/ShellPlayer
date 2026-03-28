@@ -1,6 +1,6 @@
 // src/utils/defaultDirs.ts
 import RNFS from 'react-native-fs';
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 
 export const getDefaultMusicDir = (): string => {
   if (Platform.OS === 'ios') {

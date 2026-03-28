@@ -83,7 +83,7 @@ const AlphabetIndex: React.FC<Props> = ({
 
   if (!visible || letters.length === 0) {
     return (
-      <View style={[styles.overlay, {opacity: 0}]} pointerEvents="none" />
+      <View style={[styles.overlay, { opacity: 0 }]} pointerEvents="none" />
     );
   }
 

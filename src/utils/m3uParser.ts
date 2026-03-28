@@ -1,6 +1,6 @@
 import RNFS from 'react-native-fs';
-import {Platform} from 'react-native';
-import {Track} from '../types';
+import { Platform } from 'react-native';
+import { Track } from '../types';
 
 export function parseM3U(content: string): string[] {
   return content
@@ -54,5 +54,5 @@ export function matchM3UTracks(
     }
   }
 
-  return {matched, unmatched};
+  return { matched, unmatched };
 }

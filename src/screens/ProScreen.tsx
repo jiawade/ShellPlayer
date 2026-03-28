@@ -1,13 +1,27 @@
 // src/screens/ProScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSelector, useAppDispatch } from '../store';
 import { setPro } from '../store/proSlice';
-import { getProProduct, purchasePro, restorePurchases, listenForPurchases, initIAP } from '../utils/iap';
+import {
+  getProProduct,
+  purchasePro,
+  restorePurchases,
+  listenForPurchases,
+  initIAP,
+} from '../utils/iap';
 import type { Product } from 'react-native-iap';
 
 const FEATURE_ICONS: Record<string, string> = {
@@ -77,7 +91,9 @@ export default function ProScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Icon name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('pro.title')}</Text>
@@ -90,11 +106,17 @@ export default function ProScreen() {
             <Icon name="diamond-outline" size={48} color={colors.accent} />
           </View>
           <Text style={[styles.title, { color: colors.textPrimary }]}>{t('pro.title')}</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('pro.subtitle')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {t('pro.subtitle')}
+          </Text>
         </View>
 
-        <View style={[styles.featureList, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          {features.map((key) => (
+        <View
+          style={[
+            styles.featureList,
+            { backgroundColor: colors.bgCard, borderColor: colors.border },
+          ]}>
+          {features.map(key => (
             <View key={key} style={[styles.featureRow, { borderBottomColor: colors.border }]}>
               <Icon name={FEATURE_ICONS[key]} size={20} color={colors.accent} />
               <Text style={[styles.featureText, { color: colors.textPrimary, fontSize: sizes.md }]}>
@@ -108,25 +130,39 @@ export default function ProScreen() {
         {isPro ? (
           <View style={[styles.purchasedBadge, { backgroundColor: colors.accentDim }]}>
             <Icon name="checkmark-circle" size={20} color={colors.accent} />
-            <Text style={[styles.purchasedText, { color: colors.accent }]}>{t('pro.purchased')}</Text>
+            <Text style={[styles.purchasedText, { color: colors.accent }]}>
+              {t('pro.purchased')}
+            </Text>
           </View>
         ) : (
           <View style={styles.purchaseSection}>
             <TouchableOpacity
-              style={[styles.purchaseBtn, { backgroundColor: iapError ? colors.bgElevated : colors.accent }]}
+              style={[
+                styles.purchaseBtn,
+                { backgroundColor: iapError ? colors.bgElevated : colors.accent },
+              ]}
               onPress={iapError ? undefined : handlePurchase}
               disabled={loading || iapError}>
               {loading ? (
                 <ActivityIndicator color={colors.black} />
               ) : (
-                <Text style={[styles.purchaseBtnText, { color: iapError ? colors.textMuted : colors.black }]}>
+                <Text
+                  style={[
+                    styles.purchaseBtnText,
+                    { color: iapError ? colors.textMuted : colors.black },
+                  ]}>
                   {iapError
                     ? t('pro.storeUnavailable')
-                    : `${t('pro.purchase')} ${product?.localizedPrice ? `- ${product.localizedPrice}` : ''}`}
+                    : `${t('pro.purchase')} ${
+                        product?.localizedPrice ? `- ${product.localizedPrice}` : ''
+                      }`}
                 </Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.restoreBtn} onPress={handleRestore} disabled={restoring || iapError}>
+            <TouchableOpacity
+              style={styles.restoreBtn}
+              onPress={handleRestore}
+              disabled={restoring || iapError}>
               <Text style={[styles.restoreText, { color: colors.textSecondary }]}>
                 {restoring ? '...' : t('pro.restore')}
               </Text>

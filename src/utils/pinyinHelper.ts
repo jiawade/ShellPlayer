@@ -1,4 +1,4 @@
-import {pinyin} from 'pinyin-pro';
+import { pinyin } from 'pinyin-pro';
 
 const cache = new Map<string, string>();
 
@@ -21,7 +21,7 @@ export function getInitialLetter(str: string): string {
   if (/[a-zA-Z]/.test(first)) {
     letter = first.toUpperCase();
   } else if (/[\u4e00-\u9fff]/.test(first)) {
-    const py = pinyin(first, {pattern: 'first', toneType: 'none'});
+    const py = pinyin(first, { pattern: 'first', toneType: 'none' });
     letter = py ? py.charAt(0).toUpperCase() : '#';
   } else {
     letter = '#';
@@ -47,7 +47,7 @@ export function getSortKey(str: string): string {
   let result = '';
   for (const ch of str) {
     if (/[\u4e00-\u9fff]/.test(ch)) {
-      result += pinyin(ch, {toneType: 'none'});
+      result += pinyin(ch, { toneType: 'none' });
     } else {
       result += ch.toLowerCase();
     }

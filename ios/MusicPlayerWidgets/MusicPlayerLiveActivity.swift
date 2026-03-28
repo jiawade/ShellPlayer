@@ -4,45 +4,6 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-// Rainbow colors: 赤橙黄绿青蓝紫
-private let rainbowColors: [Color] = [
-  Color(red: 1.0, green: 0.2, blue: 0.2),   // 赤 red
-  Color(red: 1.0, green: 0.6, blue: 0.0),   // 橙 orange
-  Color(red: 1.0, green: 0.9, blue: 0.0),   // 黄 yellow
-  Color(red: 0.2, green: 0.9, blue: 0.3),   // 绿 green
-  Color(red: 0.0, green: 0.9, blue: 0.8),   // 青 cyan
-  Color(red: 0.2, green: 0.4, blue: 1.0),   // 蓝 blue
-  Color(red: 0.6, green: 0.2, blue: 1.0),   // 紫 purple
-]
-
-// MARK: - Rainbow Audio Bars
-@available(iOS 16.1, *)
-struct RainbowBars: View {
-  let levels: [Double]
-  let barWidth: CGFloat
-  let maxHeight: CGFloat
-  let spacing: CGFloat
-
-  init(levels: [Double], barWidth: CGFloat = 3, maxHeight: CGFloat = 20, spacing: CGFloat = 2) {
-    self.levels = levels
-    self.barWidth = barWidth
-    self.maxHeight = maxHeight
-    self.spacing = spacing
-  }
-
-  var body: some View {
-    HStack(alignment: .bottom, spacing: spacing) {
-      ForEach(0..<min(levels.count, 7), id: \.self) { i in
-        let level = max(0.08, min(1.0, levels.count > i ? levels[i] : 0))
-        RoundedRectangle(cornerRadius: barWidth / 2)
-          .fill(rainbowColors[i % rainbowColors.count])
-          .frame(width: barWidth, height: max(barWidth, maxHeight * level))
-          .shadow(color: rainbowColors[i % rainbowColors.count].opacity(0.5), radius: 2)
-      }
-    }
-  }
-}
-
 // MARK: - Artwork View
 @available(iOS 16.1, *)
 struct ArtworkView: View {
@@ -84,13 +45,10 @@ struct MusicPlayerLiveActivity: Widget {
             .padding(.leading, 4)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          RainbowBars(
-            levels: context.state.audioLevels,
-            barWidth: 4,
-            maxHeight: 36,
-            spacing: 3
-          )
-          .padding(.trailing, 4)
+          Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
+            .foregroundColor(.cyan)
+            .font(.system(size: 22, weight: .medium))
+            .padding(.trailing, 4)
         }
         DynamicIslandExpandedRegion(.center) {
           VStack(spacing: 2) {
@@ -112,13 +70,7 @@ struct MusicPlayerLiveActivity: Widget {
                 .fill(Color.white.opacity(0.15))
                 .frame(height: 3)
               RoundedRectangle(cornerRadius: 1.5)
-                .fill(
-                  LinearGradient(
-                    colors: rainbowColors,
-                    startPoint: .leading,
-                    endPoint: .trailing
-                  )
-                )
+                .fill(Color.cyan)
                 .frame(width: geo.size.width * max(0, min(1, context.state.progress)), height: 3)
             }
           }
@@ -127,18 +79,12 @@ struct MusicPlayerLiveActivity: Widget {
           .padding(.top, 4)
         }
       } compactLeading: {
-        // Small artwork in compact leading
         ArtworkView(base64: context.state.artworkBase64, size: 24)
       } compactTrailing: {
-        // Small rainbow bars in compact trailing
-        RainbowBars(
-          levels: context.state.audioLevels,
-          barWidth: 2,
-          maxHeight: 12,
-          spacing: 1.5
-        )
+        Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
+          .foregroundColor(.cyan)
+          .font(.system(size: 12, weight: .bold))
       } minimal: {
-        // Minimal: just a music note icon with accent
         Image(systemName: context.state.isPlaying ? "music.note" : "pause.fill")
           .foregroundColor(.cyan)
           .font(.system(size: 12, weight: .bold))
@@ -164,12 +110,9 @@ struct MusicPlayerLiveActivity: Widget {
 
       Spacer()
 
-      RainbowBars(
-        levels: context.state.audioLevels,
-        barWidth: 3,
-        maxHeight: 28,
-        spacing: 2
-      )
+      Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
+        .foregroundColor(.cyan)
+        .font(.system(size: 20, weight: .medium))
     }
     .padding(12)
     .background(Color.black.opacity(0.8))

@@ -1,9 +1,9 @@
 // src/utils/scanner.ts
 import RNFS from 'react-native-fs';
-import {Track} from '../types';
-import {SUPPORTED_FORMATS} from './theme';
-import {parseID3} from './id3Parser';
-import {saveArtworkFile} from './artworkCache';
+import { Track } from '../types';
+import { SUPPORTED_FORMATS } from './theme';
+import { parseID3 } from './id3Parser';
+import { saveArtworkFile } from './artworkCache';
 
 function titleFromFilename(fileName: string): string {
   const dot = fileName.lastIndexOf('.');
@@ -59,7 +59,7 @@ export async function scanAllMusic(
   directories: string[],
   onProgress?: (p: ScanProgress) => void,
 ): Promise<Track[]> {
-  onProgress?.({phase: 'scanning', current: 0, total: directories.length});
+  onProgress?.({ phase: 'scanning', current: 0, total: directories.length });
   const allFiles: string[] = [];
   for (let i = 0; i < directories.length; i++) {
     const files = await scanDirectory(directories[i]);
@@ -160,7 +160,7 @@ export async function findMatchingLrcInDir(
 
     const lrcMap = lrcFiles.map(f => {
       const d = f.name.lastIndexOf('.');
-      return {path: f.path, base: normalize(d > 0 ? f.name.substring(0, d) : f.name)};
+      return { path: f.path, base: normalize(d > 0 ? f.name.substring(0, d) : f.name) };
     });
 
     const match = (candidate: string): string | undefined => {

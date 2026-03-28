@@ -1,5 +1,5 @@
-import React, {memo, useEffect, useRef} from 'react';
-import {View, Text, StyleSheet, Animated, Dimensions} from 'react-native';
+import React, { memo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 const SCREEN_W = Dimensions.get('window').width;
 const METER_PAD = 20;
@@ -28,7 +28,7 @@ const ScaleMarks = memo(() => {
         style={[
           styles.scaleMark,
           {
-            transform: [{translateX: x}, {translateY: y}, {rotate: `${angle}deg`}],
+            transform: [{ translateX: x }, { translateY: y }, { rotate: `${angle}deg` }],
             backgroundColor: isRed ? '#FF3333' : '#AAFFAA',
           },
         ]}
@@ -38,7 +38,7 @@ const ScaleMarks = memo(() => {
   return <>{marks}</>;
 });
 
-const Needle = memo(({animVal}: {animVal: Animated.Value}) => {
+const Needle = memo(({ animVal }: {animVal: Animated.Value}) => {
   const rotation = animVal.interpolate({
     inputRange: [0, 1],
     outputRange: ['-45deg', '45deg'],
@@ -51,7 +51,7 @@ const Needle = memo(({animVal}: {animVal: Animated.Value}) => {
         styles.needle,
         {
           height: NEEDLE_LEN,
-          transform: [{rotate: rotation}],
+          transform: [{ rotate: rotation }],
         },
       ]}
     />
@@ -59,7 +59,7 @@ const Needle = memo(({animVal}: {animVal: Animated.Value}) => {
 });
 
 const SingleMeter = memo(
-  ({label, level, peakOn}: {label: string; level: number; peakOn: boolean}) => {
+  ({ label, level, peakOn }: {label: string; level: number; peakOn: boolean}) => {
     const animVal = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -91,7 +91,7 @@ const SingleMeter = memo(
   },
 );
 
-const VUMeter: React.FC<VUMeterProps> = ({levels, beatLevel: _beatLevel}) => {
+const VUMeter: React.FC<VUMeterProps> = ({ levels, beatLevel: _beatLevel }) => {
   const leftLevel =
     levels.length >= 8
       ? levels.slice(0, 8).reduce((a, b) => a + b, 0) / 8
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   peakLedOn: {
     backgroundColor: '#FF0000',
     shadowColor: '#FF0000',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
   },

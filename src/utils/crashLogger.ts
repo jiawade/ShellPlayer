@@ -1,6 +1,6 @@
 // src/utils/crashLogger.ts
 import RNFS from 'react-native-fs';
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 
 const LOG_DIR =
   Platform.OS === 'ios'
@@ -39,9 +39,7 @@ function pad(n: number): string {
 
 function getLogFileName(): string {
   const d = new Date();
-  return `crash_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(
-    d.getDate(),
-  )}.log`;
+  return `crash_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.log`;
 }
 
 async function rotateLogsIfNeeded() {

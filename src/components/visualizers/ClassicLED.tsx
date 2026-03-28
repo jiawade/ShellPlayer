@@ -1,5 +1,5 @@
-import React, {memo} from 'react';
-import {View, StyleSheet, Dimensions} from 'react-native';
+import React, { memo } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
 
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
@@ -13,8 +13,8 @@ const LED_TARGET_H = Math.max(320, Math.floor(SCREEN_H * 0.56));
 const BASE_CELL_H = Math.floor((LED_TARGET_H - ROW_GAP * (NUM_ROWS - 1)) / NUM_ROWS);
 const CELL_H = Math.max(9, Math.min(16, BASE_CELL_H));
 
-const COLS_ARR = Array.from({length: NUM_COLS}, (_, i) => i);
-const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
+const COLS_ARR = Array.from({ length: NUM_COLS }, (_, i) => i);
+const ROWS_ARR = Array.from({ length: NUM_ROWS }, (_, i) => i);
 
 const getCellColor = (rowFromBottom: number): string => {
   const ratio = rowFromBottom / NUM_ROWS;
@@ -34,7 +34,7 @@ interface ClassicLEDProps {
   peakLevels: number[];
 }
 
-const ClassicLED: React.FC<ClassicLEDProps> = ({levels, peakLevels}) => (
+const ClassicLED: React.FC<ClassicLEDProps> = ({ levels, peakLevels }) => (
   <View style={styles.grid}>
     {COLS_ARR.map(colIdx => {
       const level = levels[colIdx] || 0;
@@ -52,7 +52,7 @@ const ClassicLED: React.FC<ClassicLEDProps> = ({levels, peakLevels}) => (
                 key={rowIdx}
                 style={[
                   styles.cell,
-                  {backgroundColor: isLit || isPeak ? getCellColor(fromBottom) : DIM_COLOR},
+                  { backgroundColor: isLit || isPeak ? getCellColor(fromBottom) : DIM_COLOR },
                 ]}
               />
             );
@@ -64,9 +64,9 @@ const ClassicLED: React.FC<ClassicLEDProps> = ({levels, peakLevels}) => (
 );
 
 const styles = StyleSheet.create({
-  grid: {flexDirection: 'row', gap: COL_GAP},
-  column: {gap: ROW_GAP},
-  cell: {width: CELL_W, height: CELL_H, borderRadius: 2},
+  grid: { flexDirection: 'row', gap: COL_GAP },
+  column: { gap: ROW_GAP },
+  cell: { width: CELL_W, height: CELL_H, borderRadius: 2 },
 });
 
 export default memo(ClassicLED);

@@ -1,11 +1,11 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, Platform} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useTheme} from '../contexts/ThemeContext';
-import {useTranslation} from 'react-i18next';
-import {useAppSelector} from '../store';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { useAppSelector } from '../store';
 import RNFS from 'react-native-fs';
-import {exportTrackToFile} from '../utils/mediaLibrary';
+import { exportTrackToFile } from '../utils/mediaLibrary';
 import TrackPlayer from 'react-native-track-player';
 
 const formatDuration = (seconds?: number): string => {
@@ -35,23 +35,23 @@ interface InfoRowProps {
   isLast?: boolean;
 }
 
-const InfoRow: React.FC<InfoRowProps> = ({icon, label, value, colors, isLast}) => (
+const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, colors, isLast }) => (
   <View
     style={[
       styles.infoRow,
-      !isLast && {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
+      !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     ]}>
     <View style={styles.rowLeft}>
       <Icon name={icon} size={18} color={colors.textSecondary} />
-      <Text style={[styles.label, {color: colors.textSecondary}]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
     </View>
-    <Text style={[styles.value, {color: colors.textPrimary}]}>{value}</Text>
+    <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
   </View>
 );
 
 const AudioAnalyzer: React.FC = () => {
-  const {colors} = useTheme();
-  const {t} = useTranslation();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
   const currentTrack = useAppSelector(s => s.music.currentTrack);
 
   const [fileSize, setFileSize] = useState<string>('');
@@ -130,9 +130,9 @@ const AudioAnalyzer: React.FC = () => {
 
   if (!currentTrack) {
     return (
-      <View style={[styles.emptyContainer, {backgroundColor: colors.bgCard}]}>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.bgCard }]}>
         <Icon name="musical-notes-outline" size={48} color={colors.textSecondary} />
-        <Text style={[styles.emptyText, {color: colors.textSecondary}]}>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
           {t('audioAnalyzer.title')}
         </Text>
       </View>
@@ -152,8 +152,8 @@ const AudioAnalyzer: React.FC = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* File Information */}
-      <View style={[styles.card, {backgroundColor: colors.bgCard}]}>
-        <Text style={[styles.cardTitle, {color: colors.textPrimary}]}>
+      <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
           {t('audioAnalyzer.title')}
         </Text>
         <InfoRow
@@ -178,8 +178,8 @@ const AudioAnalyzer: React.FC = () => {
       </View>
 
       {/* Audio Info */}
-      <View style={[styles.card, {backgroundColor: colors.bgCard}]}>
-        <Text style={[styles.cardTitle, {color: colors.textPrimary}]}>
+      <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
           {t('audioAnalyzer.audioInfo')}
         </Text>
         <InfoRow

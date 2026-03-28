@@ -1,6 +1,6 @@
 // src/utils/coverArtSearch.ts
 import RNFS from 'react-native-fs';
-import {saveArtworkFromFile} from './artworkCache';
+import { saveArtworkFromFile } from './artworkCache';
 
 export interface CoverSearchResult {
   id: number;
@@ -38,7 +38,7 @@ async function searchBing(artist: string): Promise<CoverSearchResult[]> {
     const apiUrl = `https://cn.bing.com/images/async?q=${encodeURIComponent(
       query,
     )}&first=0&count=35&mmasync=1`;
-    const res = await fetch(apiUrl, {headers: BING_HEADERS});
+    const res = await fetch(apiUrl, { headers: BING_HEADERS });
     if (!res.ok) {
       return [];
     }
@@ -71,7 +71,9 @@ async function searchBing(artist: string): Promise<CoverSearchResult[]> {
       let thumbUrl = turls[i] ? ensureHttps(turls[i]) : '';
       if (!thumbUrl) {
         // Build a Bing proxy thumbnail URL manually
-        thumbUrl = `https://tse1.mm.bing.net/th?q=${encodeURIComponent(query)}&w=200&h=200&c=7&rs=1&p=0&pid=InlineBlock&mkt=zh-CN`;
+        thumbUrl = `https://tse1.mm.bing.net/th?q=${encodeURIComponent(
+          query,
+        )}&w=200&h=200&c=7&rs=1&p=0&pid=InlineBlock&mkt=zh-CN`;
       }
 
       results.push({
@@ -266,7 +268,7 @@ export async function downloadCoverToFile(imageUrl: string): Promise<string | un
 export async function searchAndApplyCover(
   trackId: string,
   artist: string,
-): Promise<{cachedUri: string; tmpPath?: string} | undefined> {
+): Promise<{ cachedUri: string; tmpPath?: string } | undefined> {
   try {
     // Step 1: Search
     const results = await searchBing(artist.trim()).catch(() => [] as CoverSearchResult[]);
@@ -291,15 +293,19 @@ export async function searchAndApplyCover(
         // Step 3: Download to temp file ONCE
         const url = ensureHttps(picked.artworkUrl);
         let origin = '';
-        try { const u = new URL(url); origin = u.origin; } catch {}
+        try {
+          const u = new URL(url);
+          origin = u.origin;
+        } catch {}
         const headers: Record<string, string> = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
           Accept: 'image/webp,image/apng,image/*,*/*;q=0.8',
         };
         if (origin) headers.Referer = origin + '/';
 
         const tmpPath = `${RNFS.CachesDirectoryPath}/cover_apply_${Date.now()}.jpg`;
-        const dl = await RNFS.downloadFile({fromUrl: url, toFile: tmpPath, headers}).promise;
+        const dl = await RNFS.downloadFile({ fromUrl: url, toFile: tmpPath, headers }).promise;
 
         if (dl.statusCode < 200 || dl.statusCode >= 400 || dl.bytesWritten < 1000) {
           await RNFS.unlink(tmpPath).catch(() => {});
@@ -318,7 +324,7 @@ export async function searchAndApplyCover(
         }
 
         // tmpPath is kept alive for tag writing; caller should clean up
-        return {cachedUri, tmpPath};
+        return { cachedUri, tmpPath };
       } catch {
         continue;
       }

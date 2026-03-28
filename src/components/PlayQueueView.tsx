@@ -1,5 +1,5 @@
 // src/components/PlayQueueView.tsx
-import React, {memo, useCallback} from 'react';
+import React, { memo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,9 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
 import CoverArt from './CoverArt';
-import {useAppSelector} from '../store';
-import {Track} from '../types';
-import {useTheme} from '../contexts/ThemeContext';
+import { useAppSelector } from '../store';
+import { Track } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -22,9 +22,9 @@ interface Props {
   onClose: () => void;
 }
 
-const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
-  const {playQueue, currentTrack} = useAppSelector(s => s.music);
-  const {colors, sizes} = useTheme();
+const PlayQueueView: React.FC<Props> = ({ visible, onClose }) => {
+  const { playQueue, currentTrack } = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
   const { t } = useTranslation();
 
   const handlePlayFromQueue = useCallback(
@@ -52,10 +52,10 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
       animationType="fade"
       onRequestClose={onClose}>
       <Pressable
-        style={[styles.overlay, {backgroundColor: colors.overlay}]}
+        style={[styles.overlay, { backgroundColor: colors.overlay }]}
         onPress={onClose}>
         <Pressable
-          style={[styles.sheet, {backgroundColor: colors.bgElevated}]}
+          style={[styles.sheet, { backgroundColor: colors.bgElevated }]}
           onPress={() => {}}>
           <View style={styles.header}>
             <Text
@@ -83,16 +83,16 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
           <FlatList
             data={playQueue}
             keyExtractor={(item, idx) => `${item.id}-${idx}`}
-            contentContainerStyle={{paddingBottom: 20}}
+            contentContainerStyle={{ paddingBottom: 20 }}
             showsVerticalScrollIndicator={false}
-            renderItem={({item, index}) => {
+            renderItem={({ item, index }) => {
               const isActive = currentTrack?.id === item.id;
               return (
                 <TouchableOpacity
                   style={[
                     styles.queueItem,
-                    {borderBottomColor: colors.border},
-                    isActive && {backgroundColor: colors.accentDim},
+                    { borderBottomColor: colors.border },
+                    isActive && { backgroundColor: colors.accentDim },
                   ]}
                   onPress={() => handlePlayFromQueue(item, index)}
                   activeOpacity={0.7}>
@@ -118,7 +118,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
                       {item.title}
                     </Text>
                     <Text
-                      style={{fontSize: sizes.xs, color: colors.textSecondary}}
+                      style={{ fontSize: sizes.xs, color: colors.textSecondary }}
                       numberOfLines={1}>
                       {item.artist}
                     </Text>
@@ -147,7 +147,7 @@ const PlayQueueView: React.FC<Props> = ({visible, onClose}) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: {flex: 1, justifyContent: 'flex-end'},
+  overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 10,
   },
-  queueInfo: {flex: 1},
-  emptyQueue: {alignItems: 'center', marginTop: 40},
+  queueInfo: { flex: 1 },
+  emptyQueue: { alignItems: 'center', marginTop: 40 },
 });
 
 export default memo(PlayQueueView);

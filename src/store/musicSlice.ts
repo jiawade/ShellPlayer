@@ -1,18 +1,23 @@
 // src/store/musicSlice.ts
-import {createSlice, PayloadAction, createAsyncThunk} from '@reduxjs/toolkit';
-import {Platform} from 'react-native';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import RNFS from 'react-native-fs';
-import {Track, LyricLine, RepeatMode, SortMode, ThemeMode, PlayHistoryEntry} from '../types';
-import {scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress} from '../utils/scanner';
-import {parseLRC, parseTextLyrics} from '../utils/lrcParser';
-import {getDefaultLrcDir, ensureDefaultDirs} from '../utils/defaultDirs';
-import {requestStoragePermission} from '../utils/permissions';
-import {SUPPORTED_FORMATS, UNSUPPORTED_FORMATS} from '../utils/theme';
-import {logCrash, logInfo} from '../utils/crashLogger';
-import {saveArtworkFile, batchGetCachedArtworks} from '../utils/artworkCache';
-import {importFromMediaLibrary, requestMediaLibraryPermission, exportTrackToFile, getLyricsForUrl} from '../utils/mediaLibrary';
+import { Track, LyricLine, RepeatMode, SortMode, ThemeMode, PlayHistoryEntry } from '../types';
+import { scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress } from '../utils/scanner';
+import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
+import { getDefaultLrcDir, ensureDefaultDirs } from '../utils/defaultDirs';
+import { requestStoragePermission } from '../utils/permissions';
+import { SUPPORTED_FORMATS, UNSUPPORTED_FORMATS } from '../utils/theme';
+import { logCrash, logInfo } from '../utils/crashLogger';
+import { saveArtworkFile, batchGetCachedArtworks } from '../utils/artworkCache';
+import {
+  importFromMediaLibrary,
+  requestMediaLibraryPermission,
+  exportTrackToFile,
+  getLyricsForUrl,
+} from '../utils/mediaLibrary';
 
 interface MusicState {
   tracks: Track[];
@@ -99,27 +104,31 @@ export interface IOSImportOptions {
 
 export const importiOSMediaLibrary = createAsyncThunk(
   'music/importiOS',
-  async (options: IOSImportOptions | undefined, {dispatch}) => {
+  async (options: IOSImportOptions | undefined, { dispatch }) => {
     await ensureDefaultDirs();
-    const opts = options || {includeIPod: true, localDirs: [RNFS.DocumentDirectoryPath]};
+    const opts = options || { includeIPod: true, localDirs: [RNFS.DocumentDirectoryPath] };
     const includeIPod = opts.includeIPod !== false;
-    const localDirs = opts.localDirs || (opts.localFiles?.length ? [] : [RNFS.DocumentDirectoryPath]);
+    const localDirs =
+      opts.localDirs || (opts.localFiles?.length ? [] : [RNFS.DocumentDirectoryPath]);
     const localFiles = opts.localFiles || [];
 
-    await logInfo(`Importing iOS: iPod=${includeIPod}, dirs=${localDirs.length}, files=${localFiles.length}`, 'importiOS');
+    await logInfo(
+      `Importing iOS: iPod=${includeIPod}, dirs=${localDirs.length}, files=${localFiles.length}`,
+      'importiOS',
+    );
 
     const allTracks: Track[] = [];
     const seenIds = new Set<string>();
 
     // 1. 尝试从 iTunes/iPod 媒体库导入
-    const {MediaLibraryModule: MLModule} = require('react-native').NativeModules;
+    const { MediaLibraryModule: MLModule } = require('react-native').NativeModules;
     let isSim = false;
     try {
       isSim = MLModule ? await MLModule.isSimulator() : false;
     } catch {}
 
     if (includeIPod && !isSim) {
-      dispatch(setScanProgress({phase: 'scanning', current: 0, total: 2}));
+      dispatch(setScanProgress({ phase: 'scanning', current: 0, total: 2 }));
       const permOk = await requestMediaLibraryPermission();
       if (permOk) {
         try {
@@ -138,11 +147,17 @@ export const importiOSMediaLibrary = createAsyncThunk(
 
     // 2. 扫描本地音乐目录
     if (localDirs.length > 0) {
-      dispatch(setScanProgress({phase: 'scanning', current: 1, total: 2}));
+      dispatch(setScanProgress({ phase: 'scanning', current: 1, total: 2 }));
       try {
         const localTracks = await scanAllMusic(localDirs, p => {
           if (p.phase === 'parsing') {
-            dispatch(setScanProgress({phase: 'parsing', current: p.current, total: p.total + allTracks.length}));
+            dispatch(
+              setScanProgress({
+                phase: 'parsing',
+                current: p.current,
+                total: p.total + allTracks.length,
+              }),
+            );
           }
         });
         for (const t of localTracks) {
@@ -158,10 +173,10 @@ export const importiOSMediaLibrary = createAsyncThunk(
 
     // 3. 导入指定的本地文件
     if (localFiles.length > 0) {
-      dispatch(setScanProgress({phase: 'parsing', current: 0, total: localFiles.length}));
+      dispatch(setScanProgress({ phase: 'parsing', current: 0, total: localFiles.length }));
       try {
-        const {parseID3} = require('../utils/id3Parser');
-        const {saveArtworkFile} = require('../utils/artworkCache');
+        const { parseID3 } = require('../utils/id3Parser');
+        const { saveArtworkFile } = require('../utils/artworkCache');
         for (let i = 0; i < localFiles.length; i++) {
           const fp = localFiles[i];
           if (seenIds.has(fp)) continue;
@@ -170,7 +185,7 @@ export const importiOSMediaLibrary = createAsyncThunk(
             const id3 = await parseID3(fp);
             const dotIdx = fp.lastIndexOf('.');
             const lrcPath = dotIdx > 0 ? fp.substring(0, dotIdx) + '.lrc' : undefined;
-            const hasLrc = lrcPath && await RNFS.exists(lrcPath) ? lrcPath : undefined;
+            const hasLrc = lrcPath && (await RNFS.exists(lrcPath)) ? lrcPath : undefined;
             let artworkUri: string | undefined;
             if (id3.artwork) artworkUri = await saveArtworkFile(fp, id3.artwork);
             const t: Track = {
@@ -189,14 +204,16 @@ export const importiOSMediaLibrary = createAsyncThunk(
             seenIds.add(fp);
             allTracks.push(t);
           } catch {}
-          dispatch(setScanProgress({phase: 'parsing', current: i + 1, total: localFiles.length}));
+          dispatch(setScanProgress({ phase: 'parsing', current: i + 1, total: localFiles.length }));
         }
       } catch (e) {
         await logInfo(`Local file import failed: ${e}`, 'importiOS');
       }
     }
 
-    dispatch(setScanProgress({phase: 'parsing', current: allTracks.length, total: allTracks.length}));
+    dispatch(
+      setScanProgress({ phase: 'parsing', current: allTracks.length, total: allTracks.length }),
+    );
 
     if (allTracks.length === 0) {
       throw new Error(
@@ -216,38 +233,43 @@ export const importiOSMediaLibrary = createAsyncThunk(
       await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache_ios');
     }
     const dirsList = [...(includeIPod ? ['ipod-library'] : []), ...localDirs];
-    return {tracks: allTracks, directories: dirsList.length > 0 ? dirsList : [RNFS.DocumentDirectoryPath]};
+    return {
+      tracks: allTracks,
+      directories: dirsList.length > 0 ? dirsList : [RNFS.DocumentDirectoryPath],
+    };
   },
 );
 
-export const scanMusic = createAsyncThunk('music/scan', async (directories: string[], {dispatch}) => {
-  await ensureDefaultDirs();
-  await logInfo(`Scanning ${directories.length} dirs`, 'scanMusic');
-  if (Platform.OS !== 'ios') {
-    const ok = await requestStoragePermission();
-    if (!ok) {
-      throw new Error('没有存储权限，无法扫描音乐文件');
+export const scanMusic = createAsyncThunk(
+  'music/scan',
+  async (directories: string[], { dispatch }) => {
+    await ensureDefaultDirs();
+    await logInfo(`Scanning ${directories.length} dirs`, 'scanMusic');
+    if (Platform.OS !== 'ios') {
+      const ok = await requestStoragePermission();
+      if (!ok) {
+        throw new Error('没有存储权限，无法扫描音乐文件');
+      }
     }
-  }
-  const tracks = await scanAllMusic(directories, p => dispatch(setScanProgress(p)));
-  try {
-    const lite = tracks.map(t => ({
-      ...t,
-      artwork: serializeArtworkForCache(t.artwork),
-    }));
-    await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
-  } catch (e) {
-    await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache');
-  }
-  try {
-    const withArt = tracks.filter(t => t.artwork && t.artwork.startsWith('data:'));
-    for (let i = 0; i < withArt.length; i += 10) {
-      await Promise.all(withArt.slice(i, i + 10).map(t => saveArtworkFile(t.id, t.artwork!)));
+    const tracks = await scanAllMusic(directories, p => dispatch(setScanProgress(p)));
+    try {
+      const lite = tracks.map(t => ({
+        ...t,
+        artwork: serializeArtworkForCache(t.artwork),
+      }));
+      await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
+    } catch (e) {
+      await logCrash(e instanceof Error ? e : new Error(String(e)), 'cache');
     }
-  } catch {}
-  return {tracks, directories};
-});
-
+    try {
+      const withArt = tracks.filter(t => t.artwork && t.artwork.startsWith('data:'));
+      for (let i = 0; i < withArt.length; i += 10) {
+        await Promise.all(withArt.slice(i, i + 10).map(t => saveArtworkFile(t.id, t.artwork!)));
+      }
+    } catch {}
+    return { tracks, directories };
+  },
+);
 
 export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => {
   try {
@@ -278,8 +300,8 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
 // 后台修复封面：不阻塞歌曲列表显示
 export const repairCachedArtwork = createAsyncThunk(
   'music/repairArtwork',
-  async (_: void, {getState}) => {
-    const state = getState() as {music: MusicState};
+  async (_: void, { getState }) => {
+    const state = getState() as { music: MusicState };
     const tracks = state.music.tracks;
     if (tracks.length === 0) return {} as Record<string, string>;
 
@@ -296,10 +318,7 @@ export const repairCachedArtwork = createAsyncThunk(
           if (!(await RNFS.exists(path))) invalidIds.push(t.id);
         }),
       );
-      noArtIds = new Set([
-        ...tracks.filter(t => !t.artwork).map(t => t.id),
-        ...invalidIds,
-      ]);
+      noArtIds = new Set([...tracks.filter(t => !t.artwork).map(t => t.id), ...invalidIds]);
     } catch {
       noArtIds = new Set(tracks.filter(t => !t.artwork).map(t => t.id));
     }
@@ -346,7 +365,7 @@ export const repairCachedArtwork = createAsyncThunk(
     try {
       const unresolvedLocal = tracks.filter(t => noArtIds.has(t.id) && !!t.filePath);
       if (unresolvedLocal.length > 0) {
-        const {parseID3} = require('../utils/id3Parser');
+        const { parseID3 } = require('../utils/id3Parser');
         for (const t of unresolvedLocal) {
           try {
             if (!(await RNFS.exists(t.filePath))) continue;
@@ -419,7 +438,7 @@ export const loadLastPlayback = createAsyncThunk('music/loadLastPlayback', async
   try {
     const raw = await AsyncStorage.getItem('@lastPlayback');
     if (!raw) return null;
-    return JSON.parse(raw) as {trackId: string; position: number};
+    return JSON.parse(raw) as { trackId: string; position: number };
   } catch {
     return null;
   }
@@ -428,157 +447,184 @@ export const loadLastPlayback = createAsyncThunk('music/loadLastPlayback', async
 // Generation counter to cancel stale background queue-add tasks
 let playTrackGeneration = 0;
 
-export const playTrack = createAsyncThunk('music/playTrack', async ({track, queue, shuffle: _shuffle, navigatingShuffleHistory}: {track: Track; queue: Track[]; shuffle?: boolean; navigatingShuffleHistory?: boolean}, {dispatch, getState}) => {
-  try {
-    const gen = ++playTrackGeneration;
-
-    // Validate file format before attempting to play
-    const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
-    if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
-      // Skip unsupported format - show error and play next
-      dispatch(setPlaybackErrorMsg(
-        `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
-      ));
-      const nextIdx = queue.findIndex(t => t.id === track.id);
-      setTimeout(() => {
-        dispatch(setPlaybackErrorMsg(null));
-        if (nextIdx >= 0 && queue.length > 1) {
-          const ni = (nextIdx + 1) % queue.length;
-          dispatch(playTrack({track: queue[ni], queue}));
-        }
-      }, 1500);
-      return {track, index: nextIdx};
-    }
-
-    let idx = queue.findIndex(t => t.id === track.id);
-    if (idx < 0) {
-      idx = 0;
-    }
-
-    const start = Math.max(0, idx - 10);
-    const end = Math.min(queue.length, idx + 11);
-    const sub = queue.slice(start, end);
-    const si = idx - start;
-
+export const playTrack = createAsyncThunk(
+  'music/playTrack',
+  async (
+    {
+      track,
+      queue,
+      shuffle: _shuffle,
+      navigatingShuffleHistory,
+    }: { track: Track; queue: Track[]; shuffle?: boolean; navigatingShuffleHistory?: boolean },
+    { dispatch, getState },
+  ) => {
     try {
-      await TrackPlayer.reset();
-    } catch {
-      await new Promise(r => setTimeout(r, 200));
+      const gen = ++playTrackGeneration;
+
+      // Validate file format before attempting to play
+      const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
+      if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
+        // Skip unsupported format - show error and play next
+        dispatch(
+          setPlaybackErrorMsg(
+            `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
+          ),
+        );
+        const nextIdx = queue.findIndex(t => t.id === track.id);
+        setTimeout(() => {
+          dispatch(setPlaybackErrorMsg(null));
+          if (nextIdx >= 0 && queue.length > 1) {
+            const ni = (nextIdx + 1) % queue.length;
+            dispatch(playTrack({ track: queue[ni], queue }));
+          }
+        }, 1500);
+        return { track, index: nextIdx };
+      }
+
+      let idx = queue.findIndex(t => t.id === track.id);
+      if (idx < 0) {
+        idx = 0;
+      }
+
+      const start = Math.max(0, idx - 10);
+      const end = Math.min(queue.length, idx + 11);
+      const sub = queue.slice(start, end);
+      const si = idx - start;
+
       try {
         await TrackPlayer.reset();
+      } catch {
+        await new Promise(r => setTimeout(r, 200));
+        try {
+          await TrackPlayer.reset();
+        } catch {}
+      }
+
+      // 先导出并添加当前歌曲，立即开始播放
+      const currentUrl = track.url.startsWith('ipod-library://')
+        ? await exportTrackToFile(track.url)
+        : track.url;
+      if (gen !== playTrackGeneration) return { track, index: idx };
+      await TrackPlayer.add({
+        id: track.id,
+        url: currentUrl,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.artwork,
+      });
+
+      const state = getState() as { music: MusicState };
+      try {
+        await TrackPlayer.setRate(state.music.playbackSpeed);
       } catch {}
-    }
+      await TrackPlayer.play();
 
-    // 先导出并添加当前歌曲，立即开始播放
-    const currentUrl = track.url.startsWith('ipod-library://') ? await exportTrackToFile(track.url) : track.url;
-    if (gen !== playTrackGeneration) return {track, index: idx};
-    await TrackPlayer.add({
-      id: track.id,
-      url: currentUrl,
-      title: track.title,
-      artist: track.artist,
-      artwork: track.artwork,
-    });
-
-    const state = getState() as {music: MusicState};
-    try {
-      await TrackPlayer.setRate(state.music.playbackSpeed);
-    } catch {}
-    await TrackPlayer.play();
-
-    // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
-    const before = sub.slice(0, si);
-    const after = sub.slice(si + 1);
-    const addSurrounding = async () => {
-      // 先添加后续歌曲（追加到队尾，无需指定索引）
-      for (const t of after) {
-        if (gen !== playTrackGeneration) return;
-        const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-        if (gen !== playTrackGeneration) return;
-        try {
-          await TrackPlayer.add({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork});
-        } catch {}
-      }
-      // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
-      for (let i = before.length - 1; i >= 0; i--) {
-        if (gen !== playTrackGeneration) return;
-        const t = before[i];
-        const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-        if (gen !== playTrackGeneration) return;
-        try {
-          await TrackPlayer.add({id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork}, 0);
-        } catch {}
-      }
-    };
-    addSurrounding();
-
-    try {
-      let lyrLines: LyricLine[] = [];
-      if (track.lrcPath) {
-        lyrLines = parseLRC(await readLrcFile(track.lrcPath));
-      } else if (track.embeddedLyrics) {
-        lyrLines = parseLRC(track.embeddedLyrics);
-        if (lyrLines.length === 0) {
-          lyrLines = parseTextLyrics(track.embeddedLyrics, track.duration);
+      // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
+      const before = sub.slice(0, si);
+      const after = sub.slice(si + 1);
+      const addSurrounding = async () => {
+        // 先添加后续歌曲（追加到队尾，无需指定索引）
+        for (const t of after) {
+          if (gen !== playTrackGeneration) return;
+          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+          if (gen !== playTrackGeneration) return;
+          try {
+            await TrackPlayer.add({
+              id: t.id,
+              url: u,
+              title: t.title,
+              artist: t.artist,
+              artwork: t.artwork,
+            });
+          } catch {}
         }
-      }
-      // iOS: 如果没有歌词，通过 AVURLAsset 从音频文件直接读取内嵌歌词
-      if (lyrLines.length === 0 && Platform.OS === 'ios' && track.url) {
-        const nativeLyrics = await getLyricsForUrl(track.url);
-        if (nativeLyrics) {
-          lyrLines = parseLRC(nativeLyrics);
+        // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
+        for (let i = before.length - 1; i >= 0; i--) {
+          if (gen !== playTrackGeneration) return;
+          const t = before[i];
+          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+          if (gen !== playTrackGeneration) return;
+          try {
+            await TrackPlayer.add(
+              { id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork },
+              0,
+            );
+          } catch {}
+        }
+      };
+      addSurrounding();
+
+      try {
+        let lyrLines: LyricLine[] = [];
+        if (track.lrcPath) {
+          lyrLines = parseLRC(await readLrcFile(track.lrcPath));
+        } else if (track.embeddedLyrics) {
+          lyrLines = parseLRC(track.embeddedLyrics);
           if (lyrLines.length === 0) {
-            lyrLines = parseTextLyrics(nativeLyrics, track.duration);
+            lyrLines = parseTextLyrics(track.embeddedLyrics, track.duration);
           }
         }
+        // iOS: 如果没有歌词，通过 AVURLAsset 从音频文件直接读取内嵌歌词
+        if (lyrLines.length === 0 && Platform.OS === 'ios' && track.url) {
+          const nativeLyrics = await getLyricsForUrl(track.url);
+          if (nativeLyrics) {
+            lyrLines = parseLRC(nativeLyrics);
+            if (lyrLines.length === 0) {
+              lyrLines = parseTextLyrics(nativeLyrics, track.duration);
+            }
+          }
+        }
+        // Fallback: search the default lrc directory for a matching .lrc file
+        if (lyrLines.length === 0) {
+          const lrcDir = getDefaultLrcDir();
+          const matchedLrc = await findMatchingLrcInDir(track, lrcDir);
+          if (matchedLrc) {
+            lyrLines = parseLRC(await readLrcFile(matchedLrc));
+          }
+        }
+        dispatch(setLyrics(lyrLines));
+      } catch {
+        dispatch(setLyrics([]));
       }
-      // Fallback: search the default lrc directory for a matching .lrc file
-      if (lyrLines.length === 0) {
-        const lrcDir = getDefaultLrcDir();
-        const matchedLrc = await findMatchingLrcInDir(track, lrcDir);
-        if (matchedLrc) {
-          lyrLines = parseLRC(await readLrcFile(matchedLrc));
+
+      // Add to play history
+      dispatch(addToHistory(track.id));
+
+      // Push to shuffle navigation history (if in shuffle mode and not navigating back/forward)
+      const currentState = getState() as { music: MusicState };
+      if (currentState.music.repeatMode === 'queue' && !navigatingShuffleHistory) {
+        dispatch(pushShuffleHistory(track.id));
+      }
+
+      // Store play queue
+      dispatch(setPlayQueue(queue));
+
+      return { track, index: idx };
+    } catch (err) {
+      await logCrash(err instanceof Error ? err : new Error(String(err)), 'playTrack');
+      return { track, index: 0 };
+    }
+  },
+);
+
+export const deleteTrackPermanently = createAsyncThunk(
+  'music/deletePermanent',
+  async (id: string) => {
+    try {
+      if (await RNFS.exists(id)) {
+        await RNFS.unlink(id);
+      }
+      const dot = id.lastIndexOf('.');
+      if (dot > 0) {
+        const lrc = id.substring(0, dot) + '.lrc';
+        if (await RNFS.exists(lrc)) {
+          await RNFS.unlink(lrc);
         }
       }
-      dispatch(setLyrics(lyrLines));
-    } catch {
-      dispatch(setLyrics([]));
-    }
-
-    // Add to play history
-    dispatch(addToHistory(track.id));
-
-    // Push to shuffle navigation history (if in shuffle mode and not navigating back/forward)
-    const currentState = getState() as {music: MusicState};
-    if (currentState.music.repeatMode === 'queue' && !navigatingShuffleHistory) {
-      dispatch(pushShuffleHistory(track.id));
-    }
-
-    // Store play queue
-    dispatch(setPlayQueue(queue));
-
-    return {track, index: idx};
-  } catch (err) {
-    await logCrash(err instanceof Error ? err : new Error(String(err)), 'playTrack');
-    return {track, index: 0};
-  }
-});
-
-export const deleteTrackPermanently = createAsyncThunk('music/deletePermanent', async (id: string) => {
-  try {
-    if (await RNFS.exists(id)) {
-      await RNFS.unlink(id);
-    }
-    const dot = id.lastIndexOf('.');
-    if (dot > 0) {
-      const lrc = id.substring(0, dot) + '.lrc';
-      if (await RNFS.exists(lrc)) {
-        await RNFS.unlink(lrc);
-      }
-    }
-  } catch {}
-  return id;
-});
+    } catch {}
+    return id;
+  },
+);
 
 // --- Slice ---
 
@@ -669,7 +715,7 @@ const musicSlice = createSlice({
     },
     // Play history
     addToHistory: (s, a: PayloadAction<string>) => {
-      const entry: PlayHistoryEntry = {trackId: a.payload, playedAt: Date.now()};
+      const entry: PlayHistoryEntry = { trackId: a.payload, playedAt: Date.now() };
       s.playHistory = [entry, ...s.playHistory.filter(h => h.trackId !== a.payload)].slice(0, 100);
     },
     clearHistory: s => {
@@ -769,14 +815,20 @@ const musicSlice = createSlice({
     setCustomAccent: (s, a: PayloadAction<string | null>) => {
       s.customAccent = a.payload;
     },
-    updateTrackMetadata(s, a: PayloadAction<{trackId: string; changes: Partial<Pick<Track, 'title' | 'artist' | 'album'>>}>) {
-      const {trackId, changes} = a.payload;
+    updateTrackMetadata(
+      s,
+      a: PayloadAction<{
+        trackId: string;
+        changes: Partial<Pick<Track, 'title' | 'artist' | 'album'>>;
+      }>,
+    ) {
+      const { trackId, changes } = a.payload;
       const track = s.tracks.find(t => t.id === trackId);
       if (track) Object.assign(track, changes);
       if (s.currentTrack?.id === trackId) Object.assign(s.currentTrack, changes);
     },
-    updateTrackArtwork(s, a: PayloadAction<{trackId: string; artwork: string}>) {
-      const {trackId, artwork} = a.payload;
+    updateTrackArtwork(s, a: PayloadAction<{ trackId: string; artwork: string }>) {
+      const { trackId, artwork } = a.payload;
       const track = s.tracks.find(t => t.id === trackId);
       if (track) track.artwork = artwork;
       if (s.currentTrack?.id === trackId) s.currentTrack.artwork = artwork;
@@ -851,9 +903,13 @@ const musicSlice = createSlice({
               { artwork },
             ).catch(() => {});
             // Include elapsed time to prevent stale elapsedPlaybackTime from resetting lock screen progress
-            TrackPlayer.getProgress().then(({ position }) => {
-              TrackPlayer.updateNowPlayingMetadata({ artwork, elapsedTime: position }).catch(() => {});
-            }).catch(() => {});
+            TrackPlayer.getProgress()
+              .then(({ position }) => {
+                TrackPlayer.updateNowPlayingMetadata({ artwork, elapsedTime: position }).catch(
+                  () => {},
+                );
+              })
+              .catch(() => {});
           }
         }
       })

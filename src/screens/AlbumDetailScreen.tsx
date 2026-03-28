@@ -1,21 +1,14 @@
-import React, {useMemo, useState, useCallback} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Dimensions,
-} from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useTranslation} from 'react-i18next';
-import {useTheme} from '../contexts/ThemeContext';
-import {useAppSelector, useAppDispatch} from '../store';
-import {playTrack, toggleFavorite} from '../store/musicSlice';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAppSelector, useAppDispatch } from '../store';
+import { playTrack, toggleFavorite } from '../store/musicSlice';
 import TrackItem from '../components/TrackItem';
 import TrackMenu from '../components/TrackMenu';
 import CoverArt from '../components/CoverArt';
-import {Track} from '../types';
+import { Track } from '../types';
 
 interface AlbumDetailScreenProps {
   albumName: string;
@@ -32,14 +25,11 @@ function formatDuration(seconds: number): string {
   return `${m} min`;
 }
 
-const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
-  albumName,
-  onBack,
-}) => {
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
+const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({ albumName, onBack }) => {
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const {tracks, currentTrack} = useAppSelector(s => s.music);
+  const { tracks, currentTrack } = useAppSelector(s => s.music);
 
   const [menuTrack, setMenuTrack] = useState<Track | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -49,10 +39,7 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
     [tracks, albumName],
   );
 
-  const albumArtwork = useMemo(
-    () => albumTracks.find(tr => tr.artwork)?.artwork,
-    [albumTracks],
-  );
+  const albumArtwork = useMemo(() => albumTracks.find(tr => tr.artwork)?.artwork, [albumTracks]);
 
   const albumArtist = useMemo(() => {
     const artists = albumTracks.map(tr => tr.artist).filter(Boolean);
@@ -79,17 +66,17 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
 
   const handlePlayAll = useCallback(() => {
     if (albumTracks.length === 0) return;
-    dispatch(playTrack({track: albumTracks[0], queue: albumTracks, shuffle: false}));
+    dispatch(playTrack({ track: albumTracks[0], queue: albumTracks, shuffle: false }));
   }, [dispatch, albumTracks]);
 
   const handleShuffle = useCallback(() => {
     if (albumTracks.length === 0) return;
-    dispatch(playTrack({track: albumTracks[0], queue: albumTracks, shuffle: true}));
+    dispatch(playTrack({ track: albumTracks[0], queue: albumTracks, shuffle: true }));
   }, [dispatch, albumTracks]);
 
   const handleTrackPress = useCallback(
     (track: Track) => {
-      dispatch(playTrack({track, queue: albumTracks, shuffle: false}));
+      dispatch(playTrack({ track, queue: albumTracks, shuffle: false }));
     },
     [dispatch, albumTracks],
   );
@@ -116,39 +103,33 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
     <View>
       {/* Hero */}
       <View style={styles.heroContainer}>
-        <CoverArt
-          artwork={albumArtwork}
-          size={ARTWORK_SIZE}
-          borderRadius={16}
-        />
+        <CoverArt artwork={albumArtwork} size={ARTWORK_SIZE} borderRadius={16} />
         <Text
-          style={[styles.albumTitle, {color: colors.textPrimary, fontSize: sizes.lg}]}
+          style={[styles.albumTitle, { color: colors.textPrimary, fontSize: sizes.lg }]}
           numberOfLines={2}>
           {displayName}
         </Text>
-        <Text
-          style={[styles.artistName, {color: colors.textSecondary}]}
-          numberOfLines={1}>
+        <Text style={[styles.artistName, { color: colors.textSecondary }]} numberOfLines={1}>
           {albumArtist}
         </Text>
-        <Text style={[styles.meta, {color: colors.textSecondary}]}>
-          {t('albums.trackCount', {count: albumTracks.length})}
+        <Text style={[styles.meta, { color: colors.textSecondary }]}>
+          {t('albums.trackCount', { count: albumTracks.length })}
           {'  ·  '}
-          {t('albums.totalDuration', {duration: formatDuration(totalDuration)})}
+          {t('albums.totalDuration', { duration: formatDuration(totalDuration) })}
         </Text>
       </View>
 
       {/* Action buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionButton, {backgroundColor: colors.accent}]}
+          style={[styles.actionButton, { backgroundColor: colors.accent }]}
           onPress={handlePlayAll}
           activeOpacity={0.7}>
           <Icon name="play" size={18} color="#fff" />
           <Text style={styles.actionText}>{t('albums.playAll')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, {backgroundColor: colors.accent}]}
+          style={[styles.actionButton, { backgroundColor: colors.accent }]}
           onPress={handleShuffle}
           activeOpacity={0.7}>
           <Icon name="shuffle" size={18} color="#fff" />
@@ -159,25 +140,23 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
   );
 
   return (
-    <View style={[styles.container, {backgroundColor: colors.bg}]}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="chevron-back" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text
-          style={[styles.headerTitle, {color: colors.textPrimary}]}
-          numberOfLines={1}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {displayName}
         </Text>
-        <View style={{width: 28}} />
+        <View style={{ width: 28 }} />
       </View>
 
       <FlatList
         data={albumTracks}
         keyExtractor={item => item.id}
         ListHeaderComponent={renderHeader}
-        renderItem={({item}) => (
+        renderItem={({ item }) => (
           <TrackItem
             track={item}
             isActive={currentTrack?.id === item.id}
@@ -189,11 +168,7 @@ const AlbumDetailScreen: React.FC<AlbumDetailScreenProps> = ({
         contentContainerStyle={styles.listContent}
       />
 
-      <TrackMenu
-        track={menuTrack}
-        visible={showMenu}
-        onClose={handleCloseMenu}
-      />
+      <TrackMenu track={menuTrack} visible={showMenu} onClose={handleCloseMenu} />
     </View>
   );
 };

@@ -10,9 +10,15 @@ import TrackPlayer, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
-  setIsPlaying, setCurrentTrack, setCurrentLyricIndex,
-  setLyrics, setCurrentIndex, playTrack,
-  shuffleHistoryBack, shuffleHistoryForward, prependShuffleHistory,
+  setIsPlaying,
+  setCurrentTrack,
+  setCurrentLyricIndex,
+  setLyrics,
+  setCurrentIndex,
+  playTrack,
+  shuffleHistoryBack,
+  shuffleHistoryForward,
+  prependShuffleHistory,
 } from '../store/musicSlice';
 import { recordListenTime } from '../store/statsSlice';
 import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
@@ -20,15 +26,12 @@ import { readLrcFile, findMatchingLrcInDir } from '../utils/scanner';
 import { getLyricsForUrl } from '../utils/mediaLibrary';
 import { getDefaultLrcDir } from '../utils/defaultDirs';
 import {
-  isBluetoothLyricsEnabled, setOriginalTrackInfo, pushLyricToNowPlaying,
+  isBluetoothLyricsEnabled,
+  setOriginalTrackInfo,
+  pushLyricToNowPlaying,
   restoreOriginalMetadata,
 } from '../utils/bluetoothLyrics';
-import {
-  updateLiveActivity, stopLiveActivity, isLiveActivityActive,
-} from '../utils/liveActivity';
-import {
-  startAudioLevelMonitoring, stopAudioLevelMonitoring, addAudioLevelListener,
-} from '../utils/audioLevel';
+import { updateLiveActivity, stopLiveActivity, isLiveActivityActive } from '../utils/liveActivity';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
@@ -45,8 +48,8 @@ export function usePlayerSync() {
   currentTrackIdRef.current = currentTrack?.id;
 
   useEffect(() => {
-    const playing = playbackState.state === State.Playing
-                 || playbackState.state === State.Buffering;
+    const playing =
+      playbackState.state === State.Playing || playbackState.state === State.Buffering;
     dispatch(setIsPlaying(playing));
   }, [playbackState.state, dispatch]);
 
@@ -55,11 +58,13 @@ export function usePlayerSync() {
     if (activeTrack?.id !== prevTrackId.current) {
       if (prevTrackId.current && listenAccum.current >= 1) {
         const prevMatched = tracks.find(t => t.id === prevTrackId.current);
-        dispatch(recordListenTime({
-          trackId: prevTrackId.current,
-          artist: prevMatched?.artist || '',
-          seconds: Math.round(listenAccum.current),
-        }));
+        dispatch(
+          recordListenTime({
+            trackId: prevTrackId.current,
+            artist: prevMatched?.artist || '',
+            seconds: Math.round(listenAccum.current),
+          }),
+        );
       }
       listenAccum.current = 0;
       lastTickTime.current = 0;
@@ -138,11 +143,13 @@ export function usePlayerSync() {
 
     if (listenAccum.current >= 30) {
       const matched = tracks.find(t => t.id === activeTrack.id);
-      dispatch(recordListenTime({
-        trackId: activeTrack.id,
-        artist: matched?.artist || '',
-        seconds: Math.round(listenAccum.current),
-      }));
+      dispatch(
+        recordListenTime({
+          trackId: activeTrack.id,
+          artist: matched?.artist || '',
+          seconds: Math.round(listenAccum.current),
+        }),
+      );
       listenAccum.current = 0;
     }
   }, [position, playbackState.state, activeTrack, tracks, dispatch]);
@@ -171,30 +178,14 @@ export function usePlayerSync() {
     const now = Date.now();
     if (now - lastSaveRef.current < 3000) return;
     lastSaveRef.current = now;
-    AsyncStorage.setItem('@lastPlayback', JSON.stringify({
-      trackId: activeTrack.id, position,
-    })).catch(() => {});
+    AsyncStorage.setItem(
+      '@lastPlayback',
+      JSON.stringify({
+        trackId: activeTrack.id,
+        position,
+      }),
+    ).catch(() => {});
   }, [position, activeTrack]);
-
-  // Dynamic Island: start audio monitoring and push updates
-  const liveActivityLevelsRef = useRef<number[]>(Array(7).fill(0));
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const playing = playbackState.state === State.Playing;
-    if (!playing || !activeTrack) {
-      stopAudioLevelMonitoring().catch(() => {});
-      return;
-    }
-    // Start monitoring and listen for audio levels
-    startAudioLevelMonitoring().catch(() => {});
-    const unsub = addAudioLevelListener((event: {levels: number[]}) => {
-      // Pick 7 evenly spaced bands for rainbow bars
-      const lvls = event.levels || [];
-      const step = Math.max(1, Math.floor(lvls.length / 7));
-      liveActivityLevelsRef.current = Array.from({length: 7}, (_, i) => lvls[i * step] ?? 0);
-    });
-    return () => { unsub(); stopAudioLevelMonitoring().catch(() => {}); };
-  }, [playbackState.state, activeTrack?.id]);
 
   // Push to Dynamic Island every ~1 second
   const lastLAUpdate = useRef(0);
@@ -216,7 +207,6 @@ export function usePlayerSync() {
       matched.title,
       matched.artist || '',
       progress,
-      liveActivityLevelsRef.current,
       matched.artwork,
     ).catch(() => {});
   }, [position, playbackState.state, activeTrack?.id, duration, tracks]);
@@ -225,7 +215,7 @@ export function usePlayerSync() {
   // MPNowPlayingInfoCenter elapsed time without interrupting playback.
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
-    const sub = AppState.addEventListener('change', async (nextState) => {
+    const sub = AppState.addEventListener('change', async nextState => {
       if (nextState === 'active') {
         try {
           const { position: pos } = await TrackPlayer.getProgress();
@@ -256,7 +246,16 @@ export function usePlayerSync() {
 
 export function usePlayerControls() {
   const dispatch = useAppDispatch();
-  const { lyrics, currentLyricIndex, tracks, currentTrack, repeatMode, playQueue, shuffleHistory, shuffleHistoryIndex } = useAppSelector(s => s.music);
+  const {
+    lyrics,
+    currentLyricIndex,
+    tracks,
+    currentTrack,
+    repeatMode,
+    playQueue,
+    shuffleHistory,
+    shuffleHistoryIndex,
+  } = useAppSelector(s => s.music);
 
   const togglePlayPause = useCallback(async () => {
     const s = await TrackPlayer.getPlaybackState();
@@ -360,23 +359,31 @@ export function usePlayerControls() {
   }, [repeatMode, tracks, playQueue, shuffleHistory, shuffleHistoryIndex, currentTrack, dispatch]);
 
   /** 播放指定歌词行，到该行结束自动暂停 */
-  const seekAndStop = useCallback(async (lyricIdx: number) => {
-    const startTime = lyrics[lyricIdx].time;
-    const endTime = lyricIdx + 1 < lyrics.length ? lyrics[lyricIdx + 1].time : undefined;
+  const seekAndStop = useCallback(
+    async (lyricIdx: number) => {
+      const startTime = lyrics[lyricIdx].time;
+      const endTime = lyricIdx + 1 < lyrics.length ? lyrics[lyricIdx + 1].time : undefined;
 
-    await TrackPlayer.seekTo(startTime);
-    await TrackPlayer.play();
+      await TrackPlayer.seekTo(startTime);
+      await TrackPlayer.play();
 
-    if (endTime !== undefined) {
-      const iv = setInterval(async () => {
-        try {
-          const { position } = await TrackPlayer.getProgress();
-          if (position >= endTime - 0.1) { clearInterval(iv); await TrackPlayer.pause(); }
-        } catch { clearInterval(iv); }
-      }, 100);
-      setTimeout(() => clearInterval(iv), 30000);
-    }
-  }, [lyrics]);
+      if (endTime !== undefined) {
+        const iv = setInterval(async () => {
+          try {
+            const { position } = await TrackPlayer.getProgress();
+            if (position >= endTime - 0.1) {
+              clearInterval(iv);
+              await TrackPlayer.pause();
+            }
+          } catch {
+            clearInterval(iv);
+          }
+        }, 100);
+        setTimeout(() => clearInterval(iv), 30000);
+      }
+    },
+    [lyrics],
+  );
 
   const seekToPrevLyric = useCallback(async () => {
     if (lyrics.length === 0 || currentLyricIndex <= 0) return;
@@ -394,7 +401,12 @@ export function usePlayerControls() {
   }, [lyrics, currentLyricIndex, seekAndStop]);
 
   return {
-    togglePlayPause, skipToNext, skipToPrevious, seekTo,
-    seekToPrevLyric, seekToNextLyric, replayCurrentLyric,
+    togglePlayPause,
+    skipToNext,
+    skipToPrevious,
+    seekTo,
+    seekToPrevLyric,
+    seekToNextLyric,
+    replayCurrentLyric,
   };
 }

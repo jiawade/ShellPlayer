@@ -1,5 +1,5 @@
-import React, {memo} from 'react';
-import {View, TouchableOpacity, Image, Dimensions} from 'react-native';
+import React, { memo } from 'react';
+import { View, TouchableOpacity, Image, Dimensions } from 'react-native';
 
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
@@ -9,7 +9,7 @@ const ROW_GAP = 2;
 const SPEAKER_IMAGES = [require('../../assets/fg2.jpeg'), require('../../assets/fg4.jpeg')];
 
 const SPKR_BAR_ROWS = 48;
-const SPKR_BAR_ROWS_ARR = Array.from({length: SPKR_BAR_ROWS}, (_, i) => i);
+const SPKR_BAR_ROWS_ARR = Array.from({ length: SPKR_BAR_ROWS }, (_, i) => i);
 
 const getBarCellColor = (rowFromBottom: number): string => {
   const ratio = rowFromBottom / SPKR_BAR_ROWS;
@@ -28,7 +28,7 @@ interface SpeakerViewProps {
   onSpeakerPress: () => void;
 }
 
-const SpeakerView: React.FC<SpeakerViewProps> = ({barLevel, speakerImgIdx, onSpeakerPress}) => {
+const SpeakerView: React.FC<SpeakerViewProps> = ({ barLevel, speakerImgIdx, onSpeakerPress }) => {
   const areaW = SCREEN_W - 24;
   const areaH = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.52));
 
@@ -42,9 +42,9 @@ const SpeakerView: React.FC<SpeakerViewProps> = ({barLevel, speakerImgIdx, onSpe
   const litCount = Math.max(1, Math.round(barLevel * SPKR_BAR_ROWS));
 
   const renderBar = (keyPrefix: string) => (
-    <View style={{gap: barGap, flexDirection: 'row'}}>
+    <View style={{ gap: barGap, flexDirection: 'row' }}>
       {[0, 1].map(bi => (
-        <View key={`${keyPrefix}-${bi}`} style={{gap: ROW_GAP}}>
+        <View key={`${keyPrefix}-${bi}`} style={{ gap: ROW_GAP }}>
           {SPKR_BAR_ROWS_ARR.map(rowIdx => {
             const fromBottom = SPKR_BAR_ROWS - 1 - rowIdx;
             const isLit = fromBottom < litCount;
@@ -90,13 +90,13 @@ const SpeakerView: React.FC<SpeakerViewProps> = ({barLevel, speakerImgIdx, onSpe
           justifyContent: 'center',
           overflow: 'hidden',
           shadowColor: '#000',
-          shadowOffset: {width: 0, height: 4},
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.8,
           shadowRadius: 12,
         }}>
         <Image
           source={SPEAKER_IMAGES[speakerImgIdx]}
-          style={{width: speakerAreaW, height: barH}}
+          style={{ width: speakerAreaW, height: barH }}
           resizeMode="cover"
         />
       </TouchableOpacity>
@@ -105,5 +105,5 @@ const SpeakerView: React.FC<SpeakerViewProps> = ({barLevel, speakerImgIdx, onSpe
   );
 };
 
-export {SPEAKER_IMAGES};
+export { SPEAKER_IMAGES };
 export default memo(SpeakerView);

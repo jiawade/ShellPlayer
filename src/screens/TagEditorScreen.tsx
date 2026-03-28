@@ -1,5 +1,5 @@
 // src/screens/TagEditorScreen.tsx
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,22 +12,22 @@ import {
   ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
-import {useTranslation} from 'react-i18next';
-import {Track} from '../types';
-import {useTheme} from '../contexts/ThemeContext';
-import {useAppDispatch} from '../store';
-import {updateTrackMetadata} from '../store/musicSlice';
-import {updateTrackTags} from '../utils/tagWriter';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import { Track } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAppDispatch } from '../store';
+import { updateTrackMetadata } from '../store/musicSlice';
+import { updateTrackTags } from '../utils/tagWriter';
 
-type ParamList = {TagEditor: {track: Track}};
+type ParamList = { TagEditor: { track: Track } };
 
 const TagEditorScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<ParamList, 'TagEditor'>>();
-  const {track} = route.params;
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
+  const { track } = route.params;
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
 
   const [title, setTitle] = useState(track.title);
@@ -49,12 +49,12 @@ const TagEditorScreen: React.FC = () => {
       const ok = await updateTrackTags(track.filePath, changes);
       if (ok === false) {
         // Tags written to memory only (file not writable)
-        dispatch(updateTrackMetadata({trackId: track.id, changes}));
+        dispatch(updateTrackMetadata({ trackId: track.id, changes }));
         Alert.alert('', t('tagEditor.memoryOnly'));
         navigation.goBack();
         return;
       }
-      dispatch(updateTrackMetadata({trackId: track.id, changes}));
+      dispatch(updateTrackMetadata({ trackId: track.id, changes }));
       Alert.alert('', t('tagEditor.saveSuccess'));
       navigation.goBack();
     } catch {
@@ -74,21 +74,21 @@ const TagEditorScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, {backgroundColor: colors.bg}]}
+      style={[styles.container, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
-      <View style={[styles.header, {borderBottomColor: colors.border}]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
           <Icon name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.textPrimary, fontSize: sizes.lg}]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: sizes.lg }]}>
           {t('tagEditor.title')}
         </Text>
-        <View style={{width: 24}} />
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.label, {color: colors.textSecondary, fontSize: sizes.sm}]}>
+        <Text style={[styles.label, { color: colors.textSecondary, fontSize: sizes.sm }]}>
           {t('tagEditor.titleField')}
         </Text>
         <TextInput
@@ -99,7 +99,7 @@ const TagEditorScreen: React.FC = () => {
           returnKeyType="next"
         />
 
-        <Text style={[styles.label, {color: colors.textSecondary, fontSize: sizes.sm}]}>
+        <Text style={[styles.label, { color: colors.textSecondary, fontSize: sizes.sm }]}>
           {t('tagEditor.artistField')}
         </Text>
         <TextInput
@@ -110,7 +110,7 @@ const TagEditorScreen: React.FC = () => {
           returnKeyType="next"
         />
 
-        <Text style={[styles.label, {color: colors.textSecondary, fontSize: sizes.sm}]}>
+        <Text style={[styles.label, { color: colors.textSecondary, fontSize: sizes.sm }]}>
           {t('tagEditor.albumField')}
         </Text>
         <TextInput
@@ -122,12 +122,10 @@ const TagEditorScreen: React.FC = () => {
         />
 
         <TouchableOpacity
-          style={[styles.saveBtn, {backgroundColor: colors.accent}]}
+          style={[styles.saveBtn, { backgroundColor: colors.accent }]}
           onPress={handleSave}
           activeOpacity={0.7}>
-          <Text style={[styles.saveBtnText, {fontSize: sizes.md}]}>
-            {t('tagEditor.save')}
-          </Text>
+          <Text style={[styles.saveBtnText, { fontSize: sizes.md }]}>{t('tagEditor.save')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -135,7 +133,7 @@ const TagEditorScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1},
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -145,9 +143,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerTitle: {fontWeight: '700'},
-  form: {flex: 1, paddingHorizontal: 20, paddingTop: 24},
-  label: {marginBottom: 6, fontWeight: '600'},
+  headerTitle: { fontWeight: '700' },
+  form: { flex: 1, paddingHorizontal: 20, paddingTop: 24 },
+  label: { marginBottom: 6, fontWeight: '600' },
   input: {
     borderWidth: 1,
     borderRadius: 10,
@@ -161,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  saveBtnText: {color: '#fff', fontWeight: '700'},
+  saveBtnText: { color: '#fff', fontWeight: '700' },
 });
 
 export default TagEditorScreen;

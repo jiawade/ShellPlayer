@@ -72,14 +72,14 @@ export interface PresetTheme {
 }
 
 export const PRESET_THEMES: PresetTheme[] = [
-  {key: 'default', accent: '#00E5C3'},
-  {key: 'ocean', accent: '#3B82F6'},
-  {key: 'forest', accent: '#22C55E'},
-  {key: 'sunset', accent: '#F59E0B'},
-  {key: 'rose', accent: '#EC4899'},
-  {key: 'midnight', accent: '#8B5CF6'},
-  {key: 'crimson', accent: '#EF4444'},
-  {key: 'gold', accent: '#EAB308'},
+  { key: 'default', accent: '#00E5C3' },
+  { key: 'ocean', accent: '#3B82F6' },
+  { key: 'forest', accent: '#22C55E' },
+  { key: 'sunset', accent: '#F59E0B' },
+  { key: 'rose', accent: '#EC4899' },
+  { key: 'midnight', accent: '#8B5CF6' },
+  { key: 'crimson', accent: '#EF4444' },
+  { key: 'gold', accent: '#EAB308' },
 ];
 
 const hexToRgb = (hex: string): {r: number; g: number; b: number} => {
@@ -92,7 +92,7 @@ const hexToRgb = (hex: string): {r: number; g: number; b: number} => {
 };
 
 const darken = (hex: string, amount: number): string => {
-  const {r, g, b} = hexToRgb(hex);
+  const { r, g, b } = hexToRgb(hex);
   const f = 1 - amount;
   const nr = Math.round(r * f);
   const ng = Math.round(g * f);
@@ -104,7 +104,7 @@ export const generateThemeFromColor = (
   primary: string,
   isDark: boolean,
 ): typeof DARK_COLORS => {
-  const {r, g, b} = hexToRgb(primary);
+  const { r, g, b } = hexToRgb(primary);
 
   if (isDark) {
     return {

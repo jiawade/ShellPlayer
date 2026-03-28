@@ -15,7 +15,6 @@ RCT_EXTERN_METHOD(update:(BOOL)isPlaying
                   title:(NSString *)title
                   artist:(NSString *)artist
                   progress:(double)progress
-                  audioLevels:(NSArray *)audioLevels
                   artworkBase64:(NSString *)artworkBase64
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)

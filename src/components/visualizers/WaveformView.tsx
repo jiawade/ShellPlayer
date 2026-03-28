@@ -1,5 +1,5 @@
-import React, {memo, useEffect, useRef} from 'react';
-import {View, StyleSheet, Animated, Dimensions} from 'react-native';
+import React, { memo, useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 
 const SCREEN_W = Dimensions.get('window').width;
 const NUM_COLUMNS = 64;
@@ -36,7 +36,7 @@ function getColumnColor(amplitude: number): string {
 }
 
 const WaveColumn = memo(
-  ({index, amplitude, beatLevel}: {index: number; amplitude: number; beatLevel: number}) => {
+  ({ index, amplitude, beatLevel }: {index: number; amplitude: number; beatLevel: number}) => {
     const heightAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -56,7 +56,7 @@ const WaveColumn = memo(
     return (
       <View
         key={index}
-        style={[styles.colContainer, {width: COL_W}]}>
+        style={[styles.colContainer, { width: COL_W }]}>
         {/* Upper half (mirrored upward) */}
         <Animated.View
           style={[
@@ -69,7 +69,7 @@ const WaveColumn = memo(
               ...(isGlow
                 ? {
                     shadowColor: color,
-                    shadowOffset: {width: 0, height: 0},
+                    shadowOffset: { width: 0, height: 0 },
                     shadowOpacity: 0.7,
                     shadowRadius: 4,
                   }
@@ -94,7 +94,7 @@ const WaveColumn = memo(
   },
 );
 
-const WaveformView: React.FC<WaveformViewProps> = ({levels, beatLevel}) => {
+const WaveformView: React.FC<WaveformViewProps> = ({ levels, beatLevel }) => {
   const interpolated = interpolateBands(levels, NUM_COLUMNS);
 
   return (

@@ -1,9 +1,9 @@
 // src/contexts/ThemeContext.tsx
-import React, {createContext, useContext, useMemo} from 'react';
-import {useColorScheme} from 'react-native';
-import {useAppSelector} from '../store';
-import {DARK_COLORS, LIGHT_COLORS, SIZES, generateThemeFromColor} from '../utils/theme';
-import type {ThemeMode} from '../types';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useColorScheme } from 'react-native';
+import { useAppSelector } from '../store';
+import { DARK_COLORS, LIGHT_COLORS, SIZES, generateThemeFromColor } from '../utils/theme';
+import type { ThemeMode } from '../types';
 
 export type ThemeColors = typeof DARK_COLORS;
 

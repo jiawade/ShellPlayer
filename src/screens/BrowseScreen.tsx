@@ -1,5 +1,5 @@
 // src/screens/BrowseScreen.tsx
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,10 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import RNFS from 'react-native-fs';
-import {useTheme} from '../contexts/ThemeContext';
-import {useTranslation} from 'react-i18next';
-import {useAppSelector, useAppDispatch} from '../store';
-import {playTrack} from '../store/musicSlice';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { useAppSelector, useAppDispatch } from '../store';
+import { playTrack } from '../store/musicSlice';
 import {
   listFolderContents,
   getTracksInFolder,
@@ -24,7 +24,7 @@ import {
   AudioFileItem,
 } from '../utils/folderBrowser';
 import TrackMenu from '../components/TrackMenu';
-import {Track} from '../types';
+import { Track } from '../types';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,15 +32,13 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-type ListItem =
-  | {type: 'folder'; data: FolderItem}
-  | {type: 'audio'; data: AudioFileItem};
+type ListItem = { type: 'folder'; data: FolderItem } | { type: 'audio'; data: AudioFileItem };
 
 const BrowseScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
-  const {tracks, scanDirectories} = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
+  const { tracks, scanDirectories } = useAppSelector(s => s.music);
 
   const defaultRoot = useMemo(() => {
     if (scanDirectories.length === 1) return scanDirectories[0];
@@ -50,9 +48,7 @@ const BrowseScreen: React.FC = () => {
 
   const showRootList = scanDirectories.length > 1;
 
-  const [currentPath, setCurrentPath] = useState<string | null>(
-    showRootList ? null : defaultRoot,
-  );
+  const [currentPath, setCurrentPath] = useState<string | null>(showRootList ? null : defaultRoot);
   const [pathHistory, setPathHistory] = useState<string[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [audioFiles, setAudioFiles] = useState<AudioFileItem[]>([]);
@@ -85,9 +81,7 @@ const BrowseScreen: React.FC = () => {
 
   const navigateToFolder = useCallback(
     (path: string) => {
-      setPathHistory(prev =>
-        currentPath !== null ? [...prev, currentPath] : prev,
-      );
+      setPathHistory(prev => (currentPath !== null ? [...prev, currentPath] : prev));
       setCurrentPath(path);
     },
     [currentPath],
@@ -106,8 +100,7 @@ const BrowseScreen: React.FC = () => {
         }
         return;
       }
-      const allPaths =
-        currentPath !== null ? [...pathHistory, currentPath] : [...pathHistory];
+      const allPaths = currentPath !== null ? [...pathHistory, currentPath] : [...pathHistory];
       const targetPath = allPaths[index];
       if (targetPath) {
         setCurrentPath(targetPath);
@@ -118,8 +111,7 @@ const BrowseScreen: React.FC = () => {
   );
 
   const breadcrumbSegments = useMemo(() => {
-    const allPaths =
-      currentPath !== null ? [...pathHistory, currentPath] : [...pathHistory];
+    const allPaths = currentPath !== null ? [...pathHistory, currentPath] : [...pathHistory];
     return allPaths.map(p => {
       const parts = p.split('/');
       return parts[parts.length - 1] || p;
@@ -133,23 +125,21 @@ const BrowseScreen: React.FC = () => {
 
   const findTrackForFile = useCallback(
     (filePath: string): Track | undefined => {
-      return tracks.find(
-        tr => tr.filePath === filePath || tr.url === 'file://' + filePath,
-      );
+      return tracks.find(tr => tr.filePath === filePath || tr.url === 'file://' + filePath);
     },
     [tracks],
   );
 
   const handlePlayAll = useCallback(() => {
     if (tracksInFolder.length === 0) return;
-    dispatch(playTrack({track: tracksInFolder[0], queue: tracksInFolder}));
+    dispatch(playTrack({ track: tracksInFolder[0], queue: tracksInFolder }));
   }, [dispatch, tracksInFolder]);
 
   const handleAudioPress = useCallback(
     (file: AudioFileItem) => {
       const track = findTrackForFile(file.path);
       if (track) {
-        dispatch(playTrack({track, queue: tracksInFolder}));
+        dispatch(playTrack({ track, queue: tracksInFolder }));
       } else {
         Alert.alert(t('common.hint'), t('browse.notImported'));
       }
@@ -170,29 +160,22 @@ const BrowseScreen: React.FC = () => {
 
   const listData = useMemo<ListItem[]>(() => {
     const items: ListItem[] = [];
-    for (const f of folders) items.push({type: 'folder', data: f});
-    for (const a of audioFiles) items.push({type: 'audio', data: a});
+    for (const f of folders) items.push({ type: 'folder', data: f });
+    for (const a of audioFiles) items.push({ type: 'audio', data: a });
     return items;
   }, [folders, audioFiles]);
 
   const renderItem = useCallback(
-    ({item}: {item: ListItem}) => {
+    ({ item }: { item: ListItem }) => {
       if (item.type === 'folder') {
         const folder = item.data as FolderItem;
         return (
           <TouchableOpacity
-            style={[styles.row, {borderBottomColor: colors.border}]}
+            style={[styles.row, { borderBottomColor: colors.border }]}
             activeOpacity={0.6}
             onPress={() => navigateToFolder(folder.path)}>
-            <Icon
-              name="folder-outline"
-              size={24}
-              color={colors.accent}
-              style={styles.rowIcon}
-            />
-            <Text
-              style={[styles.rowName, {color: colors.textPrimary}]}
-              numberOfLines={1}>
+            <Icon name="folder-outline" size={24} color={colors.accent} style={styles.rowIcon} />
+            <Text style={[styles.rowName, { color: colors.textPrimary }]} numberOfLines={1}>
               {folder.name}
             </Text>
             <Icon name="chevron-forward" size={18} color={colors.textMuted} />
@@ -203,7 +186,7 @@ const BrowseScreen: React.FC = () => {
       const matchedTrack = findTrackForFile(file.path);
       return (
         <TouchableOpacity
-          style={[styles.row, {borderBottomColor: colors.border}]}
+          style={[styles.row, { borderBottomColor: colors.border }]}
           activeOpacity={0.6}
           onPress={() => handleAudioPress(file)}
           onLongPress={() => handleAudioLongPress(file)}>
@@ -214,25 +197,17 @@ const BrowseScreen: React.FC = () => {
             style={styles.rowIcon}
           />
           <View style={styles.rowContent}>
-            <Text
-              style={[styles.rowName, {color: colors.textPrimary}]}
-              numberOfLines={1}>
+            <Text style={[styles.rowName, { color: colors.textPrimary }]} numberOfLines={1}>
               {file.name}
             </Text>
-            <Text style={[styles.rowSub, {color: colors.textMuted}]}>
+            <Text style={[styles.rowSub, { color: colors.textMuted }]}>
               {formatFileSize(file.size)}
             </Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [
-      colors,
-      navigateToFolder,
-      handleAudioPress,
-      handleAudioLongPress,
-      findTrackForFile,
-    ],
+    [colors, navigateToFolder, handleAudioPress, handleAudioLongPress, findTrackForFile],
   );
 
   const keyExtractor = useCallback(
@@ -249,28 +224,19 @@ const BrowseScreen: React.FC = () => {
       data={scanDirectories}
       keyExtractor={item => item}
       contentContainerStyle={styles.listContent}
-      renderItem={({item: dir}) => {
+      renderItem={({ item: dir }) => {
         const dirName = dir.split('/').pop() || dir;
         return (
           <TouchableOpacity
-            style={[styles.row, {borderBottomColor: colors.border}]}
+            style={[styles.row, { borderBottomColor: colors.border }]}
             activeOpacity={0.6}
             onPress={() => navigateToFolder(dir)}>
-            <Icon
-              name="folder-outline"
-              size={24}
-              color={colors.accent}
-              style={styles.rowIcon}
-            />
+            <Icon name="folder-outline" size={24} color={colors.accent} style={styles.rowIcon} />
             <View style={styles.rowContent}>
-              <Text
-                style={[styles.rowName, {color: colors.textPrimary}]}
-                numberOfLines={1}>
+              <Text style={[styles.rowName, { color: colors.textPrimary }]} numberOfLines={1}>
                 {dirName}
               </Text>
-              <Text style={[styles.rowSub, {color: colors.textMuted}]}>
-                {dir}
-              </Text>
+              <Text style={[styles.rowSub, { color: colors.textMuted }]}>{dir}</Text>
             </View>
             <Icon name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -296,16 +262,14 @@ const BrowseScreen: React.FC = () => {
     ) : null;
 
   return (
-    <View style={[styles.root, {backgroundColor: colors.bg}]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={[styles.title, {color: colors.textPrimary}]}>
-            {t('browse.title')}
-          </Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('browse.title')}</Text>
           {audioFiles.length > 0 && currentPath !== null && (
             <TouchableOpacity
-              style={[styles.playAllBtn, {backgroundColor: colors.accent}]}
+              style={[styles.playAllBtn, { backgroundColor: colors.accent }]}
               activeOpacity={0.7}
               onPress={handlePlayAll}>
               <Icon name="play" size={14} color="#fff" />
@@ -326,19 +290,15 @@ const BrowseScreen: React.FC = () => {
                 name="home-outline"
                 size={16}
                 color={colors.accent}
-                style={{marginRight: 4}}
+                style={{ marginRight: 4 }}
               />
             </TouchableOpacity>
             {breadcrumbSegments.map((seg, i) => {
               const isLast = i === breadcrumbSegments.length - 1;
               return (
                 <React.Fragment key={i}>
-                  <Text style={[styles.breadcrumbSep, {color: colors.textMuted}]}>
-                    {'>'}
-                  </Text>
-                  <TouchableOpacity
-                    disabled={isLast}
-                    onPress={() => navigateToBreadcrumb(i)}>
+                  <Text style={[styles.breadcrumbSep, { color: colors.textMuted }]}>{'>'}</Text>
+                  <TouchableOpacity disabled={isLast} onPress={() => navigateToBreadcrumb(i)}>
                     <Text
                       style={[
                         styles.breadcrumbText,
@@ -369,10 +329,7 @@ const BrowseScreen: React.FC = () => {
           data={listData}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          contentContainerStyle={[
-            styles.listContent,
-            listData.length === 0 && {flex: 1},
-          ]}
+          contentContainerStyle={[styles.listContent, listData.length === 0 && { flex: 1 }]}
           ListEmptyComponent={renderEmpty}
         />
       )}
@@ -390,8 +347,8 @@ const BrowseScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
-  header: {paddingHorizontal: 20, paddingTop: 56},
+  root: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 56 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,16 +368,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
-  playAllText: {color: '#fff', fontSize: 13, fontWeight: '700'},
-  breadcrumbScroll: {marginTop: 4, marginBottom: 8},
+  playAllText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  breadcrumbScroll: { marginTop: 4, marginBottom: 8 },
   breadcrumbContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 20,
   },
-  breadcrumbSep: {marginHorizontal: 6, fontSize: 12},
-  breadcrumbText: {fontSize: 13, maxWidth: 140},
-  listContent: {paddingBottom: 120},
+  breadcrumbSep: { marginHorizontal: 6, fontSize: 12 },
+  breadcrumbText: { fontSize: 13, maxWidth: 140 },
+  listContent: { paddingBottom: 120 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,10 +385,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rowIcon: {marginRight: 14, width: 24, textAlign: 'center'},
-  rowContent: {flex: 1},
-  rowName: {fontSize: 15, fontWeight: '500'},
-  rowSub: {fontSize: 12, marginTop: 2},
+  rowIcon: { marginRight: 14, width: 24, textAlign: 'center' },
+  rowContent: { flex: 1 },
+  rowName: { fontSize: 15, fontWeight: '500' },
+  rowSub: { fontSize: 12, marginTop: 2 },
   empty: {
     flex: 1,
     alignItems: 'center',

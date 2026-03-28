@@ -1,12 +1,18 @@
 // src/service.ts
-import TrackPlayer, {Event} from 'react-native-track-player';
-import {rebindEqualizer} from './utils/equalizer';
-import {store} from './store';
-import {playTrack, setPlaybackErrorMsg, setCurrentTrack, addToHistory, shuffleHistoryBack, shuffleHistoryForward} from './store/musicSlice';
-import {exportTrackToFile} from './utils/mediaLibrary';
-import {recordPlay} from './utils/reviewPrompt';
-import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
-import {startLiveActivity, stopLiveActivity} from './utils/liveActivity';
+import TrackPlayer, { Event } from 'react-native-track-player';
+import { rebindEqualizer } from './utils/equalizer';
+import { store } from './store';
+import {
+  playTrack,
+  setPlaybackErrorMsg,
+  setCurrentTrack,
+  addToHistory,
+  shuffleHistoryBack,
+  shuffleHistoryForward,
+} from './store/musicSlice';
+import { exportTrackToFile } from './utils/mediaLibrary';
+import { recordPlay } from './utils/reviewPrompt';
+import { loadBluetoothLyricsSetting } from './utils/bluetoothLyrics';
 import i18n from './i18n';
 
 /**
@@ -29,7 +35,7 @@ async function preloadNextTrack() {
     const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
     if (currentIdx < 0) return;
 
-    let nextTrack: typeof queue[number] | undefined;
+    let nextTrack: (typeof queue)[number] | undefined;
     // Sequential: preload next in order (don't wrap around at end)
     if (currentIdx >= queue.length - 1) return;
     nextTrack = queue[currentIdx + 1];
@@ -70,7 +76,7 @@ export async function PlaybackService() {
         const nextTrack = queue.find(t => t.id === nextId);
         if (nextTrack) {
           store.dispatch(shuffleHistoryForward());
-          store.dispatch(playTrack({track: nextTrack, queue, navigatingShuffleHistory: true}));
+          store.dispatch(playTrack({ track: nextTrack, queue, navigatingShuffleHistory: true }));
           return;
         }
       }
@@ -78,7 +84,7 @@ export async function PlaybackService() {
       const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
       if (candidates.length > 0) {
         const random = candidates[Math.floor(Math.random() * candidates.length)];
-        store.dispatch(playTrack({track: random, queue}));
+        store.dispatch(playTrack({ track: random, queue }));
       }
       return;
     }
@@ -98,7 +104,7 @@ export async function PlaybackService() {
       const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
       if (currentIdx >= 0) {
         const nextIdx = (currentIdx + 1) % queue.length;
-        store.dispatch(playTrack({track: queue[nextIdx], queue}));
+        store.dispatch(playTrack({ track: queue[nextIdx], queue }));
       }
     }
   });
@@ -114,7 +120,7 @@ export async function PlaybackService() {
         const prevTrack = queue.find(t => t.id === prevId);
         if (prevTrack) {
           store.dispatch(shuffleHistoryBack());
-          store.dispatch(playTrack({track: prevTrack, queue, navigatingShuffleHistory: true}));
+          store.dispatch(playTrack({ track: prevTrack, queue, navigatingShuffleHistory: true }));
           return;
         }
       }
@@ -136,24 +142,22 @@ export async function PlaybackService() {
       const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
       if (currentIdx >= 0) {
         const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
-        store.dispatch(playTrack({track: queue[prevIdx], queue}));
+        store.dispatch(playTrack({ track: queue[prevIdx], queue }));
       }
     }
   });
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.stop());
-  TrackPlayer.addEventListener(Event.RemoteSeek, e =>
-    TrackPlayer.seekTo(e.position),
-  );
+  TrackPlayer.addEventListener(Event.RemoteSeek, e => TrackPlayer.seekTo(e.position));
 
   // Handle playback errors (unsupported format, corrupted files, etc.)
-  TrackPlayer.addEventListener(Event.PlaybackError, async (e) => {
+  TrackPlayer.addEventListener(Event.PlaybackError, async e => {
     console.warn('[PlaybackError]', e.message, e.code);
     const state = store.getState().music;
     const trackTitle = state.currentTrack?.title || '';
-    store.dispatch(setPlaybackErrorMsg(
-      i18n.t('playback.unsupportedFormat', { title: trackTitle }),
-    ));
+    store.dispatch(
+      setPlaybackErrorMsg(i18n.t('playback.unsupportedFormat', { title: trackTitle })),
+    );
     // Auto-dismiss after 1.5s and skip to next track
     setTimeout(() => {
       store.dispatch(setPlaybackErrorMsg(null));
@@ -163,7 +167,7 @@ export async function PlaybackService() {
         const idx = queue.findIndex(t => t.id === s.currentTrack!.id);
         if (idx >= 0) {
           const nextIdx = (idx + 1) % queue.length;
-          store.dispatch(playTrack({track: queue[nextIdx], queue}));
+          store.dispatch(playTrack({ track: queue[nextIdx], queue }));
         }
       }
     }, 1500);
@@ -205,13 +209,13 @@ export async function PlaybackService() {
       const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
       if (candidates.length > 0) {
         const random = candidates[Math.floor(Math.random() * candidates.length)];
-        store.dispatch(playTrack({track: random, queue}));
+        store.dispatch(playTrack({ track: random, queue }));
       }
     } else if (state.repeatMode !== 'track' && queue.length > 0 && state.currentTrack) {
       // Sequential mode: continue to next if not at the end of playlist
       const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
       if (currentIdx >= 0 && currentIdx < queue.length - 1) {
-        store.dispatch(playTrack({track: queue[currentIdx + 1], queue}));
+        store.dispatch(playTrack({ track: queue[currentIdx + 1], queue }));
       }
     }
   });

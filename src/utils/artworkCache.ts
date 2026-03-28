@@ -20,7 +20,7 @@ async function ensureDir() {
 function hashKey(s: string): string {
   let h = 0;
   for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) - h) + s.charCodeAt(i);
+    h = (h << 5) - h + s.charCodeAt(i);
     h |= 0;
   }
   return Math.abs(h).toString(36);
@@ -29,7 +29,10 @@ function hashKey(s: string): string {
 /**
  * 将 base64 data URI 保存为 jpg 文件，返回 file:// 路径
  */
-export async function saveArtworkFile(trackId: string, dataUri: string): Promise<string | undefined> {
+export async function saveArtworkFile(
+  trackId: string,
+  dataUri: string,
+): Promise<string | undefined> {
   await ensureDir();
   try {
     const commaIdx = dataUri.indexOf(',');
@@ -55,7 +58,10 @@ export async function saveArtworkFile(trackId: string, dataUri: string): Promise
 /**
  * 将已下载的图片文件直接移入缓存目录（零 base64，零内存膨胀）
  */
-export async function saveArtworkFromFile(trackId: string, srcFilePath: string): Promise<string | undefined> {
+export async function saveArtworkFromFile(
+  trackId: string,
+  srcFilePath: string,
+): Promise<string | undefined> {
   await ensureDir();
   try {
     // Detect extension from source path

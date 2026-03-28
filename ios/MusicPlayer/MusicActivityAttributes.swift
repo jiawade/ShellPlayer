@@ -12,7 +12,6 @@ public struct MusicActivityAttributes: ActivityAttributes {
     var title: String
     var artist: String
     var progress: Double          // 0.0–1.0
-    var audioLevels: [Double]     // 7 bars for rainbow visualization
     var artworkBase64: String?    // small JPEG thumbnail (≤ 60KB)
   }
 

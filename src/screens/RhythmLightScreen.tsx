@@ -1,5 +1,5 @@
 // src/screens/RhythmLightScreen.tsx
-import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
   Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useNavigation} from '@react-navigation/native';
-import {useAppSelector} from '../store';
-import {usePlayerControls} from '../hooks/usePlayerProgress';
+import { useNavigation } from '@react-navigation/native';
+import { useAppSelector } from '../store';
+import { usePlayerControls } from '../hooks/usePlayerProgress';
 import CoverArt from '../components/CoverArt';
 import {
   startAudioLevelMonitoring,
@@ -21,12 +21,12 @@ import {
   addAudioLevelListener,
 } from '../utils/audioLevel';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useTranslation} from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import VUMeter from '../components/visualizers/VUMeter';
 import WaveformView from '../components/visualizers/WaveformView';
 import ClassicLED from '../components/visualizers/ClassicLED';
 import MirrorWave from '../components/visualizers/MirrorWave';
-import SpeakerView, {SPEAKER_IMAGES} from '../components/visualizers/SpeakerView';
+import SpeakerView, { SPEAKER_IMAGES } from '../components/visualizers/SpeakerView';
 import MatrixGrid from '../components/visualizers/MatrixGrid';
 
 const NUM_COLS = 16;
@@ -37,20 +37,20 @@ const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
 type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'matrix' | 'vumeter' | 'waveform';
 
-const VISUALIZER_MODES: Array<{key: VisualizerMode; labelKey: string; icon: string}> = [
-  {key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline'},
-  {key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline'},
-  {key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline'},
-  {key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline'},
-  {key: 'vumeter', labelKey: 'rhythmLight.modes.vumeter', icon: 'speedometer-outline'},
-  {key: 'waveform', labelKey: 'rhythmLight.modes.waveform', icon: 'pulse-outline'},
+const VISUALIZER_MODES: Array<{ key: VisualizerMode; labelKey: string; icon: string }> = [
+  { key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline' },
+  { key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline' },
+  { key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline' },
+  { key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline' },
+  { key: 'vumeter', labelKey: 'rhythmLight.modes.vumeter', icon: 'speedometer-outline' },
+  { key: 'waveform', labelKey: 'rhythmLight.modes.waveform', icon: 'pulse-outline' },
 ];
 
 const RhythmLightScreen: React.FC = () => {
   const navigation = useNavigation();
-  const {currentTrack, isPlaying} = useAppSelector(s => s.music);
-  const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
-  const {t} = useTranslation();
+  const { currentTrack, isPlaying } = useAppSelector(s => s.music);
+  const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
+  const { t } = useTranslation();
   const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
   const [mode, setMode] = useState<VisualizerMode>('classic');
@@ -116,7 +116,7 @@ const RhythmLightScreen: React.FC = () => {
   useEffect(() => {
     AsyncStorage.setItem(
       RHYTHM_PREFS_KEY,
-      JSON.stringify({mode, spkBeatMode, speakerImgIdx}),
+      JSON.stringify({ mode, spkBeatMode, speakerImgIdx }),
     ).catch(() => {});
   }, [mode, spkBeatMode, speakerImgIdx]);
 
@@ -313,7 +313,9 @@ const RhythmLightScreen: React.FC = () => {
 
       <View style={styles.gridWrap}>
         {mode === 'classic' ? <ClassicLED levels={volLevel} peakLevels={volPeak} /> : null}
-        {mode === 'mirror' ? <MirrorWave levels={volLevel} hasAudibleSignal={hasAudibleSignal} /> : null}
+        {mode === 'mirror' ? (
+          <MirrorWave levels={volLevel} hasAudibleSignal={hasAudibleSignal} />
+        ) : null}
         {mode === 'speaker' ? (
           <SpeakerView
             barLevel={speakerBarLevel}
@@ -333,7 +335,9 @@ const RhythmLightScreen: React.FC = () => {
           style={styles.beatSwitchRow}
           activeOpacity={0.7}
           onPress={() => setSpkBeatMode(prev => !prev)}>
-          <Text style={styles.beatSwitchLabel}>{spkBeatMode ? t('rhythmLight.rhythmMode') : t('rhythmLight.volumeMode')}</Text>
+          <Text style={styles.beatSwitchLabel}>
+            {spkBeatMode ? t('rhythmLight.rhythmMode') : t('rhythmLight.volumeMode')}
+          </Text>
           <View style={[styles.beatSwitchTrack, spkBeatMode && styles.beatSwitchTrackOn]}>
             <View style={[styles.beatSwitchThumb, spkBeatMode && styles.beatSwitchThumbOn]} />
           </View>
@@ -402,7 +406,7 @@ const RhythmLightScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#000'},
+  root: { flex: 1, backgroundColor: '#000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,7 +414,7 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingBottom: 12,
   },
-  headerSide: {width: 44, alignItems: 'center'},
+  headerSide: { width: 44, alignItems: 'center' },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
@@ -462,7 +466,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,229,255,0.1)',
     borderColor: 'rgba(0,229,255,0.45)',
     shadowColor: '#00E5FF',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 12,
   },
@@ -481,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#00E5FF',
     shadowColor: '#00E5FF',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
     marginTop: -2,
@@ -530,8 +534,8 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     gap: 12,
   },
-  trackText: {flex: 1, marginRight: 6},
-  trackTitle: {fontSize: 15, fontWeight: '600', color: '#fff'},
+  trackText: { flex: 1, marginRight: 6 },
+  trackTitle: { fontSize: 15, fontWeight: '600', color: '#fff' },
   trackArtist: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.5)',

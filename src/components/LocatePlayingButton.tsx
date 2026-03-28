@@ -13,8 +13,8 @@ import {
   FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useTheme} from '../contexts/ThemeContext';
-import {Track} from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { Track } from '../types';
 
 export interface LocatePlayingRef {
   show: () => void;
@@ -28,8 +28,8 @@ interface Props {
 }
 
 const LocatePlayingButton = forwardRef<LocatePlayingRef, Props>(
-  ({flatListRef, tracks, currentTrack, itemHeight}, ref) => {
-    const {colors} = useTheme();
+  ({ flatListRef, tracks, currentTrack, itemHeight }, ref) => {
+    const { colors } = useTheme();
     const [visible, setVisible] = useState(false);
     const opacity = useRef(new Animated.Value(0)).current;
     const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,7 +55,7 @@ const LocatePlayingButton = forwardRef<LocatePlayingRef, Props>(
       hideTimer.current = setTimeout(hide, 1500);
     }, [currentTrack, tracks, opacity, hide]);
 
-    useImperativeHandle(ref, () => ({show}), [show]);
+    useImperativeHandle(ref, () => ({ show }), [show]);
 
     const handlePress = useCallback(() => {
       if (!currentTrack || !flatListRef.current) return;
@@ -97,14 +97,14 @@ const LocatePlayingButton = forwardRef<LocatePlayingRef, Props>(
 
     if (!visible || !currentTrack) {
       return (
-        <Animated.View style={[styles.container, {opacity: 0}]} pointerEvents="none" />
+        <Animated.View style={[styles.container, { opacity: 0 }]} pointerEvents="none" />
       );
     }
 
     return (
-      <Animated.View style={[styles.container, {opacity}]}>
+      <Animated.View style={[styles.container, { opacity }]}>
         <TouchableOpacity
-          style={[styles.button, {backgroundColor: colors.accent}]}
+          style={[styles.button, { backgroundColor: colors.accent }]}
           onPress={handlePress}
           activeOpacity={0.8}>
           <Icon name="locate" size={22} color={colors.bg} />
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 6,

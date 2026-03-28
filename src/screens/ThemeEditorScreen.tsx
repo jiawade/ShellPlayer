@@ -1,27 +1,20 @@
 // src/screens/ThemeEditorScreen.tsx
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useNavigation} from '@react-navigation/native';
-import {useTranslation} from 'react-i18next';
-import {useAppDispatch, useAppSelector} from '../store';
-import {setThemeMode, setCustomAccent} from '../store/musicSlice';
-import {useTheme} from '../contexts/ThemeContext';
-import {PRESET_THEMES} from '../utils/theme';
-import type {ThemeMode} from '../types';
+import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import { useAppDispatch, useAppSelector } from '../store';
+import { setThemeMode, setCustomAccent } from '../store/musicSlice';
+import { useTheme } from '../contexts/ThemeContext';
+import { PRESET_THEMES } from '../utils/theme';
+import type { ThemeMode } from '../types';
 
 const ThemeEditorScreen: React.FC = () => {
   const navigation = useNavigation();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const {colors} = useTheme();
+  const { colors } = useTheme();
   const themeMode = useAppSelector(s => s.music.themeMode);
   const customAccent = useAppSelector(s => s.music.customAccent);
 
@@ -44,19 +37,19 @@ const ThemeEditorScreen: React.FC = () => {
     dispatch(setCustomAccent(null));
   };
 
-  const appearanceModes: {mode: ThemeMode; icon: string; label: string}[] = [
-    {mode: 'dark', icon: 'moon', label: t('themeEditor.dark')},
-    {mode: 'light', icon: 'sunny', label: t('themeEditor.light')},
-    {mode: 'system', icon: 'phone-portrait-outline', label: t('themeEditor.system')},
+  const appearanceModes: { mode: ThemeMode; icon: string; label: string }[] = [
+    { mode: 'dark', icon: 'moon', label: t('themeEditor.dark') },
+    { mode: 'light', icon: 'sunny', label: t('themeEditor.light') },
+    { mode: 'system', icon: 'phone-portrait-outline', label: t('themeEditor.system') },
   ];
 
   return (
-    <SafeAreaView style={[styles.root, {backgroundColor: colors.bg}]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Icon name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.textPrimary}]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
           {t('themeEditor.title')}
         </Text>
         <View style={styles.backBtn} />
@@ -65,18 +58,19 @@ const ThemeEditorScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Appearance */}
         <View style={styles.section}>
-          <Text style={[styles.secTitle, {color: colors.textMuted}]}>
+          <Text style={[styles.secTitle, { color: colors.textMuted }]}>
             {t('themeEditor.appearance')}
           </Text>
-          <View style={[styles.card, {backgroundColor: colors.bgCard, borderColor: colors.border}]}>
+          <View
+            style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.row}>
-              {appearanceModes.map(({mode, icon, label}) => (
+              {appearanceModes.map(({ mode, icon, label }) => (
                 <TouchableOpacity
                   key={mode}
                   style={[
                     styles.modeBtn,
-                    {backgroundColor: colors.bgElevated},
-                    themeMode === mode && {backgroundColor: colors.accent},
+                    { backgroundColor: colors.bgElevated },
+                    themeMode === mode && { backgroundColor: colors.accent },
                   ]}
                   onPress={() => handleThemeToggle(mode)}>
                   <Icon
@@ -87,8 +81,8 @@ const ThemeEditorScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.modeTxt,
-                      {color: colors.textMuted},
-                      themeMode === mode && {color: colors.bg},
+                      { color: colors.textMuted },
+                      themeMode === mode && { color: colors.bg },
                     ]}>
                     {label}
                   </Text>
@@ -100,7 +94,7 @@ const ThemeEditorScreen: React.FC = () => {
 
         {/* Presets */}
         <View style={styles.section}>
-          <Text style={[styles.secTitle, {color: colors.textMuted}]}>
+          <Text style={[styles.secTitle, { color: colors.textMuted }]}>
             {t('themeEditor.presets')}
           </Text>
           <View style={styles.grid}>
@@ -120,20 +114,14 @@ const ThemeEditorScreen: React.FC = () => {
                   onPress={() => handlePreset(preset.accent)}
                   activeOpacity={0.7}>
                   <View style={styles.presetInner}>
-                    <View
-                      style={[
-                        styles.colorCircle,
-                        {backgroundColor: preset.accent},
-                      ]}>
-                      {isActive && (
-                        <Icon name="checkmark" size={16} color="#fff" />
-                      )}
+                    <View style={[styles.colorCircle, { backgroundColor: preset.accent }]}>
+                      {isActive && <Icon name="checkmark" size={16} color="#fff" />}
                     </View>
                     <Text
                       style={[
                         styles.presetName,
-                        {color: colors.textPrimary},
-                        isActive && {color: preset.accent, fontWeight: '700'},
+                        { color: colors.textPrimary },
+                        isActive && { color: preset.accent, fontWeight: '700' },
                       ]}>
                       {t(`themeEditor.preset_${preset.key}`)}
                     </Text>
@@ -147,23 +135,23 @@ const ThemeEditorScreen: React.FC = () => {
         {/* Reset */}
         {customAccent && (
           <TouchableOpacity
-            style={[styles.resetBtn, {backgroundColor: colors.accentDim}]}
+            style={[styles.resetBtn, { backgroundColor: colors.accentDim }]}
             onPress={handleReset}>
             <Icon name="refresh-outline" size={18} color={colors.accent} />
-            <Text style={[styles.resetTxt, {color: colors.accent}]}>
+            <Text style={[styles.resetTxt, { color: colors.accent }]}>
               {t('themeEditor.resetDefault')}
             </Text>
           </TouchableOpacity>
         )}
 
-        <View style={{height: 80}} />
+        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
+  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,10 +159,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 12,
   },
-  backBtn: {width: 40, alignItems: 'center'},
-  headerTitle: {fontSize: 18, fontWeight: '700'},
-  content: {paddingHorizontal: 20},
-  section: {marginBottom: 28},
+  backBtn: { width: 40, alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  content: { paddingHorizontal: 20 },
+  section: { marginBottom: 28 },
   secTitle: {
     fontSize: 10,
     fontWeight: '600',
@@ -182,8 +170,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginBottom: 10,
   },
-  card: {borderRadius: 20, padding: 16, borderWidth: 1},
-  row: {flexDirection: 'row', gap: 12},
+  card: { borderRadius: 20, padding: 16, borderWidth: 1 },
+  row: { flexDirection: 'row', gap: 12 },
   modeBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -193,7 +181,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
-  modeTxt: {fontSize: 14, fontWeight: '600'},
+  modeTxt: { fontSize: 14, fontWeight: '600' },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -216,7 +204,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  presetName: {fontSize: 14, fontWeight: '600'},
+  presetName: { fontSize: 14, fontWeight: '600' },
   resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,7 +214,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  resetTxt: {fontSize: 14, fontWeight: '600'},
+  resetTxt: { fontSize: 14, fontWeight: '600' },
 });
 
 export default ThemeEditorScreen;

@@ -1,5 +1,5 @@
-import React, {useRef} from 'react';
-import {Animated, PanResponder, Dimensions, Platform} from 'react-native';
+import React, { useRef } from 'react';
+import { Animated, PanResponder, Dimensions, Platform } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const EDGE_WIDTH = 25;
@@ -10,7 +10,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const SwipeBackWrapper: React.FC<Props> = ({onSwipeBack, children}) => {
+const SwipeBackWrapper: React.FC<Props> = ({ onSwipeBack, children }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const onSwipeBackRef = useRef(onSwipeBack);
   onSwipeBackRef.current = onSwipeBack;
@@ -57,7 +57,7 @@ const SwipeBackWrapper: React.FC<Props> = ({onSwipeBack, children}) => {
 
   return (
     <Animated.View
-      style={{flex: 1, transform: [{translateX}]}}
+      style={{ flex: 1, transform: [{ translateX }] }}
       {...panResponder.panHandlers}>
       {children}
     </Animated.View>

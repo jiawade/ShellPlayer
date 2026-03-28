@@ -1,5 +1,5 @@
 // src/screens/FullPlayerScreen.tsx
-import React, {memo, useState, useEffect, useCallback} from 'react';
+import React, { memo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer, {RepeatMode as TPRepeatMode} from 'react-native-track-player';
-import {useNavigation} from '@react-navigation/native';
+import TrackPlayer, { RepeatMode as TPRepeatMode } from 'react-native-track-player';
+import { useNavigation } from '@react-navigation/native';
 import CoverArt from '../components/CoverArt';
 import ProgressBar from '../components/ProgressBar';
 import LyricsView from '../components/LyricsView';
@@ -24,7 +24,7 @@ import Equalizer from '../components/Equalizer';
 import SleepTimer from '../components/SleepTimer';
 import PlayQueueView from '../components/PlayQueueView';
 import AudioAnalyzer from '../components/AudioAnalyzer';
-import {useAppSelector, useAppDispatch} from '../store';
+import { useAppSelector, useAppDispatch } from '../store';
 import {
   setShowFullPlayer,
   toggleShowLyrics,
@@ -34,14 +34,14 @@ import {
   updateTrackArtwork,
   setLyricsOffset,
 } from '../store/musicSlice';
-import {usePlayerControls, usePlayerSync} from '../hooks/usePlayerProgress';
-import {useTheme} from '../contexts/ThemeContext';
-import {useTranslation} from 'react-i18next';
-import {RepeatMode} from '../types';
-import {hapticMedium, hapticLight, hapticSelection} from '../utils/haptics';
+import { usePlayerControls, usePlayerSync } from '../hooks/usePlayerProgress';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { RepeatMode } from '../types';
+import { hapticMedium, hapticLight, hapticSelection } from '../utils/haptics';
 import RNFS from 'react-native-fs';
-import {searchAndApplyCover} from '../utils/coverArtSearch';
-import {getCachedArtwork} from '../utils/artworkCache';
+import { searchAndApplyCover } from '../utils/coverArtSearch';
+import { getCachedArtwork } from '../utils/artworkCache';
 
 const COVER = Dimensions.get('window').width * 0.84;
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -51,21 +51,21 @@ const COVER_SEARCH_ENABLED = false;
 
 const OFFSET_STEP = 0.1; // seconds
 
-const PLAY_MODES: {mode: RepeatMode; icon: string; labelKey: string}[] = [
-  {mode: 'off', icon: 'arrow-forward-outline', labelKey: 'fullPlayer.playModes.sequential'},
-  {mode: 'queue', icon: 'shuffle-outline', labelKey: 'fullPlayer.playModes.shuffle'},
-  {mode: 'track', icon: 'sync-outline', labelKey: 'fullPlayer.playModes.repeatOne'},
+const PLAY_MODES: { mode: RepeatMode; icon: string; labelKey: string }[] = [
+  { mode: 'off', icon: 'arrow-forward-outline', labelKey: 'fullPlayer.playModes.sequential' },
+  { mode: 'queue', icon: 'shuffle-outline', labelKey: 'fullPlayer.playModes.shuffle' },
+  { mode: 'track', icon: 'sync-outline', labelKey: 'fullPlayer.playModes.repeatOne' },
 ];
 
 const FullPlayerScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigation = useNavigation<any>();
-  const {currentTrack, isPlaying, showLyrics, repeatMode, playbackSpeed, sleepTimerEnd} =
+  const { currentTrack, isPlaying, showLyrics, repeatMode, playbackSpeed, sleepTimerEnd } =
     useAppSelector(s => s.music);
-  const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
-  const {position, duration} = usePlayerSync();
-  const {colors, sizes, isDark} = useTheme();
-  const {t} = useTranslation();
+  const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
+  const { position, duration } = usePlayerSync();
+  const { colors, sizes, isDark } = useTheme();
+  const { t } = useTranslation();
   const [showEQ, setShowEQ] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
@@ -159,7 +159,7 @@ const FullPlayerScreen: React.FC = () => {
         }
         const result = await searchAndApplyCover(currentTrack.id, artist);
         if (result) {
-          dispatch(updateTrackArtwork({trackId: currentTrack.id, artwork: result.cachedUri}));
+          dispatch(updateTrackArtwork({ trackId: currentTrack.id, artwork: result.cachedUri }));
           if (result.tmpPath) {
             RNFS.unlink(result.tmpPath).catch(() => {});
           }
@@ -224,7 +224,7 @@ const FullPlayerScreen: React.FC = () => {
       try {
         const cached = await getCachedArtwork(trackId);
         if (cached && !cancelled) {
-          dispatch(updateTrackArtwork({trackId, artwork: cached}));
+          dispatch(updateTrackArtwork({ trackId, artwork: cached }));
           return;
         }
       } catch {}
@@ -237,7 +237,7 @@ const FullPlayerScreen: React.FC = () => {
       try {
         const result = await searchAndApplyCover(trackId, query);
         if (result && !cancelled) {
-          dispatch(updateTrackArtwork({trackId, artwork: result.cachedUri}));
+          dispatch(updateTrackArtwork({ trackId, artwork: result.cachedUri }));
           if (result.tmpPath) {
             RNFS.unlink(result.tmpPath).catch(() => {});
           }
@@ -298,7 +298,7 @@ const FullPlayerScreen: React.FC = () => {
       await TrackPlayer.setRepeatMode(TPRepeatMode.Off);
     }
     try {
-      await AsyncStorage.setItem('@playMode', JSON.stringify({repeat: next.mode}));
+      await AsyncStorage.setItem('@playMode', JSON.stringify({ repeat: next.mode }));
     } catch {}
     setShowModeToast(t(next.labelKey));
     setTimeout(() => setShowModeToast(''), 1500);
@@ -314,7 +314,7 @@ const FullPlayerScreen: React.FC = () => {
   const hasTimer = sleepTimerEnd && sleepTimerEnd > Date.now();
 
   return (
-    <View style={[styles.root, {backgroundColor: colors.bg}]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {/* Header */}
@@ -338,7 +338,7 @@ const FullPlayerScreen: React.FC = () => {
             {t('fullPlayer.header')}
           </Text>
           <Text
-            style={{fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2}}
+            style={{ fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2 }}
             numberOfLines={1}>
             {headerTitle}
           </Text>
@@ -370,7 +370,7 @@ const FullPlayerScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.coverArea}>
-            <View style={[styles.coverGlow, {shadowColor: colors.accent}]}>
+            <View style={[styles.coverGlow, { shadowColor: colors.accent }]}>
               <CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={28} />
             </View>
             <View style={styles.trackInfo}>
@@ -386,7 +386,7 @@ const FullPlayerScreen: React.FC = () => {
                 {currentTrack.title}
               </Text>
               <Text
-                style={{fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6}}
+                style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }}
                 numberOfLines={1}>
                 {currentTrack.artist}
               </Text>
@@ -400,15 +400,15 @@ const FullPlayerScreen: React.FC = () => {
         <View
           style={[
             styles.offsetBar,
-            {backgroundColor: colors.bgElevated, borderColor: colors.border},
+            { backgroundColor: colors.bgElevated, borderColor: colors.border },
           ]}>
-          <Text style={{fontSize: sizes.sm, color: colors.textSecondary, fontWeight: '600'}}>
+          <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, fontWeight: '600' }}>
             {t('lyrics.offset.title')}
           </Text>
           <TouchableOpacity
             onPress={() => adjustOffset(-OFFSET_STEP)}
-            style={[styles.offsetBtn, {backgroundColor: colors.bgCard}]}>
-            <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700'}}>
+            style={[styles.offsetBtn, { backgroundColor: colors.bgCard }]}>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700' }}>
               -
             </Text>
           </TouchableOpacity>
@@ -426,19 +426,19 @@ const FullPlayerScreen: React.FC = () => {
           </Text>
           <TouchableOpacity
             onPress={() => adjustOffset(OFFSET_STEP)}
-            style={[styles.offsetBtn, {backgroundColor: colors.bgCard}]}>
-            <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700'}}>
+            style={[styles.offsetBtn, { backgroundColor: colors.bgCard }]}>
+            <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '700' }}>
               +
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={resetOffset} style={{marginLeft: 8}}>
-            <Text style={{fontSize: sizes.sm, color: colors.textMuted}}>
+          <TouchableOpacity onPress={resetOffset} style={{ marginLeft: 8 }}>
+            <Text style={{ fontSize: sizes.sm, color: colors.textMuted }}>
               {t('lyrics.offset.reset')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowOffsetBar(false)}
-            style={{marginLeft: 'auto', padding: 4}}>
+            style={{ marginLeft: 'auto', padding: 4 }}>
             <Icon name="close" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -464,8 +464,8 @@ const FullPlayerScreen: React.FC = () => {
             <Text
               style={[
                 styles.speedLabel,
-                {color: colors.textMuted},
-                playbackSpeed !== 1.0 && {color: colors.accent},
+                { color: colors.textMuted },
+                playbackSpeed !== 1.0 && { color: colors.accent },
               ]}>
               {playbackSpeed}x
             </Text>
@@ -507,7 +507,7 @@ const FullPlayerScreen: React.FC = () => {
                 key={s}
                 style={[
                   styles.speedBtn,
-                  {backgroundColor: colors.bgCard, borderColor: colors.border},
+                  { backgroundColor: colors.bgCard, borderColor: colors.border },
                   playbackSpeed === s && {
                     backgroundColor: colors.accent,
                     borderColor: colors.accent,
@@ -517,8 +517,8 @@ const FullPlayerScreen: React.FC = () => {
                 <Text
                   style={[
                     styles.speedBtnTxt,
-                    {color: colors.textMuted},
-                    playbackSpeed === s && {color: colors.bg},
+                    { color: colors.textMuted },
+                    playbackSpeed === s && { color: colors.bg },
                   ]}>
                   {s}x
                 </Text>
@@ -534,10 +534,10 @@ const FullPlayerScreen: React.FC = () => {
                 <View
                   style={[
                     styles.modeToastInner,
-                    {backgroundColor: colors.bgElevated, borderColor: colors.border},
+                    { backgroundColor: colors.bgElevated, borderColor: colors.border },
                   ]}>
                   <Icon name={cfg.icon} size={14} color={colors.accent} />
-                  <Text style={{fontSize: 12, color: colors.accent, fontWeight: '600'}}>
+                  <Text style={{ fontSize: 12, color: colors.accent, fontWeight: '600' }}>
                     {showModeToast}
                   </Text>
                 </View>
@@ -569,7 +569,7 @@ const FullPlayerScreen: React.FC = () => {
               hapticMedium();
               togglePlayPause();
             }}
-            style={[styles.playBtn, {backgroundColor: colors.accent, shadowColor: colors.accent}]}
+            style={[styles.playBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]}
             activeOpacity={0.8}
             accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
             accessibilityRole="button">
@@ -577,7 +577,7 @@ const FullPlayerScreen: React.FC = () => {
               name={isPlaying ? 'pause' : 'play'}
               size={32}
               color={colors.bg}
-              style={isPlaying ? undefined : {marginLeft: 3}}
+              style={isPlaying ? undefined : { marginLeft: 3 }}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -593,7 +593,7 @@ const FullPlayerScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => setShowMore(true)}
             style={styles.ctrlSideBtn}
-            hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}>
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Icon name="ellipsis-horizontal" size={22} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -610,7 +610,7 @@ const FullPlayerScreen: React.FC = () => {
           transparent
           animationType="slide"
           onRequestClose={() => setShowAnalyzer(false)}>
-          <View style={{flex: 1, backgroundColor: colors.bg}}>
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -650,10 +650,10 @@ const FullPlayerScreen: React.FC = () => {
           animationType="none"
           onRequestClose={() => setShowMore(false)}>
           <Pressable
-            style={[styles.moreOverlay, {backgroundColor: colors.overlay}]}
+            style={[styles.moreOverlay, { backgroundColor: colors.overlay }]}
             onPress={() => setShowMore(false)}>
             <Pressable
-              style={[styles.moreSheet, {backgroundColor: colors.bgElevated}]}
+              style={[styles.moreSheet, { backgroundColor: colors.bgElevated }]}
               onPress={() => {}}>
               <View style={styles.moreHeader}>
                 <Text
@@ -670,60 +670,63 @@ const FullPlayerScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
-                style={[styles.moreItem, {borderBottomColor: colors.border}]}
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
                 activeOpacity={0.6}
                 onPress={() => {
                   setShowMore(false);
                   navigation.navigate('RhythmLight' as never);
                 }}>
-                <View style={[styles.moreItemIcon, {backgroundColor: colors.accentDim}]}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
                   <Icon name="pulse-outline" size={20} color={colors.accent} />
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>
                     {t('fullPlayer.moreMenu.rhythmLight')}
                   </Text>
-                  <Text style={{fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2}}>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>
                     {t('fullPlayer.moreMenu.rhythmLightDesc')}
                   </Text>
                 </View>
                 <Icon name="chevron-forward" size={18} color={colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.moreItem, {borderBottomColor: colors.border}]}
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
                 activeOpacity={0.6}
                 onPress={() => {
                   setShowMore(false);
                   navigation.navigate('CarMode' as never);
                 }}>
-                <View style={[styles.moreItemIcon, {backgroundColor: colors.accentDim}]}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
                   <Icon name="car-outline" size={20} color={colors.accent} />
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>
                     {t('fullPlayer.moreMenu.carMode')}
                   </Text>
-                  <Text style={{fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2}}>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>
                     {t('fullPlayer.moreMenu.carModeDesc')}
                   </Text>
                 </View>
                 <Icon name="chevron-forward" size={18} color={colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.moreItem, {borderBottomColor: colors.border}]}
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
                 activeOpacity={0.6}
                 onPress={() => {
                   setShowMore(false);
                   setShowAnalyzer(true);
                 }}>
-                <View style={[styles.moreItemIcon, {backgroundColor: colors.accentDim}]}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
                   <Icon name="analytics-outline" size={20} color={colors.accent} />
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>
                     {t('fullPlayer.moreMenu.audioAnalyzer')}
                   </Text>
-                  <Text style={{fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2}}>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>
                     {t('fullPlayer.moreMenu.audioAnalyzerDesc')}
                   </Text>
                 </View>
@@ -731,21 +734,21 @@ const FullPlayerScreen: React.FC = () => {
               </TouchableOpacity>
               {COVER_SEARCH_ENABLED && (
                 <TouchableOpacity
-                  style={[styles.moreItem, {borderBottomColor: colors.border}]}
+                  style={[styles.moreItem, { borderBottomColor: colors.border }]}
                   activeOpacity={0.6}
                   onPress={() => {
                     setShowMore(false);
                     handleSearchCover();
                   }}>
-                  <View style={[styles.moreItemIcon, {backgroundColor: colors.accentDim}]}>
+                  <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
                     <Icon name="image-outline" size={20} color={colors.accent} />
                   </View>
-                  <View style={{flex: 1}}>
+                  <View style={{ flex: 1 }}>
                     <Text
-                      style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                      style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>
                       {t('fullPlayer.moreMenu.searchCover')}
                     </Text>
-                    <Text style={{fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2}}>
+                    <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>
                       {t('fullPlayer.moreMenu.searchCoverDesc')}
                     </Text>
                   </View>
@@ -753,7 +756,7 @@ const FullPlayerScreen: React.FC = () => {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.moreItem, {borderBottomColor: colors.border}]}
+                style={[styles.moreItem, { borderBottomColor: colors.border }]}
                 activeOpacity={0.6}
                 onPress={() => {
                   setShowMore(false);
@@ -764,14 +767,15 @@ const FullPlayerScreen: React.FC = () => {
                     setShowOffsetBar(true);
                   }
                 }}>
-                <View style={[styles.moreItemIcon, {backgroundColor: colors.accentDim}]}>
+                <View style={[styles.moreItemIcon, { backgroundColor: colors.accentDim }]}>
                   <Icon name="timer-outline" size={20} color={colors.accent} />
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600'}}>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '600' }}>
                     {t('fullPlayer.moreMenu.lyricsOffset')}
                   </Text>
-                  <Text style={{fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2}}>
+                  <Text style={{ fontSize: sizes.xs, color: colors.textSecondary, marginTop: 2 }}>
                     {t('fullPlayer.moreMenu.lyricsOffsetDesc')}
                   </Text>
                 </View>
@@ -802,10 +806,10 @@ const FullPlayerScreen: React.FC = () => {
           animationType="none"
           onRequestClose={handleCloseCoverSearch}>
           <Pressable
-            style={[styles.moreOverlay, {backgroundColor: colors.overlay}]}
+            style={[styles.moreOverlay, { backgroundColor: colors.overlay }]}
             onPress={handleCloseCoverSearch}>
             <Pressable
-              style={[styles.coverSearchSheet, {backgroundColor: colors.bgElevated}]}
+              style={[styles.coverSearchSheet, { backgroundColor: colors.bgElevated }]}
               onPress={() => {}}>
               <View style={styles.moreHeader}>
                 <Text
@@ -818,12 +822,12 @@ const FullPlayerScreen: React.FC = () => {
                   {t('coverSearch.title')}
                 </Text>
                 <TouchableOpacity onPress={handleCloseCoverSearch} hitSlop={12}>
-                    <Icon name="close" size={22} color={colors.textSecondary} />
-                  </TouchableOpacity>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
               </View>
               {/* 歌手名输入框和搜索按钮 */}
-              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
-                <Text style={{fontSize: sizes.sm, color: colors.textMuted, marginRight: 8}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: sizes.sm, color: colors.textMuted, marginRight: 8 }}>
                   {t('coverSearch.artistLabel') || '歌手名'}
                 </Text>
                 <View
@@ -834,7 +838,7 @@ const FullPlayerScreen: React.FC = () => {
                     marginRight: 8,
                   }}>
                   <TextInput
-                    style={{fontSize: sizes.md, color: colors.textPrimary, paddingVertical: 2}}
+                    style={{ fontSize: sizes.md, color: colors.textPrimary, paddingVertical: 2 }}
                     value={coverArtist}
                     onChangeText={setCoverArtist}
                     placeholder={t('coverSearch.artistPlaceholder') || '请输入歌手名'}
@@ -850,7 +854,7 @@ const FullPlayerScreen: React.FC = () => {
                   }}
                   onPress={() => doCoverSearch(coverArtist)}
                   disabled={coverSearching || !coverArtist.trim()}>
-                  <Text style={{color: '#fff', fontWeight: '600'}}>
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>
                     {t('coverSearch.searchButton')}
                   </Text>
                 </TouchableOpacity>
@@ -858,7 +862,7 @@ const FullPlayerScreen: React.FC = () => {
               {coverSearching && (
                 <View style={styles.coverSearchCenter}>
                   <ActivityIndicator size="large" color={colors.accent} />
-                  <Text style={{fontSize: sizes.md, color: colors.textMuted, marginTop: 12}}>
+                  <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>
                     {t('coverSearch.searching')}
                   </Text>
                 </View>
@@ -872,7 +876,7 @@ const FullPlayerScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
+  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -880,10 +884,10 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 10,
   },
-  hBtn: {padding: 8, width: 44, alignItems: 'center'},
-  hCenter: {flex: 1, alignItems: 'center'},
-  main: {flex: 1},
-  lyricsContainer: {flex: 1},
+  hBtn: { padding: 8, width: 44, alignItems: 'center' },
+  hCenter: { flex: 1, alignItems: 'center' },
+  main: { flex: 1 },
+  lyricsContainer: { flex: 1 },
   backToCoverBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,14 +898,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 6,
   },
-  coverArea: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 20},
+  coverArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 20 },
   coverGlow: {
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 12,
   },
-  trackInfo: {alignItems: 'center', marginTop: 36, paddingHorizontal: 40},
+  trackInfo: { alignItems: 'center', marginTop: 36, paddingHorizontal: 40 },
   lyrHint: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -911,7 +915,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 6,
   },
-  controls: {paddingBottom: 34},
+  controls: { paddingBottom: 34 },
   offsetBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -931,15 +935,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  funcRow: {flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 8, marginBottom: 4},
-  funcBtn: {padding: 8},
-  speedLabel: {fontSize: 12, fontWeight: '700'},
-  speedRow: {flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8},
-  speedBtn: {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1},
-  speedBtnTxt: {fontSize: 12, fontWeight: '600'},
-  mainCtrl: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, overflow: 'visible'},
-  ctrlSideBtn: {width: 48, alignItems: 'center', justifyContent: 'center', overflow: 'visible'},
-  ctrlBtn: {width: 56, alignItems: 'center', justifyContent: 'center'},
+  funcRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  funcBtn: { padding: 8 },
+  speedLabel: { fontSize: 12, fontWeight: '700' },
+  speedRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 },
+  speedBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, borderWidth: 1 },
+  speedBtnTxt: { fontSize: 12, fontWeight: '600' },
+  mainCtrl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    overflow: 'visible',
+  },
+  ctrlSideBtn: { width: 48, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  ctrlBtn: { width: 56, alignItems: 'center', justifyContent: 'center' },
   playBtn: {
     width: 64,
     height: 64,
@@ -947,7 +963,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 12,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
@@ -971,7 +987,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  moreOverlay: {flex: 1, justifyContent: 'flex-end'},
+  moreOverlay: { flex: 1, justifyContent: 'flex-end' },
   moreSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -979,7 +995,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 8,
   },
-  moreHeader: {flexDirection: 'row', alignItems: 'center', paddingVertical: 16},
+  moreHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
   moreItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1011,8 +1027,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 8,
   },
-  coverSearchCenter: {alignItems: 'center', justifyContent: 'center', paddingVertical: 60},
-  coverGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 20},
+  coverSearchCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  coverGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 20 },
   coverResultItem: {
     width: (Dimensions.get('window').width - 40 - 24) / 3,
     borderRadius: 12,
@@ -1020,7 +1036,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
-  coverThumb: {width: '100%', aspectRatio: 1, borderRadius: 8} as any,
+  coverThumb: { width: '100%', aspectRatio: 1, borderRadius: 8 } as any,
   coverSelectedBadge: {
     position: 'absolute',
     top: 4,

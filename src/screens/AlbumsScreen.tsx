@@ -1,16 +1,9 @@
-import React, {useMemo, useState} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Dimensions,
-} from 'react-native';
-import {useTranslation} from 'react-i18next';
-import {useTheme} from '../contexts/ThemeContext';
-import {useAppSelector} from '../store';
-import {Track} from '../types';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAppSelector } from '../store';
+import { Track } from '../types';
 import SearchBar from '../components/SearchBar';
 import CoverArt from '../components/CoverArt';
 
@@ -37,35 +30,29 @@ const COLUMN_COUNT = 2;
 const HORIZONTAL_PADDING = 16;
 const GAP = 12;
 const screenWidth = Dimensions.get('window').width;
-const cardWidth =
-  (screenWidth - HORIZONTAL_PADDING * 2 - GAP * (COLUMN_COUNT - 1)) /
-  COLUMN_COUNT;
+const cardWidth = (screenWidth - HORIZONTAL_PADDING * 2 - GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
 
-const AlbumsScreen: React.FC<AlbumsScreenProps> = ({onSelectAlbum}) => {
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
+const AlbumsScreen: React.FC<AlbumsScreenProps> = ({ onSelectAlbum }) => {
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const tracks = useAppSelector(state => state.music.tracks) as Track[];
   const [search, setSearch] = useState('');
 
   const albums = useMemo(() => {
     const map = new Map<
       string,
-      {artists: string[]; artworks: string[]; duration: number; count: number}
+      { artists: string[]; artworks: string[]; duration: number; count: number }
     >();
 
     for (const track of tracks) {
       const albumName = track.album || t('albums.unknownAlbum');
       let entry = map.get(albumName);
       if (!entry) {
-        entry = {artists: [], artworks: [], duration: 0, count: 0};
+        entry = { artists: [], artworks: [], duration: 0, count: 0 };
         map.set(albumName, entry);
       }
       if (track.artist) entry.artists.push(track.artist);
-      if (
-        track.artwork &&
-        entry.artworks.length < 1 &&
-        !entry.artworks.includes(track.artwork)
-      ) {
+      if (track.artwork && entry.artworks.length < 1 && !entry.artworks.includes(track.artwork)) {
         entry.artworks.push(track.artwork);
       }
       entry.duration += track.duration || 0;
@@ -92,8 +79,7 @@ const AlbumsScreen: React.FC<AlbumsScreenProps> = ({onSelectAlbum}) => {
             mostCommon = name;
           }
         });
-        artist =
-          maxCount === val.count ? mostCommon : mostCommon;
+        artist = maxCount === val.count ? mostCommon : mostCommon;
       }
 
       result.push({
@@ -113,15 +99,13 @@ const AlbumsScreen: React.FC<AlbumsScreenProps> = ({onSelectAlbum}) => {
     if (!search.trim()) return albums;
     const q = search.trim().toLowerCase();
     return albums.filter(
-      a =>
-        a.name.toLowerCase().includes(q) ||
-        a.artist.toLowerCase().includes(q),
+      a => a.name.toLowerCase().includes(q) || a.artist.toLowerCase().includes(q),
     );
   }, [albums, search]);
 
-  const renderItem = ({item}: {item: Album}) => (
+  const renderItem = ({ item }: { item: Album }) => (
     <TouchableOpacity
-      style={[styles.card, {backgroundColor: colors.bgCard}]}
+      style={[styles.card, { backgroundColor: colors.bgCard }]}
       activeOpacity={0.7}
       onPress={() => onSelectAlbum(item.name)}>
       <CoverArt
@@ -130,17 +114,18 @@ const AlbumsScreen: React.FC<AlbumsScreenProps> = ({onSelectAlbum}) => {
       />
       <View style={styles.cardText}>
         <Text
-          style={[styles.albumName, {color: colors.textPrimary, fontSize: sizes.md}]}
+          style={[styles.albumName, { color: colors.textPrimary, fontSize: sizes.md }]}
           numberOfLines={1}>
           {item.name}
         </Text>
         <Text
-          style={[styles.artistName, {color: colors.textSecondary, fontSize: sizes.sm}]}
+          style={[styles.artistName, { color: colors.textSecondary, fontSize: sizes.sm }]}
           numberOfLines={1}>
           {item.artist}
         </Text>
-        <Text style={[styles.trackCount, {color: colors.textMuted, fontSize: sizes.xs}]}>
-          {t('albums.trackCount', {count: item.trackCount})} · {formatDuration(item.totalDuration)}
+        <Text style={[styles.trackCount, { color: colors.textMuted, fontSize: sizes.xs }]}>
+          {t('albums.trackCount', { count: item.trackCount })} ·{' '}
+          {formatDuration(item.totalDuration)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -148,22 +133,18 @@ const AlbumsScreen: React.FC<AlbumsScreenProps> = ({onSelectAlbum}) => {
 
   const renderEmpty = () => (
     <View style={styles.empty}>
-      <Text style={[styles.emptyTitle, {color: colors.textSecondary, fontSize: sizes.xl}]}>
+      <Text style={[styles.emptyTitle, { color: colors.textSecondary, fontSize: sizes.xl }]}>
         {t('albums.empty.title')}
       </Text>
-      <Text style={[styles.emptyMessage, {color: colors.textMuted, fontSize: sizes.md}]}>
+      <Text style={[styles.emptyMessage, { color: colors.textMuted, fontSize: sizes.md }]}>
         {t('albums.empty.message')}
       </Text>
     </View>
   );
 
   return (
-    <View style={[styles.container, {backgroundColor: colors.bg}]}>
-      <SearchBar
-        value={search}
-        onChangeText={setSearch}
-        placeholder={t('searchBar.placeholder')}
-      />
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <SearchBar value={search} onChangeText={setSearch} placeholder={t('searchBar.placeholder')} />
       <FlatList
         data={filtered}
         renderItem={renderItem}

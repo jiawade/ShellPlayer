@@ -1,5 +1,5 @@
 // src/components/TrackItem.tsx
-import React, {memo, useCallback, useState, useEffect} from 'react';
+import React, { memo, useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import CoverArt from './CoverArt';
-import {Track} from '../types';
-import {useTheme} from '../contexts/ThemeContext';
+import { Track } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   track: Track;
@@ -31,7 +31,7 @@ const TrackItem: React.FC<Props> = ({
   batchMode,
   batchSelected,
 }) => {
-  const {colors, sizes} = useTheme();
+  const { colors, sizes } = useTheme();
   const [localFav, setLocalFav] = useState(track.isFavorite);
 
   useEffect(() => {
@@ -49,9 +49,9 @@ const TrackItem: React.FC<Props> = ({
     <TouchableOpacity
       style={[
         styles.row,
-        {borderRadius: sizes.radius},
-        isActive && {backgroundColor: colors.accentDim},
-        batchSelected && {backgroundColor: 'rgba(0, 229, 195, 0.08)'},
+        { borderRadius: sizes.radius },
+        isActive && { backgroundColor: colors.accentDim },
+        batchSelected && { backgroundColor: 'rgba(0, 229, 195, 0.08)' },
       ]}
       onPress={handlePress}
       activeOpacity={0.7}>
@@ -60,7 +60,7 @@ const TrackItem: React.FC<Props> = ({
           name={batchSelected ? 'checkbox' : 'square-outline'}
           size={22}
           color={batchSelected ? colors.accent : colors.textMuted}
-          style={{marginRight: 8}}
+          style={{ marginRight: 8 }}
         />
       )}
 
@@ -69,13 +69,13 @@ const TrackItem: React.FC<Props> = ({
         {isActive && (
           <View style={styles.bars}>
             <View
-              style={[styles.bar, {height: 10, backgroundColor: colors.accent}]}
+              style={[styles.bar, { height: 10, backgroundColor: colors.accent }]}
             />
             <View
-              style={[styles.bar, {height: 14, backgroundColor: colors.accent}]}
+              style={[styles.bar, { height: 14, backgroundColor: colors.accent }]}
             />
             <View
-              style={[styles.bar, {height: 8, backgroundColor: colors.accent}]}
+              style={[styles.bar, { height: 8, backgroundColor: colors.accent }]}
             />
           </View>
         )}
@@ -90,13 +90,13 @@ const TrackItem: React.FC<Props> = ({
               fontWeight: '600',
               marginBottom: 3,
             },
-            isActive && {color: colors.accent},
+            isActive && { color: colors.accent },
           ]}
           numberOfLines={1}>
           {track.title}
         </Text>
         <Text
-          style={{fontSize: sizes.sm, color: colors.textSecondary}}
+          style={{ fontSize: sizes.sm, color: colors.textSecondary }}
           numberOfLines={1}>
           {track.artist}
         </Text>
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 3,
   },
-  coverWrap: {position: 'relative'},
+  coverWrap: { position: 'relative' },
   bars: {
     position: 'absolute',
     bottom: 4,
@@ -138,9 +138,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 2,
   },
-  bar: {width: 3, borderRadius: 2},
-  info: {flex: 1, marginLeft: 14, justifyContent: 'center'},
-  iconBtn: {padding: 6},
+  bar: { width: 3, borderRadius: 2 },
+  info: { flex: 1, marginLeft: 14, justifyContent: 'center' },
+  iconBtn: { padding: 6 },
 });
 
 export default memo(TrackItem);

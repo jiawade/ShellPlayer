@@ -76,20 +76,15 @@ export async function updateLiveActivity(
   title: string,
   artist: string,
   progress: number,
-  audioLevels: number[],
   _artwork?: string,
 ): Promise<void> {
   if (!active || Platform.OS !== 'ios' || !LiveActivityManager) return;
   try {
-    // Ensure exactly 7 levels for the rainbow bars
-    const levels = Array.from({ length: 7 }, (_, i) => audioLevels[i] ?? 0);
-    // Don't send artwork - ActivityKit has a 4KB payload limit
     await LiveActivityManager.update(
       isPlaying,
       title,
       artist,
       progress,
-      levels,
       null,
     );
   } catch {}

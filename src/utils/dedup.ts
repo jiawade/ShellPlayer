@@ -1,4 +1,4 @@
-import {Track} from '../types';
+import { Track } from '../types';
 
 // 按文件扩展名推断音质等级（无损 > 有损高码率格式 > 有损低码率格式）
 const qualityScore = (filePath: string): number => {

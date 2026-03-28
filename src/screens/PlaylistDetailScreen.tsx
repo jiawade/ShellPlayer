@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useMemo, useRef, memo} from 'react';
+import React, { useState, useCallback, useMemo, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -12,32 +12,32 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
 import PlaylistCover from '../components/PlaylistCover';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
-import {useAppSelector, useAppDispatch} from '../store';
+import { useAppSelector, useAppDispatch } from '../store';
 import {
   renamePlaylist,
   deletePlaylist,
   addTracksToPlaylist,
   removeTracksFromPlaylist,
 } from '../store/playlistSlice';
-import {playTrack, toggleFavorite} from '../store/musicSlice';
-import {useTheme} from '../contexts/ThemeContext';
-import {useTranslation} from 'react-i18next';
-import {Track, SortMode} from '../types';
-import {deduplicateTracks} from '../utils/dedup';
+import { playTrack, toggleFavorite } from '../store/musicSlice';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { Track, SortMode } from '../types';
+import { deduplicateTracks } from '../utils/dedup';
 import AlphabetIndex from '../components/AlphabetIndex';
-import {useAlphabetIndex} from '../hooks/useAlphabetIndex';
-import LocatePlayingButton, {LocatePlayingRef} from '../components/LocatePlayingButton';
-import {generateM3U, exportToFile} from '../utils/m3uParser';
+import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
+import { generateM3U, exportToFile } from '../utils/m3uParser';
 
-const SORT_OPTIONS_KEYS: {mode: SortMode; labelKey: string; icon: string}[] = [
-  {mode: 'title', labelKey: 'playlistDetail.sort.byName', icon: 'text-outline'},
-  {mode: 'artist', labelKey: 'playlistDetail.sort.byArtist', icon: 'person-outline'},
+const SORT_OPTIONS_KEYS: { mode: SortMode; labelKey: string; icon: string }[] = [
+  { mode: 'title', labelKey: 'playlistDetail.sort.byName', icon: 'text-outline' },
+  { mode: 'artist', labelKey: 'playlistDetail.sort.byArtist', icon: 'person-outline' },
 ];
 
 const PlaylistDetailScreen: React.FC = () => {
@@ -45,10 +45,10 @@ const PlaylistDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const playlistId: string = route.params?.playlistId;
-  const {playlists} = useAppSelector(s => s.playlist);
-  const {tracks, currentTrack, repeatMode, hideDuplicates} = useAppSelector(s => s.music);
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
+  const { playlists } = useAppSelector(s => s.playlist);
+  const { tracks, currentTrack, repeatMode, hideDuplicates } = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
 
   const playlist = playlists.find(p => p.id === playlistId);
 
@@ -119,7 +119,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
   const handlePlay = useCallback(
     (t: Track) => {
-      dispatch(playTrack({track: t, queue: playlistTracks, shuffle: repeatMode === 'queue'}));
+      dispatch(playTrack({ track: t, queue: playlistTracks, shuffle: repeatMode === 'queue' }));
     },
     [dispatch, playlistTracks, repeatMode],
   );
@@ -128,7 +128,7 @@ const PlaylistDetailScreen: React.FC = () => {
     if (playlistTracks.length === 0) {
       return;
     }
-    dispatch(playTrack({track: playlistTracks[0], queue: playlistTracks}));
+    dispatch(playTrack({ track: playlistTracks[0], queue: playlistTracks }));
   }, [dispatch, playlistTracks]);
 
   const handleShuffleAll = useCallback(() => {
@@ -136,7 +136,7 @@ const PlaylistDetailScreen: React.FC = () => {
       return;
     }
     const idx = Math.floor(Math.random() * playlistTracks.length);
-    dispatch(playTrack({track: playlistTracks[idx], queue: playlistTracks, shuffle: true}));
+    dispatch(playTrack({ track: playlistTracks[idx], queue: playlistTracks, shuffle: true }));
   }, [dispatch, playlistTracks]);
 
   const handleFav = useCallback(
@@ -156,16 +156,16 @@ const PlaylistDetailScreen: React.FC = () => {
       Alert.alert(t('playlists.createAlert.title'), t('playlists.createAlert.message'));
       return;
     }
-    dispatch(renamePlaylist({id: playlistId, name}));
+    dispatch(renamePlaylist({ id: playlistId, name }));
     setShowRename(false);
   }, [dispatch, playlistId, renameTxt]);
 
   const handleDelete = useCallback(() => {
     Alert.alert(
       t('playlistDetail.deleteAlert.title'),
-      t('playlistDetail.deleteAlert.message', {name: playlist?.name}),
+      t('playlistDetail.deleteAlert.message', { name: playlist?.name }),
       [
-        {text: t('common.cancel')},
+        { text: t('common.cancel') },
         {
           text: t('common.delete'),
           style: 'destructive',
@@ -181,12 +181,12 @@ const PlaylistDetailScreen: React.FC = () => {
   const handleRemoveTrack = useCallback(
     (trackId: string) => {
       Alert.alert(t('playlistDetail.removeTrack.title'), t('playlistDetail.removeTrack.message'), [
-        {text: t('common.cancel')},
+        { text: t('common.cancel') },
         {
           text: t('playlistDetail.removeTrack.confirm'),
           style: 'destructive',
           onPress: () => {
-            dispatch(removeTracksFromPlaylist({playlistId, trackIds: [trackId]}));
+            dispatch(removeTracksFromPlaylist({ playlistId, trackIds: [trackId] }));
           },
         },
       ]);
@@ -202,16 +202,16 @@ const PlaylistDetailScreen: React.FC = () => {
       const content = generateM3U(playlistTracks);
       const safeName = (playlist?.name || 'playlist').replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '_');
       const filePath = await exportToFile(content, safeName);
-      Alert.alert(t('common.ok'), t('playlistDetail.exportSuccess', {path: filePath}));
+      Alert.alert(t('common.ok'), t('playlistDetail.exportSuccess', { path: filePath }));
     } catch {
       Alert.alert(t('common.hint'), t('playlistDetail.exportFailed'));
     }
   }, [playlistTracks, playlist, t]);
 
   const renderItem = useCallback(
-    ({item}: {item: Track}) => (
+    ({ item }: { item: Track }) => (
       <View style={styles.trackRow}>
-        <View style={{flex: 1}}>
+        <View style={{ flex: 1 }}>
           <TrackItem
             track={item}
             isActive={currentTrack?.id === item.id}
@@ -233,7 +233,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
   if (!playlist) {
     return (
-      <View style={[styles.root, {backgroundColor: colors.bg}]}>
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
         <View style={styles.detailHeader}>
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
             <Icon name="chevron-back" size={26} color={colors.textPrimary} />
@@ -254,7 +254,7 @@ const PlaylistDetailScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.root, {backgroundColor: colors.bg}]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       {/* Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
@@ -277,13 +277,13 @@ const PlaylistDetailScreen: React.FC = () => {
             setShowRename(true);
           }}
           hitSlop={8}
-          style={{marginRight: 12}}>
+          style={{ marginRight: 12 }}>
           <Icon name="create-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleDelete} hitSlop={8} style={{marginRight: 12}}>
+        <TouchableOpacity onPress={handleDelete} hitSlop={8} style={{ marginRight: 12 }}>
           <Icon name="trash-outline" size={22} color={colors.secondary || '#EF4444'} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleExportM3U} hitSlop={8} style={{marginRight: 12}}>
+        <TouchableOpacity onPress={handleExportM3U} hitSlop={8} style={{ marginRight: 12 }}>
           <Icon name="download-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowImport(true)} hitSlop={8}>
@@ -301,21 +301,21 @@ const PlaylistDetailScreen: React.FC = () => {
       {/* Action buttons */}
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={[styles.actionBtn, {backgroundColor: colors.accent}]}
+          style={[styles.actionBtn, { backgroundColor: colors.accent }]}
           onPress={handlePlayAll}>
           <Icon name="play" size={18} color={colors.bg} />
-          <Text style={{fontSize: sizes.sm, fontWeight: '600', color: colors.bg}}>
+          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.bg }}>
             {t('playlistDetail.playAll')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.actionBtn,
-            {backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1},
+            { backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1 },
           ]}
           onPress={handleShuffleAll}>
           <Icon name="shuffle" size={18} color={colors.textPrimary} />
-          <Text style={{fontSize: sizes.sm, fontWeight: '600', color: colors.textPrimary}}>
+          <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.textPrimary }}>
             {t('playlistDetail.shuffleAll')}
           </Text>
         </TouchableOpacity>
@@ -334,8 +334,8 @@ const PlaylistDetailScreen: React.FC = () => {
               key={o.mode}
               style={[
                 styles.sortBtn,
-                {backgroundColor: colors.bgCard},
-                sortMode === o.mode && {backgroundColor: colors.accent},
+                { backgroundColor: colors.bgCard },
+                sortMode === o.mode && { backgroundColor: colors.accent },
               ]}
               onPress={() => {
                 setSortMode(o.mode);
@@ -349,8 +349,8 @@ const PlaylistDetailScreen: React.FC = () => {
               <Text
                 style={[
                   styles.sortTxt,
-                  {color: colors.textMuted},
-                  sortMode === o.mode && {color: colors.bg},
+                  { color: colors.textMuted },
+                  sortMode === o.mode && { color: colors.bg },
                 ]}>
                 {t(o.labelKey)}
               </Text>
@@ -373,33 +373,33 @@ const PlaylistDetailScreen: React.FC = () => {
           paddingBottom: 4,
         }}>
         {searchQuery
-          ? t('playlistDetail.resultCount.found', {count: playlistTracks.length})
-          : t('playlistDetail.resultCount.total', {count: playlist.trackIds.length})}
+          ? t('playlistDetail.resultCount.found', { count: playlistTracks.length })
+          : t('playlistDetail.resultCount.total', { count: playlist.trackIds.length })}
       </Text>
 
       {playlistTracks.length === 0 && !searchQuery ? (
         <View style={styles.emptyList}>
           <Icon name="musical-notes-outline" size={48} color={colors.textMuted} />
-          <Text style={{fontSize: sizes.md, color: colors.textMuted, marginTop: 12}}>
+          <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 12 }}>
             {t('playlistDetail.empty.empty')}
           </Text>
           <TouchableOpacity
-            style={[styles.importBtnEmpty, {backgroundColor: colors.accent}]}
+            style={[styles.importBtnEmpty, { backgroundColor: colors.accent }]}
             onPress={() => setShowImport(true)}>
             <Icon name="add" size={18} color={colors.bg} />
-            <Text style={{fontSize: sizes.md, fontWeight: '600', color: colors.bg}}>
+            <Text style={{ fontSize: sizes.md, fontWeight: '600', color: colors.bg }}>
               {t('playlistDetail.empty.importButton')}
             </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={{flex: 1}}>
+        <View style={{ flex: 1 }}>
           <FlatList
             ref={flatListRef}
             data={playlistTracks}
             renderItem={renderItem}
             keyExtractor={item => item.id}
-            contentContainerStyle={{paddingBottom: 140}}
+            contentContainerStyle={{ paddingBottom: 140 }}
             showsVerticalScrollIndicator
             onScrollBeginDrag={() => {
               if (sortMode === 'title' && !searchQuery) {
@@ -435,10 +435,10 @@ const PlaylistDetailScreen: React.FC = () => {
         animationType="fade"
         onRequestClose={() => setShowRename(false)}>
         <Pressable
-          style={[styles.overlay, {backgroundColor: colors.overlay}]}
+          style={[styles.overlay, { backgroundColor: colors.overlay }]}
           onPress={() => setShowRename(false)}>
           <Pressable
-            style={[styles.dialog, {backgroundColor: colors.bgElevated}]}
+            style={[styles.dialog, { backgroundColor: colors.bgElevated }]}
             onPress={() => {}}>
             <Text
               style={{
@@ -467,16 +467,17 @@ const PlaylistDetailScreen: React.FC = () => {
             />
             <View style={styles.dialogBtns}>
               <TouchableOpacity
-                style={[styles.dialogBtn, {backgroundColor: colors.bgCard}]}
+                style={[styles.dialogBtn, { backgroundColor: colors.bgCard }]}
                 onPress={() => setShowRename(false)}>
-                <Text style={{fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600'}}>
+                <Text
+                  style={{ fontSize: sizes.md, color: colors.textSecondary, fontWeight: '600' }}>
                   {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.dialogBtn, {backgroundColor: colors.accent}]}
+                style={[styles.dialogBtn, { backgroundColor: colors.accent }]}
                 onPress={handleRename}>
-                <Text style={{fontSize: sizes.md, color: colors.bg, fontWeight: '600'}}>
+                <Text style={{ fontSize: sizes.md, color: colors.bg, fontWeight: '600' }}>
                   {t('common.confirm')}
                 </Text>
               </TouchableOpacity>
@@ -517,9 +518,9 @@ interface ImportRowProps {
 }
 
 const ImportRow = memo<ImportRowProps>(
-  ({item, isSelected, isExisting, onToggle, colors, sizes, alreadyAddedLabel}) => (
+  ({ item, isSelected, isExisting, onToggle, colors, sizes, alreadyAddedLabel }) => (
     <TouchableOpacity
-      style={[styles.importRow, isExisting && {opacity: 0.4}]}
+      style={[styles.importRow, isExisting && { opacity: 0.4 }]}
       onPress={() => {
         if (!isExisting) {
           onToggle(item.id);
@@ -531,20 +532,20 @@ const ImportRow = memo<ImportRowProps>(
         name={isExisting ? 'checkmark-circle' : isSelected ? 'checkbox' : 'square-outline'}
         size={22}
         color={isExisting ? colors.textMuted : isSelected ? colors.accent : colors.textMuted}
-        style={{marginRight: 12}}
+        style={{ marginRight: 12 }}
       />
-      <View style={{flex: 1}}>
+      <View style={{ flex: 1 }}>
         <Text
-          style={{fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500'}}
+          style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}
           numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={{fontSize: sizes.sm, color: colors.textSecondary}} numberOfLines={1}>
+        <Text style={{ fontSize: sizes.sm, color: colors.textSecondary }} numberOfLines={1}>
           {item.artist}
         </Text>
       </View>
       {isExisting && (
-        <Text style={{fontSize: 10, color: colors.textMuted}}>{alreadyAddedLabel}</Text>
+        <Text style={{ fontSize: 10, color: colors.textMuted }}>{alreadyAddedLabel}</Text>
       )}
     </TouchableOpacity>
   ),
@@ -566,9 +567,9 @@ const ImportSongsModal: React.FC<ImportProps> = ({
   existingTrackIds,
 }) => {
   const dispatch = useAppDispatch();
-  const {tracks} = useAppSelector(s => s.music);
-  const {colors, sizes} = useTheme();
-  const {t} = useTranslation();
+  const { tracks } = useAppSelector(s => s.music);
+  const { colors, sizes } = useTheme();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
 
@@ -610,7 +611,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({
       Alert.alert(t('playlistDetail.importAlert.title'), t('playlistDetail.importAlert.message'));
       return;
     }
-    dispatch(addTracksToPlaylist({playlistId, trackIds: Array.from(selected)}));
+    dispatch(addTracksToPlaylist({ playlistId, trackIds: Array.from(selected) }));
     setSelected(new Set());
     setSearch('');
     onClose();
@@ -623,7 +624,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({
   }, [onClose]);
 
   const renderItem = useCallback(
-    ({item}: {item: Track}) => (
+    ({ item }: { item: Track }) => (
       <ImportRow
         item={item}
         isSelected={selected.has(item.id)}
@@ -654,7 +655,7 @@ const ImportSongsModal: React.FC<ImportProps> = ({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <SwipeBackWrapper onSwipeBack={handleClose}>
-        <SafeAreaView style={[styles.importRoot, {backgroundColor: colors.bg}]}>
+        <SafeAreaView style={[styles.importRoot, { backgroundColor: colors.bg }]}>
           <View style={styles.importHeader}>
             <TouchableOpacity onPress={handleClose} hitSlop={12}>
               <Icon name="close" size={26} color={colors.textPrimary} />
@@ -669,14 +670,14 @@ const ImportSongsModal: React.FC<ImportProps> = ({
               }}>
               {t('playlistDetail.import.title')}
             </Text>
-            <TouchableOpacity onPress={handleSelectAll} style={{marginRight: 12}}>
-              <Text style={{fontSize: sizes.sm, color: colors.accent, fontWeight: '600'}}>
+            <TouchableOpacity onPress={handleSelectAll} style={{ marginRight: 12 }}>
+              <Text style={{ fontSize: sizes.sm, color: colors.accent, fontWeight: '600' }}>
                 {t('playlistDetail.import.selectAll')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleConfirm}>
-              <View style={[styles.confirmBtn, {backgroundColor: colors.accent}]}>
-                <Text style={{fontSize: sizes.sm, fontWeight: '600', color: colors.bg}}>
+              <View style={[styles.confirmBtn, { backgroundColor: colors.accent }]}>
+                <Text style={{ fontSize: sizes.sm, fontWeight: '600', color: colors.bg }}>
                   {t('playlistDetail.import.addButton')}
                   {selected.size > 0 ? ` (${selected.size})` : ''}
                 </Text>
@@ -698,15 +699,15 @@ const ImportSongsModal: React.FC<ImportProps> = ({
               paddingBottom: 4,
             }}>
             {search
-              ? t('playlistDetail.import.found', {count: filtered.length})
-              : t('playlistDetail.import.total', {count: tracks.length})}
+              ? t('playlistDetail.import.found', { count: filtered.length })
+              : t('playlistDetail.import.total', { count: tracks.length })}
           </Text>
 
           <FlatList
             data={filtered}
             renderItem={renderItem}
             keyExtractor={item => item.id}
-            contentContainerStyle={{paddingBottom: 40}}
+            contentContainerStyle={{ paddingBottom: 40 }}
             showsVerticalScrollIndicator
             initialNumToRender={20}
             maxToRenderPerBatch={15}
@@ -721,8 +722,8 @@ const ImportSongsModal: React.FC<ImportProps> = ({
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
-  coverSection: {alignItems: 'center', paddingVertical: 8},
+  root: { flex: 1 },
+  coverSection: { alignItems: 'center', paddingVertical: 8 },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -745,8 +746,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
   },
-  sortToggle: {marginLeft: 'auto', padding: 6},
-  sortRow: {flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 4},
+  sortToggle: { marginLeft: 'auto', padding: 6 },
+  sortRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 4 },
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -755,10 +756,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
   },
-  sortTxt: {fontSize: 10, fontWeight: '600'},
-  trackRow: {flexDirection: 'row', alignItems: 'center'},
-  removeBtn: {paddingHorizontal: 12, paddingVertical: 8},
-  emptyList: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  sortTxt: { fontSize: 10, fontWeight: '600' },
+  trackRow: { flexDirection: 'row', alignItems: 'center' },
+  removeBtn: { paddingHorizontal: 12, paddingVertical: 8 },
+  emptyList: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   importBtnEmpty: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -768,8 +769,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
   },
-  overlay: {flex: 1, justifyContent: 'center', alignItems: 'center'},
-  dialog: {width: '80%', borderRadius: 20, padding: 24},
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  dialog: { width: '80%', borderRadius: 20, padding: 24 },
   dialogInput: {
     height: 44,
     borderRadius: 12,
@@ -778,7 +779,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
   },
-  dialogBtns: {flexDirection: 'row', gap: 12},
+  dialogBtns: { flexDirection: 'row', gap: 12 },
   dialogBtn: {
     flex: 1,
     height: 44,
@@ -786,14 +787,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  importRoot: {flex: 1, paddingTop: 8},
+  importRoot: { flex: 1, paddingTop: 8 },
   importHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  confirmBtn: {paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16},
+  confirmBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
   importRow: {
     flexDirection: 'row',
     alignItems: 'center',

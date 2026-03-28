@@ -14,7 +14,7 @@ const serializeArtworkForCache = (artwork?: string): string | undefined => {
   return artwork.startsWith('data:') ? '<<HAS>>' : artwork;
 };
 
-const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
+const persistMiddleware: Middleware = storeApi => next => (action: any) => {
   const result = next(action);
   const state = storeApi.getState() as RootState;
   const m = state.music;
@@ -48,11 +48,17 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
     case 'music/setHideDuplicates':
     case 'music/setCustomAccent':
     case 'music/setLanguage':
-      AsyncStorage.setItem('@userPrefs', JSON.stringify({
-        sortMode: m.sortMode, themeMode: m.themeMode, speed: m.playbackSpeed,
-        hideDuplicates: m.hideDuplicates, customAccent: m.customAccent,
-        language: m.language,
-      })).catch(() => {});
+      AsyncStorage.setItem(
+        '@userPrefs',
+        JSON.stringify({
+          sortMode: m.sortMode,
+          themeMode: m.themeMode,
+          speed: m.playbackSpeed,
+          hideDuplicates: m.hideDuplicates,
+          customAccent: m.customAccent,
+          language: m.language,
+        }),
+      ).catch(() => {});
       break;
     case 'music/addToHistory':
     case 'music/clearHistory':
@@ -60,15 +66,23 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
       break;
     case 'music/setCurrentTrack':
       if (m.currentTrack) {
-        AsyncStorage.setItem('@lastPlayback', JSON.stringify({
-          trackId: m.currentTrack.id, position: 0,
-        })).catch(() => {});
+        AsyncStorage.setItem(
+          '@lastPlayback',
+          JSON.stringify({
+            trackId: m.currentTrack.id,
+            position: 0,
+          }),
+        ).catch(() => {});
       }
       break;
   }
 
-  if (action.type.startsWith('playlist/') && action.type !== 'playlist/load/fulfilled'
-      && action.type !== 'playlist/load/pending' && action.type !== 'playlist/load/rejected') {
+  if (
+    action.type.startsWith('playlist/') &&
+    action.type !== 'playlist/load/fulfilled' &&
+    action.type !== 'playlist/load/pending' &&
+    action.type !== 'playlist/load/rejected'
+  ) {
     const pl = state.playlist;
     AsyncStorage.setItem('@playlists', JSON.stringify(pl.playlists)).catch(() => {});
   }
@@ -86,7 +100,7 @@ const persistMiddleware: Middleware = (storeApi) => (next) => (action: any) => {
 
 export const store = configureStore({
   reducer: { music: musicReducer, playlist: playlistReducer, pro: proReducer, stats: statsReducer },
-  middleware: (getDefault) => getDefault({ serializableCheck: false }).concat(persistMiddleware),
+  middleware: getDefault => getDefault({ serializableCheck: false }).concat(persistMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

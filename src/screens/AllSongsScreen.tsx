@@ -1,5 +1,5 @@
 // src/screens/AllSongsScreen.tsx
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
 import FolderPickerScreen from './FolderPickerScreen';
 import SwipeBackWrapper from '../components/SwipeBackWrapper';
-import {useAppSelector, useAppDispatch, store} from '../store';
+import { useAppSelector, useAppDispatch, store } from '../store';
 import {
   scanMusic,
   loadFavorites,
@@ -46,13 +46,13 @@ import {
   IOSImportOptions,
 } from '../store/musicSlice';
 import TrackPlayer from 'react-native-track-player';
-import {exportTrackToFile} from '../utils/mediaLibrary';
-import {Track, SortMode} from '../types';
-import {deduplicateTracks} from '../utils/dedup';
-import {useTheme} from '../contexts/ThemeContext';
+import { exportTrackToFile } from '../utils/mediaLibrary';
+import { Track, SortMode } from '../types';
+import { deduplicateTracks } from '../utils/dedup';
+import { useTheme } from '../contexts/ThemeContext';
 import AlphabetIndex from '../components/AlphabetIndex';
-import {useAlphabetIndex} from '../hooks/useAlphabetIndex';
-import LocatePlayingButton, {LocatePlayingRef} from '../components/LocatePlayingButton';
+import { useAlphabetIndex } from '../hooks/useAlphabetIndex';
+import LocatePlayingButton, { LocatePlayingRef } from '../components/LocatePlayingButton';
 import { useTranslation } from 'react-i18next';
 import AlbumsScreen from './AlbumsScreen';
 import AlbumDetailScreen from './AlbumDetailScreen';
@@ -61,13 +61,13 @@ import ArtistDetailScreen from './ArtistDetailScreen';
 
 type LibrarySegment = 'songs' | 'albums' | 'artists';
 
-const SORT_OPTIONS_KEYS: {mode: SortMode; labelKey: string; icon: string}[] = [
-  {mode: 'title', labelKey: 'allSongs.sort.byName', icon: 'text-outline'},
-  {mode: 'artist', labelKey: 'allSongs.sort.byArtist', icon: 'person-outline'},
-  {mode: 'album', labelKey: 'allSongs.sort.byAlbum', icon: 'disc-outline'},
-  {mode: 'duration', labelKey: 'allSongs.sort.byDuration', icon: 'timer-outline'},
-  {mode: 'recent', labelKey: 'allSongs.sort.recent', icon: 'time-outline'},
-  {mode: 'shuffle', labelKey: 'allSongs.sort.shuffle', icon: 'shuffle-outline'},
+const SORT_OPTIONS_KEYS: { mode: SortMode; labelKey: string; icon: string }[] = [
+  { mode: 'title', labelKey: 'allSongs.sort.byName', icon: 'text-outline' },
+  { mode: 'artist', labelKey: 'allSongs.sort.byArtist', icon: 'person-outline' },
+  { mode: 'album', labelKey: 'allSongs.sort.byAlbum', icon: 'disc-outline' },
+  { mode: 'duration', labelKey: 'allSongs.sort.byDuration', icon: 'timer-outline' },
+  { mode: 'recent', labelKey: 'allSongs.sort.recent', icon: 'time-outline' },
+  { mode: 'shuffle', labelKey: 'allSongs.sort.shuffle', icon: 'shuffle-outline' },
 ];
 
 const hashToUnit = (input: string): number => {
@@ -95,7 +95,7 @@ const AllSongsScreen: React.FC = () => {
     batchSelectMode,
     batchSelectedIds,
   } = useAppSelector(s => s.music);
-  const {colors, sizes} = useTheme();
+  const { colors, sizes } = useTheme();
   const { t } = useTranslation();
   const flatListRef = useRef<FlatList>(null);
   const locateRef = useRef<LocatePlayingRef>(null);
@@ -118,11 +118,20 @@ const AllSongsScreen: React.FC = () => {
       setUserTriggeredImport(false);
       const newCount = tracks.length - prevTrackCount;
       if (prevTrackCount === 0 && tracks.length > 0) {
-        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.successMessage', { count: tracks.length }));
+        Alert.alert(
+          t('allSongs.importAlerts.importComplete'),
+          t('allSongs.importAlerts.successMessage', { count: tracks.length }),
+        );
       } else if (newCount > 0) {
-        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.newSongsMessage', { newCount, totalCount: tracks.length }));
+        Alert.alert(
+          t('allSongs.importAlerts.importComplete'),
+          t('allSongs.importAlerts.newSongsMessage', { newCount, totalCount: tracks.length }),
+        );
       } else if (userTriggeredImport && tracks.length > 0) {
-        Alert.alert(t('allSongs.importAlerts.importComplete'), t('allSongs.importAlerts.noNewSongsMessage', { totalCount: tracks.length }));
+        Alert.alert(
+          t('allSongs.importAlerts.importComplete'),
+          t('allSongs.importAlerts.noNewSongsMessage', { totalCount: tracks.length }),
+        );
       }
     }
     prevScanningRef.current = isScanning;
@@ -190,7 +199,7 @@ const AllSongsScreen: React.FC = () => {
 
     const restore = async () => {
       const result = await dispatch(loadLastPlayback());
-      const payload = (result as any).payload as {trackId: string; position: number} | null;
+      const payload = (result as any).payload as { trackId: string; position: number } | null;
       if (!payload?.trackId) {
         return;
       }
@@ -249,9 +258,7 @@ const AllSongsScreen: React.FC = () => {
       list.reverse();
     } else if (sortMode === 'shuffle') {
       list.sort(
-        (a, b) =>
-          hashToUnit(`${shuffleSeed}:${a.id}`) -
-          hashToUnit(`${shuffleSeed}:${b.id}`),
+        (a, b) => hashToUnit(`${shuffleSeed}:${a.id}`) - hashToUnit(`${shuffleSeed}:${b.id}`),
       );
     }
     if (searchQuery.trim()) {
@@ -354,7 +361,7 @@ const AllSongsScreen: React.FC = () => {
   );
 
   const renderItem = useCallback(
-    ({item}: {item: Track}) => (
+    ({ item }: { item: Track }) => (
       <TrackItem
         track={item}
         isActive={currentTrack?.id === item.id}
@@ -365,27 +372,20 @@ const AllSongsScreen: React.FC = () => {
         batchSelected={batchSelectedIds.includes(item.id)}
       />
     ),
-    [
-      currentTrack?.id,
-      handlePlay,
-      handleFav,
-      handleOpenMenu,
-      batchSelectMode,
-      batchSelectedIds,
-    ],
+    [currentTrack?.id, handlePlay, handleFav, handleOpenMenu, batchSelectMode, batchSelectedIds],
   );
 
   const keyExtractor = useCallback((item: Track) => item.id, []);
 
   if (loading) {
-    return <View style={[styles.root, {backgroundColor: colors.bg}]} />;
+    return <View style={[styles.root, { backgroundColor: colors.bg }]} />;
   }
 
   if (isScanning && (tracks.length === 0 || userTriggeredImport)) {
     const p = scanProgress;
     const pct = p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
     return (
-      <View style={[styles.center, {backgroundColor: colors.bg}]}>
+      <View style={[styles.center, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.accent} />
         <Text
           style={{
@@ -396,8 +396,7 @@ const AllSongsScreen: React.FC = () => {
           }}>
           {t('allSongs.importing.title')}
         </Text>
-        <Text
-          style={{fontSize: sizes.md, color: colors.textMuted, marginTop: 8}}>
+        <Text style={{ fontSize: sizes.md, color: colors.textMuted, marginTop: 8 }}>
           {p?.phase === 'scanning'
             ? Platform.OS === 'ios'
               ? t('allSongs.importing.readingLibrary')
@@ -405,18 +404,12 @@ const AllSongsScreen: React.FC = () => {
             : t('allSongs.importing.parsing')}
         </Text>
         <View style={styles.progressWrap}>
-          <View
-            style={[styles.progressBg, {backgroundColor: colors.bgElevated}]}>
+          <View style={[styles.progressBg, { backgroundColor: colors.bgElevated }]}>
             <View
-              style={[
-                styles.progressFill,
-                {backgroundColor: colors.accent, width: `${pct}%`},
-              ]}
+              style={[styles.progressFill, { backgroundColor: colors.accent, width: `${pct}%` }]}
             />
           </View>
-          <Text style={[styles.progressText, {color: colors.accent}]}>
-            {pct}%
-          </Text>
+          <Text style={[styles.progressText, { color: colors.accent }]}>{pct}%</Text>
         </View>
         {p?.phase === 'parsing' && (
           <Text
@@ -435,13 +428,9 @@ const AllSongsScreen: React.FC = () => {
 
   if (tracks.length === 0 && !isScanning) {
     return (
-      <View style={[styles.center, {backgroundColor: colors.bg}]}>
+      <View style={[styles.center, { backgroundColor: colors.bg }]}>
         <Icon
-          name={
-            Platform.OS === 'ios'
-              ? 'musical-notes-outline'
-              : 'folder-open-outline'
-          }
+          name={Platform.OS === 'ios' ? 'musical-notes-outline' : 'folder-open-outline'}
           size={64}
           color={colors.textMuted}
         />
@@ -467,12 +456,17 @@ const AllSongsScreen: React.FC = () => {
           </Text>
         ) : null}
         <TouchableOpacity
-          style={[styles.retryBtn, {backgroundColor: colors.accent}]}
+          style={[styles.retryBtn, { backgroundColor: colors.accent }]}
           onPress={() => setShowFolderPicker(true)}>
-          <Icon name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'} size={18} color={colors.bg} />
-          <Text
-            style={{fontSize: sizes.md, fontWeight: '700', color: colors.bg}}>
-            {Platform.OS === 'ios' ? t('allSongs.emptyState.selectSource') : t('allSongs.emptyState.selectDirectory')}
+          <Icon
+            name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'}
+            size={18}
+            color={colors.bg}
+          />
+          <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>
+            {Platform.OS === 'ios'
+              ? t('allSongs.emptyState.selectSource')
+              : t('allSongs.emptyState.selectDirectory')}
           </Text>
         </TouchableOpacity>
         {Platform.OS === 'ios' && (
@@ -502,7 +496,7 @@ const AllSongsScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.root, {backgroundColor: colors.bg}]}>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
         <Text
           style={{
@@ -515,16 +509,12 @@ const AllSongsScreen: React.FC = () => {
         </Text>
         <View style={styles.headerRight}>
           {isScanning && (
-            <ActivityIndicator
-              size="small"
-              color={colors.accent}
-              style={{marginRight: 8}}
-            />
+            <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
           )}
           <TouchableOpacity
             onPress={() => dispatch(toggleBatchMode())}
             hitSlop={8}
-            style={{marginRight: 10}}>
+            style={{ marginRight: 10 }}>
             <Icon
               name={batchSelectMode ? 'close-circle' : 'checkbox-outline'}
               size={22}
@@ -534,21 +524,11 @@ const AllSongsScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => setShowSort(!showSort)}
             hitSlop={8}
-            style={{marginRight: 10}}>
-            <Icon
-              name="swap-vertical-outline"
-              size={22}
-              color={colors.textSecondary}
-            />
+            style={{ marginRight: 10 }}>
+            <Icon name="swap-vertical-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowFolderPicker(true)}
-            hitSlop={8}>
-            <Icon
-              name="folder-outline"
-              size={22}
-              color={colors.textSecondary}
-            />
+          <TouchableOpacity onPress={() => setShowFolderPicker(true)} hitSlop={8}>
+            <Icon name="folder-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -559,7 +539,7 @@ const AllSongsScreen: React.FC = () => {
             key={seg}
             style={[
               styles.segmentBtn,
-              {backgroundColor: activeSegment === seg ? colors.accent : 'transparent'},
+              { backgroundColor: activeSegment === seg ? colors.accent : 'transparent' },
             ]}
             onPress={() => {
               setActiveSegment(seg);
@@ -569,7 +549,7 @@ const AllSongsScreen: React.FC = () => {
             <Text
               style={[
                 styles.segmentTxt,
-                {color: activeSegment === seg ? colors.bg : colors.textMuted},
+                { color: activeSegment === seg ? colors.bg : colors.textMuted },
               ]}>
               {t(`library.segments.${seg}`)}
             </Text>
@@ -587,219 +567,219 @@ const AllSongsScreen: React.FC = () => {
         selectedArtist && selectedAlbum ? (
           <AlbumDetailScreen albumName={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
         ) : selectedArtist ? (
-          <ArtistDetailScreen artistName={selectedArtist} onBack={() => setSelectedArtist(null)} onSelectAlbum={setSelectedAlbum} />
+          <ArtistDetailScreen
+            artistName={selectedArtist}
+            onBack={() => setSelectedArtist(null)}
+            onSelectAlbum={setSelectedAlbum}
+          />
         ) : (
           <ArtistsScreen onSelectArtist={setSelectedArtist} />
         )
       ) : (
-      <>
+        <>
+          {showSort && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.sortScrollView}
+              contentContainerStyle={styles.sortRow}>
+              {SORT_OPTIONS_KEYS.map(o => (
+                <TouchableOpacity
+                  key={o.mode}
+                  style={[
+                    styles.sortBtn,
+                    { backgroundColor: colors.bgCard },
+                    sortMode === o.mode && { backgroundColor: colors.accent },
+                  ]}
+                  onPress={() => handleSortChange(o.mode)}>
+                  <Icon
+                    name={o.icon}
+                    size={14}
+                    color={sortMode === o.mode ? colors.bg : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.sortTxt,
+                      { color: colors.textMuted },
+                      sortMode === o.mode && { color: colors.bg },
+                    ]}>
+                    {t(o.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
-      {showSort && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScrollView} contentContainerStyle={styles.sortRow}>
-          {SORT_OPTIONS_KEYS.map(o => (
-            <TouchableOpacity
-              key={o.mode}
+          {batchSelectMode && (
+            <View
               style={[
-                styles.sortBtn,
-                {backgroundColor: colors.bgCard},
-                sortMode === o.mode && {backgroundColor: colors.accent},
-              ]}
-              onPress={() => handleSortChange(o.mode)}>
-              <Icon
-                name={o.icon}
-                size={14}
-                color={sortMode === o.mode ? colors.bg : colors.textMuted}
-              />
-              <Text
-                style={[
-                  styles.sortTxt,
-                  {color: colors.textMuted},
-                  sortMode === o.mode && {color: colors.bg},
-                ]}>
-                {t(o.labelKey)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-
-      {batchSelectMode && (
-        <View
-          style={[
-            styles.batchBar,
-            {
-              backgroundColor: colors.bgElevated,
-              borderBottomColor: colors.border,
-            },
-          ]}>
-          <TouchableOpacity onPress={() => dispatch(selectAllBatch())}>
-            <Text
-              style={{
-                fontSize: sizes.sm,
-                color: colors.accent,
-                fontWeight: '600',
-              }}>
-              {t('allSongs.batch.selectAll')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => dispatch(clearBatchSelect())}>
-            <Text
-              style={{
-                fontSize: sizes.sm,
-                color: colors.accent,
-                fontWeight: '600',
-              }}>
-              {t('allSongs.batch.cancel')}
-            </Text>
-          </TouchableOpacity>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: sizes.sm,
-              color: colors.textMuted,
-              textAlign: 'center',
-            }}>
-            {t('allSongs.batch.selectedCount', { count: batchSelectedIds.length })}
-          </Text>
-          <TouchableOpacity
-            onPress={() => dispatch(batchFavorite())}
-            style={[styles.batchBtn, {backgroundColor: colors.bgCard}]}>
-            <Icon name="heart" size={16} color={colors.heart} />
-            <Text
-              style={{
-                fontSize: sizes.xs,
-                color: colors.heart,
-                fontWeight: '600',
-              }}>
-              {t('allSongs.batch.favorite')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              Alert.alert(
-                t('allSongs.batch.deleteTitle'),
-                t('allSongs.batch.deleteMessage', { count: batchSelectedIds.length }),
-                [
-                  {text: t('common.cancel')},
-                  {text: t('common.confirm'), onPress: () => dispatch(batchHide())},
-                ],
-              );
-            }}
-            style={[styles.batchBtn, {backgroundColor: colors.bgCard}]}>
-            <Icon name="trash-outline" size={16} color={colors.secondary} />
-            <Text
-              style={{
-                fontSize: sizes.xs,
-                color: colors.secondary,
-                fontWeight: '600',
-              }}>
-              {t('allSongs.batch.hide')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <SearchBar
-        value={searchQuery}
-        onChangeText={t => dispatch(setSearchQuery(t))}
-      />
-      <Text
-        style={{
-          fontSize: sizes.sm,
-          color: colors.textMuted,
-          paddingHorizontal: 20,
-          paddingBottom: 4,
-        }}>
-        {searchQuery
-          ? t('allSongs.songCount.found', { count: filteredTracks.length })
-          : hideDuplicates
-            ? t('allSongs.songCount.totalDedup', { count: filteredTracks.length })
-            : t('allSongs.songCount.total', { count: tracks.length })}
-      </Text>
-
-      <View style={{flex: 1}}>
-        <FlatList
-          ref={flatListRef}
-          data={filteredTracks}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={{paddingBottom: 140}}
-          showsVerticalScrollIndicator={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={false}
-              onRefresh={handleRefresh}
-              tintColor={colors.accent}
-              colors={[colors.accent]}
-            />
-          }
-          onScrollBeginDrag={() => {
-            if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
-            locateRef.current?.show();
-          }}
-          initialScrollIndex={initialScrollIndex}
-          initialNumToRender={20}
-          maxToRenderPerBatch={15}
-          windowSize={11}
-          removeClippedSubviews={false}
-          getItemLayout={(_, i) => ({length: 76, offset: 76 * i, index: i})}
-          ListEmptyComponent={
-            searchQuery ? (
-              <View style={styles.noResult}>
-                <Icon name="search-outline" size={48} color={colors.textMuted} />
+                styles.batchBar,
+                {
+                  backgroundColor: colors.bgElevated,
+                  borderBottomColor: colors.border,
+                },
+              ]}>
+              <TouchableOpacity onPress={() => dispatch(selectAllBatch())}>
                 <Text
                   style={{
-                    fontSize: sizes.md,
-                    color: colors.textMuted,
-                    marginTop: 12,
+                    fontSize: sizes.sm,
+                    color: colors.accent,
+                    fontWeight: '600',
                   }}>
-                  {t('allSongs.noMatch')}
+                  {t('allSongs.batch.selectAll')}
                 </Text>
-              </View>
-            ) : null
-          }
-        />
-        {sortMode === 'title' && !searchQuery && letters.length > 0 && (
-          <AlphabetIndex
-            letters={letters}
-            visible={true}
-            onSelectLetter={onSelectLetter}
-            onTouchStart={onIndexTouchStart}
-            onTouchEnd={onIndexTouchEnd}
-          />
-        )}
-        <LocatePlayingButton
-          ref={locateRef}
-          flatListRef={flatListRef}
-          tracks={filteredTracks}
-          currentTrack={currentTrack}
-          itemHeight={76}
-        />
-      </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => dispatch(clearBatchSelect())}>
+                <Text
+                  style={{
+                    fontSize: sizes.sm,
+                    color: colors.accent,
+                    fontWeight: '600',
+                  }}>
+                  {t('allSongs.batch.cancel')}
+                </Text>
+              </TouchableOpacity>
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: sizes.sm,
+                  color: colors.textMuted,
+                  textAlign: 'center',
+                }}>
+                {t('allSongs.batch.selectedCount', { count: batchSelectedIds.length })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => dispatch(batchFavorite())}
+                style={[styles.batchBtn, { backgroundColor: colors.bgCard }]}>
+                <Icon name="heart" size={16} color={colors.heart} />
+                <Text
+                  style={{
+                    fontSize: sizes.xs,
+                    color: colors.heart,
+                    fontWeight: '600',
+                  }}>
+                  {t('allSongs.batch.favorite')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    t('allSongs.batch.deleteTitle'),
+                    t('allSongs.batch.deleteMessage', { count: batchSelectedIds.length }),
+                    [
+                      { text: t('common.cancel') },
+                      { text: t('common.confirm'), onPress: () => dispatch(batchHide()) },
+                    ],
+                  );
+                }}
+                style={[styles.batchBtn, { backgroundColor: colors.bgCard }]}>
+                <Icon name="trash-outline" size={16} color={colors.secondary} />
+                <Text
+                  style={{
+                    fontSize: sizes.xs,
+                    color: colors.secondary,
+                    fontWeight: '600',
+                  }}>
+                  {t('allSongs.batch.hide')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-      <Modal visible={showFolderPicker} animationType="slide">
-        <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
-          <FolderPickerScreen
-            onConfirm={handleFolderConfirm}
-            onCancel={() => setShowFolderPicker(false)}
-            initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
-            onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
-          />
-        </SwipeBackWrapper>
-      </Modal>
-      <TrackMenu
-        track={menuTrack}
-        visible={showMenu}
-        onClose={handleCloseMenu}
-      />
-      </>
+          <SearchBar value={searchQuery} onChangeText={t => dispatch(setSearchQuery(t))} />
+          <Text
+            style={{
+              fontSize: sizes.sm,
+              color: colors.textMuted,
+              paddingHorizontal: 20,
+              paddingBottom: 4,
+            }}>
+            {searchQuery
+              ? t('allSongs.songCount.found', { count: filteredTracks.length })
+              : hideDuplicates
+              ? t('allSongs.songCount.totalDedup', { count: filteredTracks.length })
+              : t('allSongs.songCount.total', { count: tracks.length })}
+          </Text>
+
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={flatListRef}
+              data={filteredTracks}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              contentContainerStyle={{ paddingBottom: 140 }}
+              showsVerticalScrollIndicator={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={false}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.accent}
+                  colors={[colors.accent]}
+                />
+              }
+              onScrollBeginDrag={() => {
+                if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
+                locateRef.current?.show();
+              }}
+              initialScrollIndex={initialScrollIndex}
+              initialNumToRender={20}
+              maxToRenderPerBatch={15}
+              windowSize={11}
+              removeClippedSubviews={false}
+              getItemLayout={(_, i) => ({ length: 76, offset: 76 * i, index: i })}
+              ListEmptyComponent={
+                searchQuery ? (
+                  <View style={styles.noResult}>
+                    <Icon name="search-outline" size={48} color={colors.textMuted} />
+                    <Text
+                      style={{
+                        fontSize: sizes.md,
+                        color: colors.textMuted,
+                        marginTop: 12,
+                      }}>
+                      {t('allSongs.noMatch')}
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+            {sortMode === 'title' && !searchQuery && letters.length > 0 && (
+              <AlphabetIndex
+                letters={letters}
+                visible={true}
+                onSelectLetter={onSelectLetter}
+                onTouchStart={onIndexTouchStart}
+                onTouchEnd={onIndexTouchEnd}
+              />
+            )}
+            <LocatePlayingButton
+              ref={locateRef}
+              flatListRef={flatListRef}
+              tracks={filteredTracks}
+              currentTrack={currentTrack}
+              itemHeight={76}
+            />
+          </View>
+
+          <Modal visible={showFolderPicker} animationType="slide">
+            <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
+              <FolderPickerScreen
+                onConfirm={handleFolderConfirm}
+                onCancel={() => setShowFolderPicker(false)}
+                initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
+                onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
+              />
+            </SwipeBackWrapper>
+          </Modal>
+          <TrackMenu track={menuTrack} visible={showMenu} onClose={handleCloseMenu} />
+        </>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1},
+  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -808,7 +788,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 4,
   },
-  headerRight: {flexDirection: 'row', alignItems: 'center'},
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   sortScrollView: {
     flexGrow: 0,
     flexShrink: 0,
@@ -828,7 +808,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
   },
-  sortTxt: {fontSize: 10, fontWeight: '600'},
+  sortTxt: { fontSize: 10, fontWeight: '600' },
   batchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -852,8 +832,8 @@ const styles = StyleSheet.create({
     width: '80%',
     gap: 12,
   },
-  progressBg: {flex: 1, height: 6, borderRadius: 3, overflow: 'hidden'},
-  progressFill: {height: '100%', borderRadius: 3},
+  progressBg: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3 },
   progressText: {
     fontSize: 14,
     fontWeight: '700',
@@ -876,7 +856,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     gap: 8,
   },
-  noResult: {alignItems: 'center', marginTop: 60},
+  noResult: { alignItems: 'center', marginTop: 60 },
   segmentRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,

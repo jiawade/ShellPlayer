@@ -1,5 +1,5 @@
 import RNFS from 'react-native-fs';
-import {Track} from '../types';
+import { Track } from '../types';
 
 const AUDIO_EXTENSIONS = [
   '.mp3',
@@ -40,7 +40,7 @@ export async function listFolderContents(
 
   for (const item of items) {
     if (item.isDirectory()) {
-      folders.push({name: item.name, path: item.path});
+      folders.push({ name: item.name, path: item.path });
     } else if (isAudioFile(item.name)) {
       audioFiles.push({
         name: item.name,
@@ -54,7 +54,7 @@ export async function listFolderContents(
   folders.sort((a, b) => a.name.localeCompare(b.name));
   audioFiles.sort((a, b) => a.name.localeCompare(b.name));
 
-  return {folders, audioFiles};
+  return { folders, audioFiles };
 }
 
 export async function countAudioFiles(path: string): Promise<number> {

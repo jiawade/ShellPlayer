@@ -1,7 +1,7 @@
 // src/utils/audioLevel.ts
-import {NativeModules, NativeEventEmitter, Platform, PermissionsAndroid} from 'react-native';
+import { NativeModules, NativeEventEmitter, Platform, PermissionsAndroid } from 'react-native';
 
-const {AudioLevelModule, TrackPlayerModule} = NativeModules;
+const { AudioLevelModule, TrackPlayerModule } = NativeModules;
 
 let emitter: NativeEventEmitter | null = null;
 
@@ -14,22 +14,19 @@ function getEmitter(): NativeEventEmitter {
 
 export interface AudioLevelEvent {
   levels: number[]; // 16 band levels, each 0..1
-  overall: number;  // overall RMS level 0..1
-  volume: number;   // system output volume 0..1
+  overall: number; // overall RMS level 0..1
+  volume: number; // system output volume 0..1
 }
 
 async function requestAndroidAudioPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
   try {
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      {
-        title: '音频权限',
-        message: '律动灯需要音频数据权限以显示实时节奏效果',
-        buttonPositive: '确定',
-        buttonNegative: '取消',
-      },
-    );
+    const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
+      title: '音频权限',
+      message: '律动灯需要音频数据权限以显示实时节奏效果',
+      buttonPositive: '确定',
+      buttonNegative: '取消',
+    });
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch {
     return false;
@@ -63,9 +60,7 @@ export async function stopAudioLevelMonitoring(): Promise<void> {
   }
 }
 
-export function addAudioLevelListener(
-  callback: (event: AudioLevelEvent) => void,
-): () => void {
+export function addAudioLevelListener(callback: (event: AudioLevelEvent) => void): () => void {
   const sub = getEmitter().addListener('onAudioLevels', callback);
   return () => sub.remove();
 }

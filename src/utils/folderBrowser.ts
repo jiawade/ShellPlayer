@@ -10,8 +10,9 @@ const AUDIO_EXTENSIONS = [
   '.ogg',
   '.wma',
   '.aiff',
-  '.alac',
   '.opus',
+  '.ape',
+  '.webm',
 ];
 
 export interface FolderItem {

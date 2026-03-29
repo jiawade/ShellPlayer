@@ -1,12 +1,27 @@
 // src/utils/wifiUploadHtml.ts
 // Embedded HTML page served by the WiFi transfer HTTP server
 
-export const WIFI_UPLOAD_HTML = `<!DOCTYPE html>
-<html lang="zh-CN">
+export function getWifiUploadHtml(lang = 'zh'): string {
+  const isZh = lang.startsWith('zh');
+  const subtitle = isZh ? 'WiFi 无线传输' : 'WiFi Transfer';
+  const connected = isZh ? '已连接' : 'Connected';
+  const dropTitle = isZh ? '拖拽文件到这里上传' : 'Drag files here to upload';
+  const dropHint = isZh ? '支持批量上传 · 或' : 'Batch upload · or ';
+  const pickBtn = isZh ? '点击选择文件' : 'click to select files';
+  const addedDesc = isZh ? '已添加到播放列表，可在 App 中查看' : 'Added to playlist, viewable in app';
+  const lDone = isZh ? '传输完成，共 ' : 'Transfer complete, ';
+  const lDoneFail = isZh ? '传输完成：' : 'Transfer complete: ';
+  const lFiles = isZh ? ' 个文件' : ' files';
+  const lOk = isZh ? ' 个成功，' : ' succeeded, ';
+  const lFail = isZh ? ' 个失败' : ' failed';
+  const htmlLang = isZh ? 'zh-CN' : 'en';
+
+  return `<!DOCTYPE html>
+<html lang="${htmlLang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Music X - WiFi 传输</title>
+<title>Music X - ${subtitle}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -91,21 +106,21 @@ body{
 <div class="container">
   <div class="header">
     <div class="logo"><div class="logo-dot"></div><h1>Music X</h1></div>
-    <div class="subtitle">WiFi 无线传输</div>
-    <div class="badge"><div class="badge-dot"></div>已连接</div>
+    <div class="subtitle">${subtitle}</div>
+    <div class="badge"><div class="badge-dot"></div>${connected}</div>
   </div>
   <div class="drop-zone" id="dz">
     <div class="upload-icon">&#8593;</div>
-    <div class="drop-title">拖拽文件到这里上传</div>
-    <div class="drop-hint">支持批量上传 · 或<a id="pickBtn">点击选择文件</a></div>
-    <div class="formats">MP3 · FLAC · WAV · AAC · M4A · OGG · AIFF · WMA · OPUS · APE</div>
+    <div class="drop-title">${dropTitle}</div>
+    <div class="drop-hint">${dropHint}<a id="pickBtn">${pickBtn}</a></div>
+    <div class="formats">MP3 · FLAC · WAV · AAC · M4A · OGG · AIFF · WMA · OPUS · APE · WEBM</div>
   </div>
-  <input type="file" id="fi" multiple accept=".mp3,.flac,.wav,.aac,.m4a,.ogg,.wma,.aiff,.alac,.lrc,.opus,.ape,.dsf,.dff" hidden>
+  <input type="file" id="fi" multiple accept=".mp3,.flac,.wav,.aac,.m4a,.ogg,.wma,.aiff,.lrc,.opus,.ape,.webm" hidden>
   <div class="file-list" id="fl"></div>
   <div class="summary" id="sum">
     <div class="sum-icon">&#10003;</div>
     <div class="sum-title" id="sumT"></div>
-    <div class="sum-desc">已添加到播放列表，可在 App 中查看</div>
+    <div class="sum-desc">${addedDesc}</div>
   </div>
 </div>
 <script>
@@ -155,14 +170,18 @@ function send(file){
     document.getElementById(id+'s').className='file-status s-err';chk()};
   xhr.open('POST','/upload');xhr.send(fd);
 }
+window._L={done:'${lDone}',doneFail:'${lDoneFail}',files:'${lFiles}',ok:'${lOk}',fail:'${lFail}'};
 function chk(){
   if(pending<=0&&(done+fail)>0){
     var s=document.getElementById('sum');s.classList.add('show');
     document.getElementById('sumT').textContent=fail>0
-      ?'\\u4F20\\u8F93\\u5B8C\\u6210\\uFF1A'+done+' \\u4E2A\\u6210\\u529F\\uFF0C'+fail+' \\u4E2A\\u5931\\u8D25'
-      :'\\u4F20\\u8F93\\u5B8C\\u6210\\uFF0C\\u5171 '+done+' \\u4E2A\\u6587\\u4EF6';
+      ?window._L.doneFail+done+window._L.ok+fail+window._L.fail
+      :window._L.done+done+window._L.files;
   }
 }
 </script>
 </body>
 </html>`;
+}
+
+export const WIFI_UPLOAD_HTML = getWifiUploadHtml('zh');

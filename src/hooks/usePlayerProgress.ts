@@ -32,13 +32,24 @@ import {
   restoreOriginalMetadata,
 } from '../utils/bluetoothLyrics';
 import { updateLiveActivity, stopLiveActivity, isLiveActivityActive } from '../utils/liveActivity';
+import {
+  useVlcSnapshot,
+  pauseVlc,
+  resumeVlc,
+  seekVlc,
+  getVlcSnapshot,
+} from '../utils/vlcPlayback';
+import { shouldUseVlcForTrack } from '../utils/vlcFormats';
 
 export function usePlayerSync() {
   const dispatch = useAppDispatch();
-  const { position, duration } = useProgress(200);
+  const tpProgress = useProgress(200);
+  const vlcSnapshot = useVlcSnapshot();
   const playbackState = usePlaybackState();
   const activeTrack = useActiveTrack();
-  const { lyrics, tracks, currentTrack } = useAppSelector(s => s.music);
+  const { lyrics, tracks, currentTrack, activePlayer } = useAppSelector(s => s.music);
+  const position = activePlayer === 'vlc' ? vlcSnapshot.position : tpProgress.position;
+  const duration = activePlayer === 'vlc' ? vlcSnapshot.duration : tpProgress.duration;
   const lastLyricIdx = useRef(-1);
   const prevPosition = useRef(0);
   const listenAccum = useRef(0);
@@ -49,13 +60,16 @@ export function usePlayerSync() {
 
   useEffect(() => {
     const playing =
-      playbackState.state === State.Playing || playbackState.state === State.Buffering;
+      activePlayer === 'vlc'
+        ? vlcSnapshot.isPlaying
+        : playbackState.state === State.Playing || playbackState.state === State.Buffering;
     dispatch(setIsPlaying(playing));
-  }, [playbackState.state, dispatch]);
+  }, [activePlayer, vlcSnapshot.isPlaying, playbackState.state, dispatch]);
 
   // Flush accumulated listen time when track changes
   useEffect(() => {
-    if (activeTrack?.id !== prevTrackId.current) {
+    const activeTrackId = activePlayer === 'vlc' ? currentTrack?.id : activeTrack?.id;
+    if (activeTrackId !== prevTrackId.current) {
       if (prevTrackId.current && listenAccum.current >= 1) {
         const prevMatched = tracks.find(t => t.id === prevTrackId.current);
         dispatch(
@@ -68,18 +82,19 @@ export function usePlayerSync() {
       }
       listenAccum.current = 0;
       lastTickTime.current = 0;
-      prevTrackId.current = activeTrack?.id;
+      prevTrackId.current = activeTrackId;
     }
-  }, [activeTrack?.id, tracks, dispatch]);
+  }, [activePlayer, activeTrack?.id, currentTrack?.id, tracks, dispatch]);
 
   useEffect(() => {
-    if (!activeTrack) return;
-    const matched = tracks.find(t => t.id === activeTrack.id);
+    const activeTrackId = activePlayer === 'vlc' ? currentTrack?.id : activeTrack?.id;
+    if (!activeTrackId) return;
+    const matched = tracks.find(t => t.id === activeTrackId);
     if (!matched) return;
     // Skip if Redux already has the correct track (avoid overriding playTrack.pending)
     if (currentTrackIdRef.current !== matched.id) {
       dispatch(setCurrentTrack(matched));
-      dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrack.id)));
+      dispatch(setCurrentIndex(tracks.findIndex(t => t.id === activeTrackId)));
     }
     setOriginalTrackInfo(matched.title, matched.artist, matched.artwork);
 
@@ -114,7 +129,7 @@ export function usePlayerSync() {
       dispatch(setLyrics(lines));
     };
     loadLyrics();
-  }, [activeTrack?.id, dispatch, tracks]);
+  }, [activePlayer, activeTrack?.id, currentTrack?.id, dispatch, tracks]);
 
   // 检测单曲循环重播
   useEffect(() => {
@@ -127,8 +142,10 @@ export function usePlayerSync() {
 
   // 累计听歌时长，每 30 秒记录一次
   useEffect(() => {
-    const playing = playbackState.state === State.Playing;
-    if (!playing || !activeTrack) {
+    const playing =
+      activePlayer === 'vlc' ? vlcSnapshot.isPlaying : playbackState.state === State.Playing;
+    const activeTrackId = activePlayer === 'vlc' ? currentTrack?.id : activeTrack?.id;
+    if (!playing || !activeTrackId) {
       lastTickTime.current = 0;
       return;
     }
@@ -142,17 +159,26 @@ export function usePlayerSync() {
     lastTickTime.current = now;
 
     if (listenAccum.current >= 30) {
-      const matched = tracks.find(t => t.id === activeTrack.id);
+      const matched = tracks.find(t => t.id === activeTrackId);
       dispatch(
         recordListenTime({
-          trackId: activeTrack.id,
+          trackId: activeTrackId,
           artist: matched?.artist || '',
           seconds: Math.round(listenAccum.current),
         }),
       );
       listenAccum.current = 0;
     }
-  }, [position, playbackState.state, activeTrack, tracks, dispatch]);
+  }, [
+    position,
+    playbackState.state,
+    activePlayer,
+    activeTrack,
+    currentTrack,
+    tracks,
+    dispatch,
+    vlcSnapshot.isPlaying,
+  ]);
 
   // 歌词同步（lyricsOffset: 正值 = 歌词提前，负值 = 歌词延后）
   const lyricsOffset = useAppSelector(s => s.music.lyricsOffset);
@@ -174,18 +200,19 @@ export function usePlayerSync() {
   // 定期保存播放进度（每 3 秒）
   const lastSaveRef = useRef(0);
   useEffect(() => {
-    if (position < 1 || !activeTrack) return;
+    const activeTrackId = activePlayer === 'vlc' ? currentTrack?.id : activeTrack?.id;
+    if (position < 1 || !activeTrackId) return;
     const now = Date.now();
     if (now - lastSaveRef.current < 3000) return;
     lastSaveRef.current = now;
     AsyncStorage.setItem(
       '@lastPlayback',
       JSON.stringify({
-        trackId: activeTrack.id,
+        trackId: activeTrackId,
         position,
       }),
     ).catch(() => {});
-  }, [position, activeTrack]);
+  }, [position, activePlayer, activeTrack?.id, currentTrack?.id]);
 
   // Push to Dynamic Island every ~1 second
   const lastLAUpdate = useRef(0);
@@ -195,8 +222,10 @@ export function usePlayerSync() {
     if (now - lastLAUpdate.current < 1000) return;
     lastLAUpdate.current = now;
 
-    const playing = playbackState.state === State.Playing;
-    const matched = tracks.find(t => t.id === activeTrack?.id);
+    const playing =
+      activePlayer === 'vlc' ? vlcSnapshot.isPlaying : playbackState.state === State.Playing;
+    const liveTrackId = activePlayer === 'vlc' ? currentTrack?.id : activeTrack?.id;
+    const matched = tracks.find(t => t.id === liveTrackId);
     if (!matched) {
       if (isLiveActivityActive()) stopLiveActivity().catch(() => {});
       return;
@@ -209,12 +238,22 @@ export function usePlayerSync() {
       progress,
       matched.artwork,
     ).catch(() => {});
-  }, [position, playbackState.state, activeTrack?.id, duration, tracks]);
+  }, [
+    position,
+    playbackState.state,
+    activePlayer,
+    activeTrack?.id,
+    currentTrack?.id,
+    duration,
+    tracks,
+    vlcSnapshot.isPlaying,
+  ]);
 
   // Fix iOS lock screen progress: when app returns to foreground, update
   // MPNowPlayingInfoCenter elapsed time without interrupting playback.
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
+    if (activePlayer === 'vlc') return;
     const sub = AppState.addEventListener('change', async nextState => {
       if (nextState === 'active') {
         try {
@@ -226,20 +265,21 @@ export function usePlayerSync() {
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [activePlayer]);
 
   // Periodically sync elapsed time to MPNowPlayingInfoCenter while playing.
   // This prevents stale elapsedPlaybackTime from any metadata update calls.
   const lastNPSync = useRef(0);
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
+    if (activePlayer === 'vlc') return;
     const playing = playbackState.state === State.Playing;
     if (!playing || position < 1) return;
     const now = Date.now();
     if (now - lastNPSync.current < 10000) return;
     lastNPSync.current = now;
     TrackPlayer.updateNowPlayingMetadata({ elapsedTime: position }).catch(() => {});
-  }, [position, playbackState.state]);
+  }, [position, playbackState.state, activePlayer]);
 
   return { position, duration };
 }
@@ -255,16 +295,36 @@ export function usePlayerControls() {
     playQueue,
     shuffleHistory,
     shuffleHistoryIndex,
+    activePlayer,
   } = useAppSelector(s => s.music);
+  const vlcSnapshot = useVlcSnapshot();
 
   const togglePlayPause = useCallback(async () => {
+    // If VLC track was restored from cache but not yet playing, start it via playTrack
+    if (currentTrack && shouldUseVlcForTrack(currentTrack) && !vlcSnapshot.isPlaying && vlcSnapshot.position === 0 && vlcSnapshot.duration === 0) {
+      const queue = playQueue.length > 0 ? playQueue : tracks;
+      dispatch(playTrack({ track: currentTrack, queue }));
+      return;
+    }
+    if (activePlayer === 'vlc') {
+      if (vlcSnapshot.isPlaying) {
+        await pauseVlc();
+      } else {
+        await resumeVlc();
+      }
+      return;
+    }
     const s = await TrackPlayer.getPlaybackState();
     s.state === State.Playing ? await TrackPlayer.pause() : await TrackPlayer.play();
-  }, []);
+  }, [activePlayer, vlcSnapshot.isPlaying, vlcSnapshot.position, vlcSnapshot.duration, currentTrack, tracks, playQueue, dispatch]);
 
   const seekTo = useCallback(async (sec: number) => {
+    if (activePlayer === 'vlc') {
+      await seekVlc(sec);
+      return;
+    }
     await TrackPlayer.seekTo(sec);
-  }, []);
+  }, [activePlayer]);
 
   /**
    * 下一曲：随机模式下使用 shuffle history 导航
@@ -292,15 +352,17 @@ export function usePlayerControls() {
       }
     }
 
-    // 非随机：检查 TP 队列是否有下一首
-    try {
-      const activeIdx = await TrackPlayer.getActiveTrackIndex();
-      const tpQueue = await TrackPlayer.getQueue();
-      if (activeIdx != null && activeIdx < tpQueue.length - 1) {
-        await TrackPlayer.skipToNext();
-        return;
-      }
-    } catch {}
+    // 非随机 + TrackPlayer：检查 TP 队列是否有下一首
+    if (activePlayer !== 'vlc') {
+      try {
+        const activeIdx = await TrackPlayer.getActiveTrackIndex();
+        const tpQueue = await TrackPlayer.getQueue();
+        if (activeIdx != null && activeIdx < tpQueue.length - 1) {
+          await TrackPlayer.skipToNext();
+          return;
+        }
+      } catch {}
+    }
 
     // TP 队列耗尽 - 从完整播放队列中找下一首
     if (queue.length > 0 && currentTrack) {
@@ -310,7 +372,16 @@ export function usePlayerControls() {
         dispatch(playTrack({ track: queue[nextIdx], queue }));
       }
     }
-  }, [repeatMode, tracks, currentTrack, playQueue, shuffleHistory, shuffleHistoryIndex, dispatch]);
+  }, [
+    repeatMode,
+    tracks,
+    currentTrack,
+    playQueue,
+    shuffleHistory,
+    shuffleHistoryIndex,
+    dispatch,
+    activePlayer,
+  ]);
 
   /**
    * 上一曲：随机模式下通过 shuffle history 向后导航
@@ -339,14 +410,16 @@ export function usePlayerControls() {
       return;
     }
 
-    // 非随机：检查 TP 队列是否有上一首
-    try {
-      const activeIdx = await TrackPlayer.getActiveTrackIndex();
-      if (activeIdx != null && activeIdx > 0) {
-        await TrackPlayer.skipToPrevious();
-        return;
-      }
-    } catch {}
+    // 非随机 + TrackPlayer：检查 TP 队列是否有上一首
+    if (activePlayer !== 'vlc') {
+      try {
+        const activeIdx = await TrackPlayer.getActiveTrackIndex();
+        if (activeIdx != null && activeIdx > 0) {
+          await TrackPlayer.skipToPrevious();
+          return;
+        }
+      } catch {}
+    }
 
     // TP 队列耗尽 - 从完整播放队列中找上一首
     if (queue.length > 0 && currentTrack) {
@@ -356,7 +429,16 @@ export function usePlayerControls() {
         dispatch(playTrack({ track: queue[prevIdx], queue }));
       }
     }
-  }, [repeatMode, tracks, playQueue, shuffleHistory, shuffleHistoryIndex, currentTrack, dispatch]);
+  }, [
+    repeatMode,
+    tracks,
+    playQueue,
+    shuffleHistory,
+    shuffleHistoryIndex,
+    currentTrack,
+    dispatch,
+    activePlayer,
+  ]);
 
   /** 播放指定歌词行，到该行结束自动暂停 */
   const seekAndStop = useCallback(
@@ -364,16 +446,28 @@ export function usePlayerControls() {
       const startTime = lyrics[lyricIdx].time;
       const endTime = lyricIdx + 1 < lyrics.length ? lyrics[lyricIdx + 1].time : undefined;
 
-      await TrackPlayer.seekTo(startTime);
-      await TrackPlayer.play();
+      if (activePlayer === 'vlc') {
+        await seekVlc(startTime);
+        await resumeVlc();
+      } else {
+        await TrackPlayer.seekTo(startTime);
+        await TrackPlayer.play();
+      }
 
       if (endTime !== undefined) {
         const iv = setInterval(async () => {
           try {
-            const { position } = await TrackPlayer.getProgress();
+            const position =
+              activePlayer === 'vlc'
+                ? getVlcSnapshot().position
+                : (await TrackPlayer.getProgress()).position;
             if (position >= endTime - 0.1) {
               clearInterval(iv);
-              await TrackPlayer.pause();
+              if (activePlayer === 'vlc') {
+                await pauseVlc();
+              } else {
+                await TrackPlayer.pause();
+              }
             }
           } catch {
             clearInterval(iv);
@@ -382,7 +476,7 @@ export function usePlayerControls() {
         setTimeout(() => clearInterval(iv), 30000);
       }
     },
-    [lyrics],
+    [lyrics, activePlayer],
   );
 
   const seekToPrevLyric = useCallback(async () => {

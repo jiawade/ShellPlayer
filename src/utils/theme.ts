@@ -59,10 +59,7 @@ export const SIZES = {
   tabBarHeight: 60,
 };
 
-export const SUPPORTED_FORMATS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.aac', '.wma', '.aiff', '.alac', '.opus', '.ape', '.webm'];
-
-// Known encrypted / proprietary formats that cannot be decoded
-export const UNSUPPORTED_FORMATS = ['.kgg', '.kgm', '.ncm', '.qmc', '.qmc0', '.qmc3', '.qmcflac', '.mflac', '.mgg', '.mgg1', '.tm0', '.tm3', '.tm6', '.vpr', '.tkm', '.bkcmp3', '.bkcflac', '.joox'];
+export const SUPPORTED_FORMATS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.aac', '.wma', '.aiff', '.opus', '.ape', '.webm'];
 
 // --- Preset Themes ---
 

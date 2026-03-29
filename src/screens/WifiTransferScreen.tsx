@@ -18,7 +18,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store';
 import { scanMusic, importiOSMediaLibrary } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
-import { WIFI_UPLOAD_HTML } from '../utils/wifiUploadHtml';
+import { getWifiUploadHtml } from '../utils/wifiUploadHtml';
 import { getDefaultMusicDir } from '../utils/defaultDirs';
 import { useTranslation } from 'react-i18next';
 
@@ -78,7 +78,7 @@ const WifiTransferScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { scanDirectories } = useAppSelector(s => s.music);
   const { colors, sizes } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [serverUrl, setServerUrl] = useState<string | null>(_serverUrl);
   const [port, setPort] = useState(_serverPort);
@@ -114,7 +114,7 @@ const WifiTransferScreen: React.FC = () => {
         const result = await NativeModules.WifiTransferModule.startServer(
           p,
           musicDir,
-          WIFI_UPLOAD_HTML,
+          getWifiUploadHtml(i18n.language),
         );
         _serverUrl = result.url;
         _serverPort = p;

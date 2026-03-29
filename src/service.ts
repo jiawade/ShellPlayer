@@ -9,10 +9,11 @@ import {
   addToHistory,
   shuffleHistoryBack,
   shuffleHistoryForward,
-  removeFromPlayQueue,
-  hideTrack,
+  setActivePlayer,
+  setIsPlaying,
 } from './store/musicSlice';
 import { exportTrackToFile } from './utils/mediaLibrary';
+import { pauseVlc, resumeVlc, seekVlc, setVlcHandlers, stopVlc } from './utils/vlcPlayback';
 import { recordPlay } from './utils/reviewPrompt';
 import { loadBluetoothLyricsSetting } from './utils/bluetoothLyrics';
 import i18n from './i18n';
@@ -63,8 +64,65 @@ async function preloadNextTrack() {
 
 export async function PlaybackService() {
   loadBluetoothLyricsSetting().catch(() => {});
-  TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
-  TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
+  TrackPlayer.addEventListener(Event.RemotePause, () => {
+    const state = store.getState().music;
+    if (state.activePlayer === 'vlc') {
+      pauseVlc().catch(() => {});
+      return;
+    }
+    TrackPlayer.pause();
+  });
+  TrackPlayer.addEventListener(Event.RemotePlay, () => {
+    const state = store.getState().music;
+    if (state.activePlayer === 'vlc') {
+      resumeVlc().catch(() => {});
+      return;
+    }
+    TrackPlayer.play();
+  });
+
+  setVlcHandlers({
+    onEnded: () => {
+      const state = store.getState().music;
+      const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+      if (state.repeatMode === 'queue' && queue.length > 1) {
+        const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
+        if (candidates.length > 0) {
+          const random = candidates[Math.floor(Math.random() * candidates.length)];
+          store.dispatch(playTrack({ track: random, queue }));
+        }
+        return;
+      }
+      if (state.repeatMode !== 'track' && queue.length > 0 && state.currentTrack) {
+        const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+        if (currentIdx >= 0 && currentIdx < queue.length - 1) {
+          store.dispatch(playTrack({ track: queue[currentIdx + 1], queue }));
+        }
+      }
+    },
+    onError: (message?: string) => {
+      const state = store.getState().music;
+      const trackTitle = state.currentTrack?.title || '';
+      const failedTrackId = state.currentTrack?.id;
+      console.warn('[VLC playback error]', message || 'unknown');
+      store.dispatch(
+        setPlaybackErrorMsg(`"${trackTitle}" ${i18n.t('playback.playbackFailed', { defaultValue: 'playback failed' })}`),
+      );
+      store.dispatch(setIsPlaying(false));
+      stopVlc().catch(() => {});
+      // Auto-skip to next track after 1.5s
+      setTimeout(() => {
+        store.dispatch(setPlaybackErrorMsg(null));
+        if (!failedTrackId) return;
+        const s = store.getState().music;
+        const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
+        const failedIdx = queue.findIndex(t => t.id === failedTrackId);
+        if (failedIdx >= 0 && failedIdx < queue.length - 1) {
+          store.dispatch(playTrack({ track: queue[failedIdx + 1], queue }));
+        }
+      }, 1500);
+    },
+  });
 
   TrackPlayer.addEventListener(Event.RemoteNext, async () => {
     const state = store.getState().music;
@@ -149,41 +207,60 @@ export async function PlaybackService() {
     }
   });
 
-  TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.stop());
-  TrackPlayer.addEventListener(Event.RemoteSeek, e => TrackPlayer.seekTo(e.position));
+  TrackPlayer.addEventListener(Event.RemoteStop, () => {
+    const state = store.getState().music;
+    if (state.activePlayer === 'vlc') {
+      stopVlc().catch(() => {});
+      return;
+    }
+    TrackPlayer.stop();
+  });
+  TrackPlayer.addEventListener(Event.RemoteSeek, e => {
+    const state = store.getState().music;
+    if (state.activePlayer === 'vlc') {
+      seekVlc(e.position).catch(() => {});
+      return;
+    }
+    TrackPlayer.seekTo(e.position);
+  });
 
   // Handle playback errors (unsupported format, corrupted files, etc.)
   TrackPlayer.addEventListener(Event.PlaybackError, async e => {
+    const currentState = store.getState().music;
+    if (currentState.activePlayer === 'vlc') {
+      return;
+    }
+
     console.warn('[PlaybackError]', e.message, e.code);
-    const state = store.getState().music;
-    const trackTitle = state.currentTrack?.title || '';
-    const failedTrackId = state.currentTrack?.id;
+    const trackTitle = currentState.currentTrack?.title || '';
+    const failedTrackId = currentState.currentTrack?.id;
     store.dispatch(
       setPlaybackErrorMsg(i18n.t('playback.unsupportedFormat', { title: trackTitle })),
     );
 
-    // Remove the failed track from both playQueue AND tracks (hide it)
-    if (failedTrackId) {
-      store.dispatch(removeFromPlayQueue(failedTrackId));
-      store.dispatch(hideTrack(failedTrackId));
-    }
-
-    // Auto-dismiss after 1.5s and skip to next track
+    // Auto-dismiss after 1.5s and skip to next track in queue
     setTimeout(() => {
       store.dispatch(setPlaybackErrorMsg(null));
       if (!failedTrackId) return;
       const s = store.getState().music;
       const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
-      // Only auto-play if there are remaining tracks different from the failed one
-      const remaining = queue.filter(t => t.id !== failedTrackId);
-      if (remaining.length > 0) {
-        store.dispatch(playTrack({ track: remaining[0], queue: remaining }));
+      const failedIdx = queue.findIndex(t => t.id === failedTrackId);
+      if (failedIdx >= 0 && failedIdx < queue.length - 1) {
+        store.dispatch(playTrack({ track: queue[failedIdx + 1], queue }));
+      } else if (queue.length > 0 && failedIdx === queue.length - 1) {
+        // Last track failed, wrap to first
+        store.dispatch(playTrack({ track: queue[0], queue }));
       }
     }, 1500);
   });
 
   // When a new track starts playing, rebind the equalizer and preload next track
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: any) => {
+    const modeState = store.getState().music;
+    if (modeState.activePlayer === 'vlc') {
+      return;
+    }
+
     // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
     // This ensures currentTrack is always in sync before preloadNextTrack reads it.
     const nextTrack = event?.track;
@@ -211,6 +288,10 @@ export async function PlaybackService() {
   // auto-continue to the next track from the full play queue
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
     const state = store.getState().music;
+    if (state.activePlayer === 'vlc') {
+      return;
+    }
+
     const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
 
     if (state.repeatMode === 'queue' && queue.length > 1) {

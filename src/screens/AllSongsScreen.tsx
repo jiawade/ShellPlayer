@@ -32,6 +32,7 @@ import {
   loadLastPlayback,
   setCurrentTrack,
   setCurrentIndex,
+  setActivePlayer,
   playTrack,
   toggleFavorite,
   setSearchQuery,
@@ -47,6 +48,7 @@ import {
 } from '../store/musicSlice';
 import TrackPlayer from 'react-native-track-player';
 import { exportTrackToFile } from '../utils/mediaLibrary';
+import { shouldUseVlcForTrack } from '../utils/vlcFormats';
 import { Track, SortMode } from '../types';
 import { deduplicateTracks } from '../utils/dedup';
 import { useTheme } from '../contexts/ThemeContext';
@@ -219,6 +221,12 @@ const AllSongsScreen: React.FC = () => {
       // 设置 Redux 状态（显示 MiniPlayer、进度条等）
       dispatch(setCurrentTrack(track));
       dispatch(setCurrentIndex(tracks.findIndex(t => t.id === payload.trackId)));
+
+      // VLC 格式歌曲：只恢复状态，不加入 TrackPlayer（避免 PlaybackError "不支持"）
+      if (shouldUseVlcForTrack(track)) {
+        dispatch(setActivePlayer('vlc'));
+        return;
+      }
 
       // 将歌曲加入 TrackPlayer 并 seek 到上次位置，但不播放
       try {

@@ -124,7 +124,7 @@ class TransferServer(
     companion object {
         private val ALLOWED_EXT = setOf(
             "mp3", "flac", "wav", "aac", "m4a", "ogg", "wma",
-            "aiff", "alac", "lrc", "opus", "ape", "dsf", "dff"
+            "aiff", "lrc", "opus", "ape", "alac", "webm", "dsf", "dff"
         )
     }
 

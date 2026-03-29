@@ -7,8 +7,6 @@ const qualityScore = (filePath: string): number => {
     case 'flac': return 100;
     case 'wav': return 95;
     case 'aiff': case 'aif': return 90;
-    case 'alac': return 85;
-    case 'dsf': case 'dff': return 80;
     case 'm4a': case 'aac': return 60;
     case 'ogg': case 'opus': return 55;
     case 'mp3': return 50;

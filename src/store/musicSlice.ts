@@ -9,7 +9,9 @@ import { scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress } from '.
 import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { getDefaultLrcDir, ensureDefaultDirs } from '../utils/defaultDirs';
 import { requestStoragePermission } from '../utils/permissions';
-import { SUPPORTED_FORMATS, UNSUPPORTED_FORMATS } from '../utils/theme';
+import { SUPPORTED_FORMATS } from '../utils/theme';
+import { shouldUseVlcForTrack } from '../utils/vlcFormats';
+import { playVlc, stopVlc } from '../utils/vlcPlayback';
 import { logCrash, logInfo } from '../utils/crashLogger';
 import { saveArtworkFile, batchGetCachedArtworks } from '../utils/artworkCache';
 import {
@@ -52,6 +54,7 @@ interface MusicState {
   playbackErrorMsg: string | null;
   shuffleHistory: string[]; // ordered track IDs for shuffle navigation
   shuffleHistoryIndex: number; // cursor position in shuffleHistory (-1 = empty)
+  activePlayer: 'trackplayer' | 'vlc';
 }
 
 const initialState: MusicState = {
@@ -86,6 +89,7 @@ const initialState: MusicState = {
   playbackErrorMsg: null as string | null,
   shuffleHistory: [],
   shuffleHistoryIndex: -1,
+  activePlayer: 'trackplayer',
 };
 
 const serializeArtworkForCache = (artwork?: string): string | undefined => {
@@ -461,26 +465,7 @@ export const playTrack = createAsyncThunk(
     try {
       const gen = ++playTrackGeneration;
 
-      // Validate file format before attempting to play
       const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
-      if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
-        // Skip unsupported format - show error and hide the track
-        dispatch(
-          setPlaybackErrorMsg(
-            `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
-          ),
-        );
-        dispatch(removeFromPlayQueue(track.id));
-        dispatch(hideTrack(track.id));
-        const filteredQueue = queue.filter(t => t.id !== track.id);
-        setTimeout(() => {
-          dispatch(setPlaybackErrorMsg(null));
-          if (filteredQueue.length > 0) {
-            dispatch(playTrack({ track: filteredQueue[0], queue: filteredQueue }));
-          }
-        }, 1500);
-        return { track, index: 0 };
-      }
 
       let idx = queue.findIndex(t => t.id === track.id);
       if (idx < 0) {
@@ -492,68 +477,88 @@ export const playTrack = createAsyncThunk(
       const sub = queue.slice(start, end);
       const si = idx - start;
 
-      try {
-        await TrackPlayer.reset();
-      } catch {
-        await new Promise(r => setTimeout(r, 200));
+      const state = getState() as { music: MusicState };
+      const useVlc = shouldUseVlcForTrack(track);
+      console.log(
+        `[playTrack] title=${track.title} ext=${ext || 'none'} engine=${useVlc ? 'vlc' : 'trackplayer'}`,
+      );
+
+      if (useVlc) {
         try {
           await TrackPlayer.reset();
         } catch {}
+        const currentUrl = track.url.startsWith('ipod-library://')
+          ? await exportTrackToFile(track.url)
+          : track.url;
+        if (gen !== playTrackGeneration) return { track, index: idx };
+        await playVlc(currentUrl, track.id, state.music.playbackSpeed, track.duration || 0);
+        dispatch(setActivePlayer('vlc'));
+      } else {
+        await stopVlc();
+
+        try {
+          await TrackPlayer.reset();
+        } catch {
+          await new Promise(r => setTimeout(r, 200));
+          try {
+            await TrackPlayer.reset();
+          } catch {}
+        }
+
+        // 先导出并添加当前歌曲，立即开始播放
+        const currentUrl = track.url.startsWith('ipod-library://')
+          ? await exportTrackToFile(track.url)
+          : track.url;
+        if (gen !== playTrackGeneration) return { track, index: idx };
+        await TrackPlayer.add({
+          id: track.id,
+          url: currentUrl,
+          title: track.title,
+          artist: track.artist,
+          artwork: track.artwork,
+        });
+
+        try {
+          await TrackPlayer.setRate(state.music.playbackSpeed);
+        } catch {}
+        await TrackPlayer.play();
+        dispatch(setActivePlayer('trackplayer'));
+
+        // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
+        const before = sub.slice(0, si);
+        const after = sub.slice(si + 1);
+        const addSurrounding = async () => {
+          // 先添加后续歌曲（追加到队尾，无需指定索引）
+          for (const t of after) {
+            if (gen !== playTrackGeneration) return;
+            const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+            if (gen !== playTrackGeneration) return;
+            try {
+              await TrackPlayer.add({
+                id: t.id,
+                url: u,
+                title: t.title,
+                artist: t.artist,
+                artwork: t.artwork,
+              });
+            } catch {}
+          }
+          // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
+          for (let i = before.length - 1; i >= 0; i--) {
+            if (gen !== playTrackGeneration) return;
+            const t = before[i];
+            const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
+            if (gen !== playTrackGeneration) return;
+            try {
+              await TrackPlayer.add(
+                { id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork },
+                0,
+              );
+            } catch {}
+          }
+        };
+        addSurrounding();
       }
-
-      // 先导出并添加当前歌曲，立即开始播放
-      const currentUrl = track.url.startsWith('ipod-library://')
-        ? await exportTrackToFile(track.url)
-        : track.url;
-      if (gen !== playTrackGeneration) return { track, index: idx };
-      await TrackPlayer.add({
-        id: track.id,
-        url: currentUrl,
-        title: track.title,
-        artist: track.artist,
-        artwork: track.artwork,
-      });
-
-      const state = getState() as { music: MusicState };
-      try {
-        await TrackPlayer.setRate(state.music.playbackSpeed);
-      } catch {}
-      await TrackPlayer.play();
-
-      // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
-      const before = sub.slice(0, si);
-      const after = sub.slice(si + 1);
-      const addSurrounding = async () => {
-        // 先添加后续歌曲（追加到队尾，无需指定索引）
-        for (const t of after) {
-          if (gen !== playTrackGeneration) return;
-          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-          if (gen !== playTrackGeneration) return;
-          try {
-            await TrackPlayer.add({
-              id: t.id,
-              url: u,
-              title: t.title,
-              artist: t.artist,
-              artwork: t.artwork,
-            });
-          } catch {}
-        }
-        // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
-        for (let i = before.length - 1; i >= 0; i--) {
-          if (gen !== playTrackGeneration) return;
-          const t = before[i];
-          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-          if (gen !== playTrackGeneration) return;
-          try {
-            await TrackPlayer.add(
-              { id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork },
-              0,
-            );
-          } catch {}
-        }
-      };
-      addSurrounding();
 
       try {
         let lyrLines: LyricLine[] = [];
@@ -762,6 +767,9 @@ const musicSlice = createSlice({
     setPlaybackErrorMsg: (s, a: PayloadAction<string | null>) => {
       s.playbackErrorMsg = a.payload;
     },
+    setActivePlayer: (s, a: PayloadAction<'trackplayer' | 'vlc'>) => {
+      s.activePlayer = a.payload;
+    },
     // Sleep timer
     setSleepTimer: (s, a: PayloadAction<number | null>) => {
       s.sleepTimerEnd = a.payload;
@@ -857,14 +865,8 @@ const musicSlice = createSlice({
         const existingIds = new Set(s.tracks.map(t => t.id));
         const hiddenIds = new Set(s.hiddenTrackIds);
         const newTracks = a.payload.tracks.filter(t => {
-          if (existingIds.has(t.id)) {
-            return false;
-          }
-          const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
-          // Do not re-import tracks that were hidden after unsupported playback failures.
-          if (hiddenIds.has(t.id) && ext && UNSUPPORTED_FORMATS.includes(ext)) {
-            return false;
-          }
+          if (existingIds.has(t.id)) return false;
+          if (hiddenIds.has(t.id)) return false;
           return true;
         });
         for (const t of newTracks) {
@@ -889,14 +891,8 @@ const musicSlice = createSlice({
         const existingIds = new Set(s.tracks.map(t => t.id));
         const hiddenIds = new Set(s.hiddenTrackIds);
         const newTracks = a.payload.tracks.filter(t => {
-          if (existingIds.has(t.id)) {
-            return false;
-          }
-          const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
-          // Do not re-import tracks that were hidden after unsupported playback failures.
-          if (hiddenIds.has(t.id) && ext && UNSUPPORTED_FORMATS.includes(ext)) {
-            return false;
-          }
+          if (existingIds.has(t.id)) return false;
+          if (hiddenIds.has(t.id)) return false;
           return true;
         });
         for (const t of newTracks) {
@@ -1033,6 +1029,7 @@ export const {
   updateTrackMetadata,
   updateTrackArtwork,
   setPlaybackErrorMsg,
+  setActivePlayer,
   removeFromPlayQueue,
 } = musicSlice.actions;
 export default musicSlice.reducer;

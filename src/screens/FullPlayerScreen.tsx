@@ -1,5 +1,5 @@
 // src/screens/FullPlayerScreen.tsx
-import React, { memo, useState, useEffect, useCallback } from 'react';
+import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,14 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  PanResponder,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { RepeatMode as TPRepeatMode } from 'react-native-track-player';
 import { useNavigation } from '@react-navigation/native';
 import CoverArt from '../components/CoverArt';
+import MarqueeText from '../components/MarqueeText';
 import ProgressBar from '../components/ProgressBar';
 import LyricsView from '../components/LyricsView';
 import Equalizer from '../components/Equalizer';
@@ -262,28 +264,27 @@ const FullPlayerScreen: React.FC = () => {
     return unsub;
   }, [navigation, dispatch]);
 
+  const closePlayer = useCallback(() => {
+    dispatch(setShowFullPlayer(false));
+    navigation.goBack();
+  }, [dispatch, navigation]);
+
+  const topAreaPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => !showLyrics && g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderRelease: (_, g) => {
+          if (!showLyrics && g.dy > 64 && g.vy > 0.2) {
+            closePlayer();
+          }
+        },
+      }),
+    [showLyrics, closePlayer],
+  );
+
   if (!currentTrack) {
     return null;
   }
-
-  const headerTitle = (() => {
-    const hasArtist =
-      currentTrack.artist &&
-      currentTrack.artist !== t('common.unknownArtist') &&
-      currentTrack.artist !== 'Unknown Artist' &&
-      currentTrack.artist !== '未知歌手';
-    const hasTitle = currentTrack.title && currentTrack.title !== currentTrack.fileName;
-    if (hasArtist && hasTitle) {
-      return `${currentTrack.artist} - ${currentTrack.title}`;
-    }
-    if (hasTitle) {
-      return currentTrack.title;
-    }
-    if (hasArtist) {
-      return currentTrack.artist;
-    }
-    return currentTrack.fileName;
-  })();
 
   const cycleRepeat = async () => {
     hapticLight();
@@ -316,54 +317,23 @@ const FullPlayerScreen: React.FC = () => {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.hBtn}
-          hitSlop={12}
-          accessibilityLabel="Go back"
-          accessibilityRole="button">
-          <Icon name="chevron-down" size={28} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.hCenter}>
-          <Text
-            style={{
-              fontSize: sizes.xs,
-              color: colors.textMuted,
-              textTransform: 'uppercase',
-              letterSpacing: 2,
-            }}>
-            {t('fullPlayer.header')}
-          </Text>
-          <Text
-            style={{ fontSize: sizes.sm, color: colors.textSecondary, marginTop: 2 }}
-            numberOfLines={1}>
-            {headerTitle}
-          </Text>
+      <View style={styles.topArea} {...topAreaPanResponder.panHandlers}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={closePlayer}
+            style={styles.hBtn}
+            hitSlop={12}
+            accessibilityLabel="Go back"
+            accessibilityRole="button">
+            <Icon name="chevron-down" size={28} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <View style={styles.hBtn} />
         </View>
-        <TouchableOpacity
-          onPress={() => {
-            hapticLight();
-            dispatch(toggleFavorite(currentTrack.id));
-          }}
-          style={styles.hBtn}
-          hitSlop={12}
-          accessibilityLabel={
-            currentTrack.isFavorite ? 'Remove from favorites' : 'Add to favorites'
-          }
-          accessibilityRole="button">
-          <Icon
-            name={currentTrack.isFavorite ? 'heart' : 'heart-outline'}
-            size={24}
-            color={currentTrack.isFavorite ? colors.heart : colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
 
-      {/* Main */}
-      <View style={styles.main}>
+        {/* Main */}
+        <View style={styles.main}>
         {showLyrics ? (
           <View style={styles.lyricsContainer}>
             <LyricsView />
@@ -374,17 +344,15 @@ const FullPlayerScreen: React.FC = () => {
               <CoverArt artwork={currentTrack.artwork} size={COVER} borderRadius={28} />
             </View>
             <View style={styles.trackInfo}>
-              <Text
+              <MarqueeText
+                text={currentTrack.fileName || currentTrack.title}
                 style={{
-                  fontSize: sizes.xxl,
+                  fontSize: sizes.xl,
                   fontWeight: '700',
                   color: colors.textPrimary,
                   textAlign: 'center',
-                  lineHeight: 36,
                 }}
-                numberOfLines={2}>
-                {currentTrack.title}
-              </Text>
+              />
               <Text
                 style={{ fontSize: sizes.lg, color: colors.textSecondary, marginTop: 6 }}
                 numberOfLines={1}>
@@ -393,15 +361,15 @@ const FullPlayerScreen: React.FC = () => {
             </View>
           </View>
         )}
-      </View>
+        </View>
 
-      {/* Lyrics Offset Bar */}
-      {showOffsetBar && showLyrics && (
-        <View
-          style={[
-            styles.offsetBar,
-            { backgroundColor: colors.bgElevated, borderColor: colors.border },
-          ]}>
+        {/* Lyrics Offset Bar */}
+        {showOffsetBar && showLyrics && (
+          <View
+            style={[
+              styles.offsetBar,
+              { backgroundColor: colors.bgElevated, borderColor: colors.border },
+            ]}>
           <Text style={{ fontSize: sizes.sm, color: colors.textSecondary, fontWeight: '600' }}>
             {t('lyrics.offset.title')}
           </Text>
@@ -441,14 +409,31 @@ const FullPlayerScreen: React.FC = () => {
             style={{ marginLeft: 'auto', padding: 4 }}>
             <Icon name="close" size={16} color={colors.textMuted} />
           </TouchableOpacity>
-        </View>
-      )}
+          </View>
+        )}
+      </View>
 
       {/* Controls */}
       <View style={styles.controls}>
         <ProgressBar position={position} duration={duration} />
 
         <View style={styles.funcRow}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticLight();
+              dispatch(toggleFavorite(currentTrack.id));
+            }}
+            style={styles.funcBtn}
+            accessibilityLabel={
+              currentTrack.isFavorite ? 'Remove from favorites' : 'Add to favorites'
+            }
+            accessibilityRole="button">
+            <Icon
+              name={currentTrack.isFavorite ? 'heart' : 'heart-outline'}
+              size={18}
+              color={currentTrack.isFavorite ? colors.heart : colors.textMuted}
+            />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowSleep(true)}
             style={styles.funcBtn}
@@ -877,6 +862,7 @@ const FullPlayerScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  topArea: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

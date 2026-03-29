@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import TrackItem from '../components/TrackItem';
 import SearchBar from '../components/SearchBar';
 import TrackMenu from '../components/TrackMenu';
@@ -81,6 +82,7 @@ const hashToUnit = (input: string): number => {
 
 const AllSongsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<any>();
   const {
     tracks,
     currentTrack,
@@ -332,15 +334,6 @@ const AllSongsScreen: React.FC = () => {
     setShowMenu(false);
     setMenuTrack(null);
   }, []);
-  const handleRefresh = useCallback(() => {
-    setUserTriggeredImport(true);
-    setPrevTrackCount(tracks.length);
-    if (Platform.OS === 'ios') {
-      dispatch(importiOSMediaLibrary(undefined));
-    } else if (scanDirectories.length > 0) {
-      dispatch(scanMusic(scanDirectories));
-    }
-  }, [dispatch, scanDirectories, tracks.length]);
   const handleFolderConfirm = useCallback(
     (dirs: string[]) => {
       setShowFolderPicker(false);
@@ -414,7 +407,6 @@ const AllSongsScreen: React.FC = () => {
         {p?.phase === 'parsing' && (
           <Text
             style={{
-              fontSize: sizes.sm,
               color: colors.textMuted,
               marginTop: 8,
               fontVariant: ['tabular-nums'],
@@ -457,40 +449,12 @@ const AllSongsScreen: React.FC = () => {
         ) : null}
         <TouchableOpacity
           style={[styles.retryBtn, { backgroundColor: colors.accent }]}
-          onPress={() => setShowFolderPicker(true)}>
-          <Icon
-            name={Platform.OS === 'ios' ? 'musical-notes' : 'folder-open-outline'}
-            size={18}
-            color={colors.bg}
-          />
+          onPress={() => navigation.navigate('ImportSongs')}>
+          <Icon name="add-circle-outline" size={18} color={colors.bg} />
           <Text style={{ fontSize: sizes.md, fontWeight: '700', color: colors.bg }}>
-            {Platform.OS === 'ios'
-              ? t('allSongs.emptyState.selectSource')
-              : t('allSongs.emptyState.selectDirectory')}
+            {t('allSongs.emptyState.importSongs')}
           </Text>
         </TouchableOpacity>
-        {Platform.OS === 'ios' && (
-          <Text
-            style={{
-              fontSize: sizes.xs,
-              color: colors.textMuted,
-              marginTop: 16,
-              textAlign: 'center',
-              paddingHorizontal: 32,
-            }}>
-            {t('allSongs.emptyState.setupMessageIOS')}
-          </Text>
-        )}
-        <Modal visible={showFolderPicker} animationType="slide">
-          <SwipeBackWrapper onSwipeBack={() => setShowFolderPicker(false)}>
-            <FolderPickerScreen
-              onConfirm={handleFolderConfirm}
-              onCancel={() => setShowFolderPicker(false)}
-              initialSelected={Platform.OS === 'ios' ? [] : scanDirectories}
-              onIOSImport={Platform.OS === 'ios' ? handleIOSImport : undefined}
-            />
-          </SwipeBackWrapper>
-        </Modal>
       </View>
     );
   }
@@ -524,11 +488,8 @@ const AllSongsScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => setShowSort(!showSort)}
             hitSlop={8}
-            style={{ marginRight: 10 }}>
+            >
             <Icon name="swap-vertical-outline" size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowFolderPicker(true)} hitSlop={8}>
-            <Icon name="folder-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -709,14 +670,6 @@ const AllSongsScreen: React.FC = () => {
               keyExtractor={keyExtractor}
               contentContainerStyle={{ paddingBottom: 140 }}
               showsVerticalScrollIndicator={true}
-              refreshControl={
-                <RefreshControl
-                  refreshing={false}
-                  onRefresh={handleRefresh}
-                  tintColor={colors.accent}
-                  colors={[colors.accent]}
-                />
-              }
               onScrollBeginDrag={() => {
                 if (sortMode === 'title' && !searchQuery) onAlphabetScroll();
                 locateRef.current?.show();

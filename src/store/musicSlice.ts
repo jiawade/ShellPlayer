@@ -9,7 +9,7 @@ import { scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress } from '.
 import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { getDefaultLrcDir, ensureDefaultDirs } from '../utils/defaultDirs';
 import { requestStoragePermission } from '../utils/permissions';
-import { SUPPORTED_FORMATS, UNSUPPORTED_FORMATS } from '../utils/theme';
+import { SUPPORTED_FORMATS } from '../utils/theme';
 import { logCrash, logInfo } from '../utils/crashLogger';
 import { saveArtworkFile, batchGetCachedArtworks } from '../utils/artworkCache';
 import {
@@ -461,25 +461,7 @@ export const playTrack = createAsyncThunk(
     try {
       const gen = ++playTrackGeneration;
 
-      // Validate file format before attempting to play
       const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
-      if (ext && UNSUPPORTED_FORMATS.includes(ext)) {
-        // Skip unsupported format - show error and play next
-        dispatch(
-          setPlaybackErrorMsg(
-            `"${track.title}" ${ext.toUpperCase().slice(1)} format not supported, skipping...`,
-          ),
-        );
-        const nextIdx = queue.findIndex(t => t.id === track.id);
-        setTimeout(() => {
-          dispatch(setPlaybackErrorMsg(null));
-          if (nextIdx >= 0 && queue.length > 1) {
-            const ni = (nextIdx + 1) % queue.length;
-            dispatch(playTrack({ track: queue[ni], queue }));
-          }
-        }, 1500);
-        return { track, index: nextIdx };
-      }
 
       let idx = queue.findIndex(t => t.id === track.id);
       if (idx < 0) {

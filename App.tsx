@@ -33,6 +33,8 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import CarModeScreen from './src/screens/CarModeScreen';
 import ThemeEditorScreen from './src/screens/ThemeEditorScreen';
 import TagEditorScreen from './src/screens/TagEditorScreen';
+import ImportSongsScreen from './src/screens/ImportSongsScreen';
+import WifiTransferScreen from './src/screens/WifiTransferScreen';
 import MiniPlayer from './src/components/MiniPlayer';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
@@ -194,6 +196,22 @@ function MainApp() {
               animation: 'slide_from_right',
             }}
           />
+          <RootStack.Screen
+            name="ImportSongs"
+            component={ImportSongsScreen}
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
+          <RootStack.Screen
+            name="WifiTransfer"
+            component={WifiTransferScreen}
+            options={{
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
         </RootStack.Navigator>
       </NavigationContainer>
     </View>
@@ -203,7 +221,7 @@ function MainApp() {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [showOnBoarding, setShowOnBoarding] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(Platform.OS === 'android' ? 1 : 0)).current;
 
   useEffect(() => {
     (async () => {
@@ -231,12 +249,14 @@ export default function App() {
         setShowOnBoarding(true);
       }
       setReady(ok as boolean);
-      // Smooth fade-in transition
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 650,
-        useNativeDriver: true,
-      }).start();
+      // Avoid launch-window layering artifact on Android startup.
+      if (Platform.OS !== 'android') {
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }).start();
+      }
     })();
   }, [fadeAnim]);
 

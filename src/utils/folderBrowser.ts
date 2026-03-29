@@ -1,18 +1,8 @@
 import RNFS from 'react-native-fs';
 import { Track } from '../types';
+import { SUPPORTED_FORMATS } from './theme';
 
-const AUDIO_EXTENSIONS = [
-  '.mp3',
-  '.flac',
-  '.m4a',
-  '.aac',
-  '.wav',
-  '.ogg',
-  '.wma',
-  '.aiff',
-  '.alac',
-  '.opus',
-];
+const AUDIO_EXTENSIONS = SUPPORTED_FORMATS;
 
 export interface FolderItem {
   name: string;

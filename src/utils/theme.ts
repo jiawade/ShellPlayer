@@ -1,4 +1,5 @@
 // src/utils/theme.ts
+import { Platform } from 'react-native';
 
 export const DARK_COLORS = {
   bg: '#0B0E17',
@@ -59,10 +60,10 @@ export const SIZES = {
   tabBarHeight: 60,
 };
 
-export const SUPPORTED_FORMATS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.aac', '.wma', '.aiff', '.alac', '.opus', '.ape', '.webm'];
-
-// Known encrypted / proprietary formats that cannot be decoded
-export const UNSUPPORTED_FORMATS = ['.kgg', '.kgm', '.ncm', '.qmc', '.qmc0', '.qmc3', '.qmcflac', '.mflac', '.mgg', '.mgg1', '.tm0', '.tm3', '.tm6', '.vpr', '.tkm', '.bkcmp3', '.bkcflac', '.joox'];
+export const SUPPORTED_FORMATS =
+  Platform.OS === 'ios'
+    ? ['.mp3', '.aiff', '.opus', '.wav', '.ogg', '.aac', '.flac', '.m4a']
+    : ['.mp3', '.opus', '.m4a', '.ogg', '.aac', '.flac', '.wav', '.webm'];
 
 // --- Preset Themes ---
 

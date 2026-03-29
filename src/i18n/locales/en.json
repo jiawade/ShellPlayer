@@ -54,7 +54,8 @@
       "setupMessageIOS": "Import from iTunes/iPod music library, or place music files in the Documents/music directory and import.",
       "setupMessageAndroid": "Select a directory to scan for music files.",
       "selectSource": "Select Import Source",
-      "selectDirectory": "Select Scan Directory"
+      "selectDirectory": "Select Scan Directory",
+      "importSongs": "Import Songs"
     },
     "batch": {
       "selectedCount": "{{count}} selected",
@@ -316,6 +317,7 @@
       "kugou": "Kugou Music"
     },
     "selectFolder": "Select Folder",
+    "scanning": "Importing",
     "selectCurrent": "Select This Directory",
     "emptyMessage": {
       "iosFolders": "No subfolders or music files in this directory",
@@ -328,7 +330,7 @@
     },
     "sections": {
       "library": "Music Library",
-      "documents": "Local Directory (Documents)",
+      "documents": "Local Directory",
       "common": "Common Directories",
       "custom": "Custom",
       "selectedFiles": "Selected Files"
@@ -345,7 +347,7 @@
       "androidSelectDirectory": "Select Scan Directory"
     },
     "buttons": {
-      "iosImportAll": "Import All (Library + Local Files)",
+      "iosImportAll": "Import All (iTunes/iPod Music Library)",
       "androidScanAll": "Scan All Common Directories",
       "iosStart": "Start Import",
       "androidStart": "Start Scan",
@@ -358,6 +360,40 @@
       "selectSourceMessage": "Please select at least one import source",
       "selectDirTitle": "Hint",
       "selectDirMessage": "Please select at least one directory"
+    }
+  },
+  "importSongs": {
+    "title": "Import Songs",
+    "library": "Library",
+    "songCount": "songs",
+    "withLyrics": "with lyrics",
+    "favorites": "favorites",
+    "actions": "Import Actions",
+    "localImport": "Local Import",
+    "wifiImport": "Import via WiFi",
+    "scanning": "Scanning...",
+    "importingProgress": "Importing... {{percent}}%"
+  },
+  "wifiTransfer": {
+    "title": "WiFi Transfer",
+    "startError": "Failed to start server",
+    "status": {
+      "connected": "Connected",
+      "ready": "Server ready, waiting for computer connection",
+      "starting": "Starting..."
+    },
+    "openInBrowser": "Open in your computer browser",
+    "copyAddress": "Copy Address",
+    "copied": "Copied",
+    "switchPort": "Switch Port",
+    "switchPortWithCurrent": "Switch Port (Current: {{port}})",
+    "receivedFiles": "Received {{count}} files",
+    "importingToLibrary": "Importing to library...",
+    "completeImport": "Complete Import ({{count}})",
+    "tips": {
+      "sameNetwork": "Make sure your phone and computer are on the same WiFi network",
+      "backgroundSafe": "You can switch pages during transfer; import will continue",
+      "supportedFormats": "Supports MP3, FLAC, WAV, AAC, OGG, OPUS and LRC lyrics"
     }
   },
   "equalizer": {

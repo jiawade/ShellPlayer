@@ -48,9 +48,17 @@ export function usePlayerSync() {
   currentTrackIdRef.current = currentTrack?.id;
 
   useEffect(() => {
-    const playing =
-      playbackState.state === State.Playing || playbackState.state === State.Buffering;
-    dispatch(setIsPlaying(playing));
+    const s = playbackState.state;
+    if (s === State.Playing) {
+      dispatch(setIsPlaying(true));
+      return;
+    }
+    // During restore/add/seek the player may transiently enter Loading/Buffering.
+    // Keep previous UI state to avoid pause->play flash on cold start.
+    if (s === State.Buffering || s === State.Loading) {
+      return;
+    }
+    dispatch(setIsPlaying(false));
   }, [playbackState.state, dispatch]);
 
   // Flush accumulated listen time when track changes

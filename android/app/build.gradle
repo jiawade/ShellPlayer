@@ -105,6 +105,34 @@ android {
     }
 }
 
+tasks.whenTaskAdded((tas -> {
+    // Keep libc++_shared.so from VLC and remove the duplicate from react-native.
+    // Using pickFirst can compile but may crash at runtime for LibVLC playback.
+    if (tas.name.contains("merge") && tas.name.contains("NativeLibs")) {
+        tasks.named(tas.name) { it
+            doFirst {
+                java.nio.file.Path rnNativeLibDirectory = it.externalLibNativeLibs
+                        .getFiles()
+                        .stream()
+                        .filter(file -> file.toString().contains("jetified-react-android") || file.toString().contains("jetified-react-native"))
+                        .findAny()
+                        .orElse(null)
+                        ?.toPath()
+
+                if (rnNativeLibDirectory != null) {
+                    java.nio.file.Files.walk(rnNativeLibDirectory).forEach(file -> {
+                        if (file.toString().contains("libc++_shared.so")) {
+                            try {
+                                java.nio.file.Files.delete(file)
+                            } catch (Exception ignored) {}
+                        }
+                    })
+                }
+            }
+        }
+    }
+}))
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")

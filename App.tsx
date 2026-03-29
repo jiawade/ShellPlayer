@@ -36,6 +36,7 @@ import TagEditorScreen from './src/screens/TagEditorScreen';
 import ImportSongsScreen from './src/screens/ImportSongsScreen';
 import WifiTransferScreen from './src/screens/WifiTransferScreen';
 import MiniPlayer from './src/components/MiniPlayer';
+import VlcAudioHost from './src/components/VlcAudioHost';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
 import { ensureDefaultDirs } from './src/utils/defaultDirs';
@@ -277,6 +278,7 @@ export default function App() {
       <Provider store={store}>
         <ThemeProvider>
           <MainApp />
+          <VlcAudioHost />
         </ThemeProvider>
       </Provider>
     </Animated.View>

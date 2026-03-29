@@ -144,7 +144,7 @@ const AudioAnalyzer: React.FC = () => {
   // Estimate sample rate based on format
   const sampleRate = (() => {
     const f = format.toUpperCase();
-    if (f === 'FLAC' || f === 'WAV' || f === 'AIFF' || f === 'ALAC') return '44.1 kHz';
+    if (f === 'FLAC' || f === 'WAV' || f === 'AIFF') return '44.1 kHz';
     if (f === 'MP3' || f === 'AAC' || f === 'M4A' || f === 'OGG') return '44.1 kHz';
     return 'N/A';
   })();

@@ -394,6 +394,12 @@
       "sameNetwork": "Make sure your phone and computer are on the same WiFi network",
       "backgroundSafe": "You can switch pages during transfer; import will continue",
       "supportedFormats": "Supports MP3, FLAC, WAV, AAC, OGG, OPUS and LRC lyrics"
+    },
+    "receivingProgress": "Received {{count}} songs",
+    "totalSize": "Total: {{size}}",
+    "importDone": {
+      "title": "WiFi Import Complete",
+      "message": "Successfully imported {{count}} songs"
     }
   },
   "equalizer": {
@@ -481,7 +487,14 @@
     "hide": "Remove from List",
     "delete": "Delete File Permanently",
     "editTags": "Edit Tags",
+    "setRingtone": "Set as Ringtone",
     "cancel": "Cancel",
+    "ringtoneSet": {
+      "title": "Success",
+      "message": "This song has been set as your ringtone",
+      "permissionTitle": "Permission Required",
+      "permissionMessage": "Please allow modifying system settings"
+    },
     "deleteAlert": {
       "title": "Delete Permanently",
       "message": "Permanently delete \"{{title}}\"?\nThis cannot be undone!",
@@ -628,6 +641,7 @@
     "openSettings": "Open Settings"
   },
   "playback": {
-    "unsupportedFormat": "\"{{title}}\" format not supported, skipping..."
+    "unsupportedFormat": "\"{{title}}\" format not supported, skipping...",
+    "fileNotFound": "\"{{title}}\" file not found, skipping..."
   }
 }

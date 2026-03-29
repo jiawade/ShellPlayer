@@ -16,10 +16,12 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store';
+import { store } from '../store';
 import { scanMusic, importiOSMediaLibrary } from '../store/musicSlice';
 import { useTheme } from '../contexts/ThemeContext';
 import { getWifiUploadHtml } from '../utils/wifiUploadHtml';
 import { getDefaultMusicDir } from '../utils/defaultDirs';
+import { emitWifiImportComplete } from '../utils/wifiImportNotifier';
 import { useTranslation } from 'react-i18next';
 
 const DEFAULT_PORT = 8888;
@@ -35,6 +37,46 @@ let _receivedFiles: { filename: string; size: number }[] = [];
 let _fileSub: any = null;
 let _connectSub: any = null;
 let _onUpdate: (() => void) | null = null;
+let _isScreenMounted = false;
+let _bgImportTimer: ReturnType<typeof setTimeout> | null = null;
+const BG_IMPORT_DELAY = 5000; // 5s after last file, auto-import in background
+
+function cancelBgImportTimer() {
+  if (_bgImportTimer) {
+    clearTimeout(_bgImportTimer);
+    _bgImportTimer = null;
+  }
+}
+
+function scheduleBgImport() {
+  cancelBgImportTimer();
+  if (_isScreenMounted || _receivedFiles.length === 0) return;
+  _bgImportTimer = setTimeout(async () => {
+    if (_isScreenMounted) return; // user came back
+    const fileCount = _receivedFiles.length;
+    const musicDir = getDefaultMusicDir();
+    // Cleanup server
+    if (_serverStarted) {
+      NativeModules.WifiTransferModule.stopServer().catch(() => {});
+      _serverStarted = false;
+    }
+    if (_fileSub) { _fileSub.remove(); _fileSub = null; }
+    if (_connectSub) { _connectSub.remove(); _connectSub = null; }
+    _serverUrl = null;
+    _clientConnected = false;
+    _receivedFiles = [];
+    _onUpdate = null;
+    // Import
+    try {
+      if (Platform.OS === 'ios') {
+        await store.dispatch(importiOSMediaLibrary({ includeIPod: false, localDirs: [musicDir], localFiles: [] }));
+      } else {
+        await store.dispatch(scanMusic([musicDir]));
+      }
+    } catch {}
+    emitWifiImportComplete(fileCount);
+  }, BG_IMPORT_DELAY);
+}
 
 function ensureEventListener() {
   if (_fileSub) return;
@@ -47,6 +89,10 @@ function ensureEventListener() {
     const filename = event.filename || 'unknown';
     _receivedFiles = [..._receivedFiles, { filename, size: event.size }];
     _onUpdate?.();
+    // If screen is not mounted, schedule auto-import after inactivity
+    if (!_isScreenMounted) {
+      scheduleBgImport();
+    }
   });
   _connectSub = emitter.addListener('onWifiClientConnected', () => {
     _clientConnected = true;
@@ -131,6 +177,9 @@ const WifiTransferScreen: React.FC = () => {
   );
 
   useEffect(() => {
+    _isScreenMounted = true;
+    cancelBgImportTimer();
+
     // If server already running (returning to screen), just sync state
     if (_serverStarted && _serverUrl) {
       setServerUrl(_serverUrl);
@@ -153,9 +202,14 @@ const WifiTransferScreen: React.FC = () => {
     anim.start();
 
     return () => {
+      _isScreenMounted = false;
       _onUpdate = null;
       anim.stop();
       // Server intentionally NOT stopped — keeps running in background
+      // Schedule auto-import if there are received files
+      if (_receivedFiles.length > 0 && _serverStarted) {
+        scheduleBgImport();
+      }
     };
   }, []);
 
@@ -305,6 +359,21 @@ const WifiTransferScreen: React.FC = () => {
           ))}
         </View>
 
+        {/* Receiving progress bar */}
+        {receivedFiles.length > 0 && clientConnected && !isImporting && (
+          <View style={[styles.progressCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="small" color={colors.accent} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
+                {t('wifiTransfer.receivingProgress', { count: receivedFiles.filter(f => !f.filename.toLowerCase().endsWith('.lrc')).length })}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>
+              {t('wifiTransfer.totalSize', { size: formatSize(receivedFiles.reduce((s, f) => s + f.size, 0)) })}
+            </Text>
+          </View>
+        )}
+
         {/* Received files */}
         {receivedFiles.length > 0 && (
           <View style={styles.filesSection}>
@@ -444,6 +513,12 @@ const styles = StyleSheet.create({
   tipsSection: { marginBottom: 28, gap: 10 },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tipText: { fontSize: 13 },
+  progressCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
   filesSection: { marginBottom: 20 },
   filesSectionTitle: {
     fontSize: 10,

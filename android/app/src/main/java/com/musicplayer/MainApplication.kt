@@ -24,6 +24,8 @@ class MainApplication : Application(), ReactApplication {
               add(AudioLevelPackage())
               add(TagWriterPackage())
               add(WifiTransferPackage())
+              add(RingtonePackage())
+              add(MusicWidgetPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

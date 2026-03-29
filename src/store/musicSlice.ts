@@ -685,6 +685,12 @@ const musicSlice = createSlice({
       }
       s.tracks = s.tracks.filter(t => t.id !== id);
     },
+    // Remove track from lists without hiding (allows re-import)
+    removeUnplayableTrack: (s, a: PayloadAction<string>) => {
+      const id = a.payload;
+      s.tracks = s.tracks.filter(t => t.id !== id);
+      s.playQueue = s.playQueue.filter(t => t.id !== id);
+    },
     // Sort
     setSortMode: (s, a: PayloadAction<SortMode>) => {
       s.sortMode = a.payload;
@@ -961,6 +967,7 @@ export const {
   setScanDirectories,
   setScanProgress,
   hideTrack,
+  removeUnplayableTrack,
   setSortMode,
   setThemeMode,
   addToHistory,

@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
-import { setVlcRate } from '../utils/vlcPlayback';
 import musicReducer from './musicSlice';
 import playlistReducer from './playlistSlice';
 import proReducer from './proSlice';
@@ -93,11 +92,7 @@ const persistMiddleware: Middleware = storeApi => next => (action: any) => {
   }
 
   if (action.type === 'music/setPlaybackSpeed') {
-    if (m.activePlayer === 'vlc') {
-      setVlcRate(m.playbackSpeed).catch(() => {});
-    } else {
-      TrackPlayer.setRate(m.playbackSpeed).catch(() => {});
-    }
+    TrackPlayer.setRate(m.playbackSpeed).catch(() => {});
   }
 
   return result;

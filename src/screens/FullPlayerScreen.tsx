@@ -345,7 +345,7 @@ const FullPlayerScreen: React.FC = () => {
             </View>
             <View style={styles.trackInfo}>
               <MarqueeText
-                text={currentTrack.fileName || currentTrack.title}
+                text={currentTrack.title || currentTrack.fileName.replace(/\.[^.]+$/, '')}
                 style={{
                   fontSize: sizes.xl,
                   fontWeight: '700',

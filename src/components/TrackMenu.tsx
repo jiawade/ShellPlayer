@@ -2,7 +2,7 @@
 import React, { memo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
-  Pressable, Alert, ScrollView,
+  Pressable, Alert, ScrollView, Platform, NativeModules,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
@@ -66,6 +66,21 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
   }, [track, dispatch, onClose]);
 
   const handleShowInfo = useCallback(() => { setShowInfo(true); }, []);
+
+  const handleSetRingtone = useCallback(async () => {
+    if (!track) return;
+    try {
+      await NativeModules.RingtoneModule.setAsRingtone(track.filePath, track.title);
+      Alert.alert(t('trackMenu.ringtoneSet.title'), t('trackMenu.ringtoneSet.message'));
+    } catch (e: any) {
+      if (e.code === 'PERMISSION_NEEDED') {
+        Alert.alert(t('trackMenu.ringtoneSet.permissionTitle'), t('trackMenu.ringtoneSet.permissionMessage'));
+      } else {
+        Alert.alert(t('common.hint'), e.message || 'Failed to set ringtone');
+      }
+    }
+    onClose();
+  }, [track, onClose, t]);
 
   if (!track) return null;
 
@@ -131,6 +146,13 @@ const TrackMenu: React.FC<Props> = ({ track, visible, onClose }) => {
             <Icon name="create-outline" size={20} color={colors.textPrimary} />
             <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t('trackMenu.editTags')}</Text>
           </TouchableOpacity>
+
+          {Platform.OS === 'android' && (
+            <TouchableOpacity style={styles.menuItem} onPress={handleSetRingtone} activeOpacity={0.6}>
+              <Icon name="musical-notes-outline" size={20} color={colors.textPrimary} />
+              <Text style={{ fontSize: sizes.md, color: colors.textPrimary, fontWeight: '500' }}>{t('trackMenu.setRingtone')}</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.menuItem} onPress={handleHide} activeOpacity={0.6}>
             <Icon name="eye-off-outline" size={20} color={colors.secondary} />

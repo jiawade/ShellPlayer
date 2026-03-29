@@ -6,6 +6,7 @@ import SwiftUI
 @main
 struct MusicPlayerWidgetBundle: WidgetBundle {
   var body: some Widget {
+    MusicPlayerHomeWidget()
     if #available(iOS 16.1, *) {
       MusicPlayerLiveActivity()
     }

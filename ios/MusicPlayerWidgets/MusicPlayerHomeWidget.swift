@@ -1,0 +1,287 @@
+// MusicPlayerHomeWidget.swift
+// Home Screen Widget for Music X
+import WidgetKit
+import SwiftUI
+
+#if canImport(AppIntents)
+import AppIntents
+#endif
+
+// MARK: - Shared data via App Group UserDefaults
+struct MusicWidgetData {
+  static let suiteName = "group.com.musicplayer.shared"
+  
+  var title: String
+  var artist: String
+  var isPlaying: Bool
+  var artworkBase64: String?
+  var progress: Double  // 0.0–1.0
+  var duration: Double  // total duration in seconds
+  var bgR: Double?
+  var bgG: Double?
+  var bgB: Double?
+  
+  static func load() -> MusicWidgetData {
+    let defaults = UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
+    let hasColor = defaults.object(forKey: "widget_bgR") != nil
+    return MusicWidgetData(
+      title: defaults.string(forKey: "widget_title") ?? "Music X",
+      artist: defaults.string(forKey: "widget_artist") ?? "",
+      isPlaying: defaults.bool(forKey: "widget_isPlaying"),
+      artworkBase64: defaults.string(forKey: "widget_artworkBase64"),
+      progress: defaults.double(forKey: "widget_progress"),
+      duration: defaults.double(forKey: "widget_duration"),
+      bgR: hasColor ? defaults.double(forKey: "widget_bgR") : nil,
+      bgG: hasColor ? defaults.double(forKey: "widget_bgG") : nil,
+      bgB: hasColor ? defaults.double(forKey: "widget_bgB") : nil
+    )
+  }
+}
+
+// MARK: - Timeline Provider
+struct MusicWidgetProvider: TimelineProvider {
+  func placeholder(in context: Context) -> MusicWidgetEntry {
+    MusicWidgetEntry(date: Date(), data: MusicWidgetData(title: "Music X", artist: "Not Playing", isPlaying: false, artworkBase64: nil, progress: 0.35, duration: 0, bgR: nil, bgG: nil, bgB: nil))
+  }
+  
+  func getSnapshot(in context: Context, completion: @escaping (MusicWidgetEntry) -> Void) {
+    completion(MusicWidgetEntry(date: Date(), data: MusicWidgetData.load()))
+  }
+  
+  func getTimeline(in context: Context, completion: @escaping (Timeline<MusicWidgetEntry>) -> Void) {
+    let data = MusicWidgetData.load()
+    var entries: [MusicWidgetEntry] = []
+    let now = Date()
+    
+    if data.isPlaying && data.duration > 0 {
+      // Generate entries every 5 seconds to animate progress
+      let remainingRatio = 1.0 - data.progress
+      let remainingSec = remainingRatio * data.duration
+      let steps = min(60, Int(remainingSec / 5) + 1) // up to 5 minutes of entries
+      
+      for i in 0..<steps {
+        let offset = Double(i) * 5.0
+        let predicted = min(1.0, data.progress + (offset / data.duration))
+        var entryData = data
+        entryData.progress = predicted
+        entries.append(MusicWidgetEntry(date: now.addingTimeInterval(offset), data: entryData))
+      }
+      
+      let nextUpdate = now.addingTimeInterval(min(remainingSec + 1, 300))
+      let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+      completion(timeline)
+    } else {
+      entries.append(MusicWidgetEntry(date: now, data: data))
+      let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
+      let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
+      completion(timeline)
+    }
+  }
+}
+
+// MARK: - Timeline Entry
+struct MusicWidgetEntry: TimelineEntry {
+  let date: Date
+  let data: MusicWidgetData
+}
+
+// MARK: - Widget View
+struct MusicWidgetView: View {
+  var entry: MusicWidgetEntry
+  @Environment(\.widgetFamily) var family
+  
+  private let accentColor = Color(red: 0.43, green: 0.78, blue: 0.96)  // #6EC7F5
+  
+  private let fallbackBg = Color(red: 0.08, green: 0.08, blue: 0.14)
+
+  /// Use pre-computed average color from main app (fast path)
+  private var dynamicBgColor: Color {
+    let darken = 0.35
+    if let r = entry.data.bgR, let g = entry.data.bgG, let b = entry.data.bgB {
+      return Color(red: r * darken, green: g * darken, blue: b * darken)
+    }
+    return fallbackBg
+  }
+  
+  var body: some View {
+    mediumView
+  }
+  
+  // MARK: Medium Widget (4×1)
+  var mediumView: some View {
+    HStack(spacing: 12) {
+      // Large artwork on the left — fills most of the height
+      artworkImage(size: 110)
+      
+      // Right side: song info on top, controls at bottom
+      VStack(alignment: .leading, spacing: 0) {
+        // Song title
+        Text(entry.data.title)
+          .font(.system(size: 15, weight: .bold))
+          .foregroundColor(.white)
+          .lineLimit(1)
+        
+        // Artist
+        Text(entry.data.artist.isEmpty ? "Music X" : entry.data.artist)
+          .font(.system(size: 12))
+          .foregroundColor(.white.opacity(0.6))
+          .lineLimit(1)
+          .padding(.top, 2)
+        
+        Spacer(minLength: 4)
+        
+        // Progress bar
+        GeometryReader { geo in
+          ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 1.5)
+              .fill(Color.white.opacity(0.15))
+              .frame(height: 3)
+            RoundedRectangle(cornerRadius: 1.5)
+              .fill(accentColor)
+              .frame(width: geo.size.width * max(0, min(1, entry.data.progress)), height: 3)
+          }
+        }
+        .frame(height: 3)
+        
+        Spacer(minLength: 6)
+        
+        // Playback controls
+        HStack(spacing: 20) {
+          Spacer()
+          controlButton(systemName: "backward.fill", action: "prev", size: 18)
+          playPauseButton
+          controlButton(systemName: "forward.fill", action: "next", size: 18)
+          Spacer()
+        }
+      }
+      .frame(maxWidth: .infinity)
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 10)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .widgetBackground(dynamicBgColor)
+  }
+  
+  // MARK: Play/Pause button (larger, with circle background)
+  var playPauseButton: some View {
+    Group {
+      if #available(iOS 17.0, *) {
+        #if canImport(AppIntents)
+        Button(intent: PlayPauseIntent()) {
+          playPauseLabel
+        }
+        .buttonStyle(.plain)
+        #else
+        Link(destination: URL(string: "musicx://play_pause")!) {
+          playPauseLabel
+        }
+        #endif
+      } else {
+        Link(destination: URL(string: "musicx://play_pause")!) {
+          playPauseLabel
+        }
+      }
+    }
+  }
+  
+  var playPauseLabel: some View {
+    ZStack {
+      Circle()
+        .fill(accentColor.opacity(0.18))
+        .frame(width: 38, height: 38)
+      Image(systemName: entry.data.isPlaying ? "pause.fill" : "play.fill")
+        .font(.system(size: 18, weight: .bold))
+        .foregroundColor(accentColor)
+    }
+  }
+  
+  // MARK: Control button helper
+  func controlButton(systemName: String, action: String, size: CGFloat) -> some View {
+    Group {
+      if #available(iOS 17.0, *) {
+        #if canImport(AppIntents)
+        Button(intent: intentForAction(action)) {
+          Image(systemName: systemName)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundColor(.white.opacity(0.7))
+            .frame(width: 36, height: 36)
+        }
+        .buttonStyle(.plain)
+        #else
+        Link(destination: URL(string: "musicx://\(action)")!) {
+          Image(systemName: systemName)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundColor(.white.opacity(0.7))
+            .frame(width: 36, height: 36)
+        }
+        #endif
+      } else {
+        Link(destination: URL(string: "musicx://\(action)")!) {
+          Image(systemName: systemName)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundColor(.white.opacity(0.7))
+            .frame(width: 36, height: 36)
+        }
+      }
+    }
+  }
+
+  @available(iOS 17.0, *)
+  func intentForAction(_ action: String) -> any AppIntent {
+    switch action {
+    case "prev": return PrevTrackIntent()
+    case "next": return NextTrackIntent()
+    default: return PlayPauseIntent()
+    }
+  }
+  
+  // MARK: Artwork helper
+  func artworkImage(size: CGFloat) -> some View {
+    Group {
+      if let b64 = entry.data.artworkBase64,
+         let data = Data(base64Encoded: b64),
+         let uiImage = UIImage(data: data) {
+        Image(uiImage: uiImage)
+          .resizable()
+          .aspectRatio(contentMode: .fill)
+          .frame(width: size, height: size)
+          .clipShape(RoundedRectangle(cornerRadius: size * 0.16))
+      } else {
+        RoundedRectangle(cornerRadius: size * 0.16)
+          .fill(Color.white.opacity(0.08))
+          .frame(width: size, height: size)
+          .overlay(
+            Image(systemName: "music.note")
+              .foregroundColor(.white.opacity(0.3))
+              .font(.system(size: size * 0.35))
+          )
+      }
+    }
+  }
+}
+
+// MARK: - Widget Background Modifier (iOS version compat)
+extension View {
+  @ViewBuilder
+  func widgetBackground(_ color: Color) -> some View {
+    if #available(iOS 17.0, *) {
+      self.containerBackground(color, for: .widget)
+    } else {
+      self.background(color)
+    }
+  }
+}
+
+// MARK: - Widget Definition
+struct MusicPlayerHomeWidget: Widget {
+  let kind: String = "MusicPlayerHomeWidget"
+  
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: MusicWidgetProvider()) { entry in
+      MusicWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Music X")
+    .description("Show currently playing song")
+    .supportedFamilies([.systemMedium])
+  }
+}

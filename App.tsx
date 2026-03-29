@@ -36,7 +36,6 @@ import TagEditorScreen from './src/screens/TagEditorScreen';
 import ImportSongsScreen from './src/screens/ImportSongsScreen';
 import WifiTransferScreen from './src/screens/WifiTransferScreen';
 import MiniPlayer from './src/components/MiniPlayer';
-import VlcAudioHost from './src/components/VlcAudioHost';
 import { setupPlayer } from './src/utils/playerSetup';
 import { initEqualizer } from './src/utils/equalizer';
 import { ensureDefaultDirs } from './src/utils/defaultDirs';
@@ -44,6 +43,8 @@ import { initIAP } from './src/utils/iap';
 import { checkAndPromptReview } from './src/utils/reviewPrompt';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { DARK_COLORS, LIGHT_COLORS, SIZES } from './src/utils/theme';
+import { onWifiImportComplete } from './src/utils/wifiImportNotifier';
+import { useWidgetSync } from './src/hooks/useWidgetSync';
 
 // Synchronous: read once at module load to match native splash background
 const _sysIsDark = Appearance.getColorScheme() !== 'light';
@@ -102,9 +103,39 @@ function TabsWithMiniPlayer() {
   );
 }
 
+function WifiImportBanner() {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const [info, setInfo] = useState<{ count: number } | null>(null);
+  const fadeAnim2 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const unsub = onWifiImportComplete((count) => {
+      setInfo({ count });
+      fadeAnim2.setValue(1);
+      Animated.timing(fadeAnim2, { toValue: 0, duration: 500, delay: 4000, useNativeDriver: true }).start(() => {
+        setInfo(null);
+      });
+    });
+    return unsub;
+  }, [fadeAnim2]);
+
+  if (!info) return null;
+  return (
+    <Animated.View style={{ position: 'absolute', top: 80, left: 20, right: 20, opacity: fadeAnim2, backgroundColor: colors.bgElevated, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 10, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, borderWidth: 1, borderColor: colors.border, zIndex: 9999 }}>
+      <Icon name="checkmark-circle" size={22} color="#4ade80" />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>{t('wifiTransfer.importDone.title')}</Text>
+        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{t('wifiTransfer.importDone.message', { count: info.count })}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 function MainApp() {
   const dispatch = useAppDispatch();
   const { colors, isDark } = useTheme();
+  useWidgetSync();
 
   useEffect(() => {
     // loadUserPrefs already dispatched in App() setup phase
@@ -215,6 +246,7 @@ function MainApp() {
           />
         </RootStack.Navigator>
       </NavigationContainer>
+      <WifiImportBanner />
     </View>
   );
 }
@@ -278,7 +310,6 @@ export default function App() {
       <Provider store={store}>
         <ThemeProvider>
           <MainApp />
-          <VlcAudioHost />
         </ThemeProvider>
       </Provider>
     </Animated.View>

@@ -394,6 +394,12 @@
       "sameNetwork": "确保手机和电脑连接同一 WiFi 网络",
       "backgroundSafe": "传输过程中可切换到其他页面，导入不会中断",
       "supportedFormats": "支持 MP3, FLAC, WAV, AAC, OGG, OPUS 等音频及 LRC 歌词"
+    },
+    "receivingProgress": "已接收 {{count}} 首歌曲",
+    "totalSize": "总大小: {{size}}",
+    "importDone": {
+      "title": "WiFi 导入完成",
+      "message": "成功导入了 {{count}} 首歌曲"
     }
   },
   "equalizer": {
@@ -481,7 +487,14 @@
     "hide": "从列表中移除",
     "delete": "永久删除文件",
     "editTags": "编辑标签",
+    "setRingtone": "设为来电铃声",
     "cancel": "取消",
+    "ringtoneSet": {
+      "title": "设置成功",
+      "message": "已将此歌曲设为来电铃声",
+      "permissionTitle": "需要权限",
+      "permissionMessage": "请在系统设置中允许修改系统设置"
+    },
     "deleteAlert": {
       "title": "永久删除",
       "message": "确定要从存储中永久删除「{{title}}」吗？\n此操作不可撤销！",
@@ -628,6 +641,7 @@
     "openSettings": "打开设置"
   },
   "playback": {
-    "unsupportedFormat": "\"{{title}}\" 格式不支持，即将跳过..."
+    "unsupportedFormat": "\"{{title}}\" 格式不支持，即将跳过...",
+    "fileNotFound": "\"{{title}}\" 文件不存在，即将跳过..."
   }
 }

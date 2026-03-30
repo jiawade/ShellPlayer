@@ -2,9 +2,92 @@
 #import "MusicPlayer-Swift.h"
 #import <UIKit/UIKit.h>
 
+// C callback for Darwin notification from widget extension
+static void widgetCommandCallback(CFNotificationCenterRef center,
+                                  void *observer,
+                                  CFNotificationName name,
+                                  const void *object,
+                                  CFDictionaryRef userInfo)
+{
+  MusicWidgetModule *module = (__bridge MusicWidgetModule *)observer;
+  [module deliverWidgetCommand];
+}
+
 @implementation MusicWidgetModule
+{
+  BOOL _hasListeners;
+}
 
 RCT_EXPORT_MODULE();
+
++ (BOOL)requiresMainQueueSetup {
+  return YES;
+}
+
+- (instancetype)init
+{
+  self = [super init];
+  if (self) {
+    // Register for Darwin notification from widget extension
+    CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      (__bridge const void *)self,
+      widgetCommandCallback,
+      CFSTR("com.musicplayer.widgetCommand"),
+      NULL,
+      CFNotificationSuspensionBehaviorDeliverImmediately
+    );
+  }
+  return self;
+}
+
+- (void)dealloc
+{
+  CFNotificationCenterRemoveObserver(
+    CFNotificationCenterGetDarwinNotifyCenter(),
+    (__bridge const void *)self,
+    CFSTR("com.musicplayer.widgetCommand"),
+    NULL
+  );
+}
+
+- (NSArray<NSString *> *)supportedEvents {
+  return @[@"onWidgetCommand"];
+}
+
+- (void)startObserving {
+  _hasListeners = YES;
+}
+
+- (void)stopObserving {
+  _hasListeners = NO;
+}
+
+- (void)deliverWidgetCommand
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.com.musicplayer.shared"];
+    [defaults synchronize];
+    NSString *command = [defaults stringForKey:@"widget_command"];
+    if (!command || command.length == 0) return;
+    [defaults removeObjectForKey:@"widget_command"];
+    [defaults synchronize];
+
+    if (self->_hasListeners) {
+      [self sendEventWithName:@"onWidgetCommand" body:@{@"command": command}];
+    } else {
+      // Fallback: post as URL notification for Linking
+      NSString *urlString = [NSString stringWithFormat:@"musicx://%@", command];
+      NSURL *url = [NSURL URLWithString:urlString];
+      if (url) {
+        NSDictionary *payload = @{@"url": url.absoluteString};
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"RCTOpenURLNotification"
+                                                            object:nil
+                                                          userInfo:payload];
+      }
+    }
+  });
+}
 
 RCT_EXPORT_METHOD(updateWidget:(NSString *)title
                   artist:(NSString *)artist

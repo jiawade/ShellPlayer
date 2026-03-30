@@ -45,7 +45,7 @@ diff --git a/node_modules/react-native-track-player/android/src/main/java/com/do
 diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
 --- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
 +++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
-@@ -7,11 +7,17 @@
+@@ -7,11 +7,24 @@
  //
  
  import Foundation
@@ -56,9 +56,16 @@ diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPla
  @objc(RNTrackPlayer)
  public class RNTrackPlayer: RCTEventEmitter, AudioSessionControllerDelegate {
 +
-+    /// Exposed for EqualizerModule / AudioMeter: returns current AVPlayerItem for tap application
++    /// Exposed for EqualizerModule / AudioMeter: returns current AVPlayerItem for tap application.
++    /// Uses KVC to reach the internal AVPlayer because SwiftAudioEx's wrapper is module-internal.
 +    @objc public func getCurrentAVPlayerItem() -> AVPlayerItem? {
-+        return player.currentAVPlayerItem
++        let mirror = Mirror(reflecting: player)
++        // AudioPlayer.wrapper (internal let)
++        guard let wrapper = mirror.descendant("wrapper") else { return nil }
++        let wrapperMirror = Mirror(reflecting: wrapper)
++        // AVPlayerWrapper.avPlayer (fileprivate var)
++        guard let avPlayer = wrapperMirror.descendant("avPlayer") as? AVPlayer else { return nil }
++        return avPlayer.currentItem
 +    }
  
      // MARK: - Attributes

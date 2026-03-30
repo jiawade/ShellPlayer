@@ -102,23 +102,29 @@ const RhythmLightScreen: React.FC = () => {
   const {currentTrack, isPlaying} = useAppSelector(s => s.music);
   const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
   const {t} = useTranslation();
-  const [levels, setLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
-  const [peakLevels, setPeakLevels] = useState<number[]>(() => new Array(NUM_COLS).fill(0));
+  // Use a single state object to batch updates into one re-render per frame
+  const [vizState, setVizState] = useState(() => ({
+    levels: new Array(NUM_COLS).fill(0) as number[],
+    peakLevels: new Array(NUM_COLS).fill(0) as number[],
+    motionPhase: 0,
+  }));
+  const levels = vizState.levels;
+  const peakLevels = vizState.peakLevels;
+  const motionPhase = vizState.motionPhase;
   const [mode, setMode] = useState<VisualizerMode>('classic');
   const [speakerImgIdx, setSpeakerImgIdx] = useState(() => Math.floor(Math.random() * SPEAKER_IMAGES.length));
-  const [motionPhase, setMotionPhase] = useState(0);
   const [spkBeatMode, setSpkBeatMode] = useState(true);
 
   const rawTargetsRef = useRef(new Array(NUM_COLS).fill(0));
   const currentRef = useRef(new Array(NUM_COLS).fill(0));
   const peaksRef = useRef(new Array(NUM_COLS).fill(0));
   const animRef = useRef(0);
-  const frameRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
   const appActiveRef = useRef(true);
   const monitoringActiveRef = useRef(false);
   const listenerRemoverRef = useRef<(() => void) | null>(null);
   const systemVolumeRef = useRef(1);
+  const motionPhaseRef = useRef(0);
   // Beat detection refs
   const prevEnergyRef = useRef(0);
   const fluxHistoryRef = useRef<number[]>([]);
@@ -213,8 +219,19 @@ const RhythmLightScreen: React.FC = () => {
 
   // Animation loop – smooth interpolation with peak hold
   const startAnimLoop = useCallback(() => {
-    const animate = () => {
+    let lastFrameTime = 0;
+    // Target ~30fps on iOS, ~20fps on Android to reduce CPU while staying smooth
+    const FRAME_INTERVAL = Platform.OS === 'android' ? 50 : 33;
+
+    const animate = (timestamp: number) => {
       if (!appActiveRef.current) return;
+
+      // Throttle: skip frame if not enough time has elapsed
+      if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+        animRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastFrameTime = timestamp;
 
       const curr = currentRef.current;
       const gain = 1;
@@ -250,14 +267,13 @@ const RhythmLightScreen: React.FC = () => {
         beatLevelRef.current = Math.max(0, beatLevelRef.current * 0.9);
       }
 
-      frameRef.current += 1;
-      // Android Hermes JIT 需要预热，降频到 ~20fps 避免前 10 秒卡顿
-      const skipN = Platform.OS === 'android' ? 3 : 2;
-      if (frameRef.current % skipN === 0) {
-        setLevels(newLevels.slice());
-        setPeakLevels(newPeaks.slice());
-        setMotionPhase(prev => (prev + 0.09) % TAU);
-      }
+      // Single batched state update instead of 3 separate ones
+      setVizState({
+        levels: newLevels,
+        peakLevels: newPeaks,
+        motionPhase: (motionPhaseRef.current + 0.09) % TAU,
+      });
+      motionPhaseRef.current = (motionPhaseRef.current + 0.09) % TAU;
 
       animRef.current = requestAnimationFrame(animate);
     };

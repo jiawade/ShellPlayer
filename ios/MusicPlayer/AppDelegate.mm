@@ -6,31 +6,6 @@
 #import <AVFoundation/AVFoundation.h>
 #import <TargetConditionals.h>
 
-// Check for a pending widget command and deliver it to JS via RCTOpenURLNotification.
-// Called when the app becomes active (guaranteed by openAppWhenRun = true in AppIntents).
-static void deliverPendingWidgetCommand(void) {
-  NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.com.musicplayer.shared"];
-  [defaults synchronize]; // pick up cross-process writes from widget extension
-  NSString *command = [defaults stringForKey:@"widget_command"];
-  if (!command || command.length == 0) return;
-  [defaults removeObjectForKey:@"widget_command"];
-  [defaults synchronize];
-
-  NSString *urlString = [NSString stringWithFormat:@"musicx://%@", command];
-  NSURL *url = [NSURL URLWithString:urlString];
-  if (!url) return;
-
-  dispatch_async(dispatch_get_main_queue(), ^{
-    // Small delay to ensure React bridge is ready after backgrounding
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      NSDictionary *payload = @{@"url": url.absoluteString};
-      [[NSNotificationCenter defaultCenter] postNotificationName:@"RCTOpenURLNotification"
-                                                          object:nil
-                                                        userInfo:payload];
-    });
-  });
-}
-
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -48,12 +23,6 @@ static void deliverPendingWidgetCommand(void) {
   [session setActive:YES error:nil];
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
-}
-
-- (void)applicationDidBecomeActive:(UIApplication *)application
-{
-  // Deliver any pending widget command (written by AppIntent with openAppWhenRun=true)
-  deliverPendingWidgetCommand();
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge

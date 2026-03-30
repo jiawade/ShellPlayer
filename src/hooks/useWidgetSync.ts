@@ -2,7 +2,7 @@
 // Syncs current playback state to Android/iOS home screen widgets
 // Also handles incoming widget deep-link actions (iOS)
 import { useEffect, useRef } from 'react';
-import { Linking, NativeModules, Platform } from 'react-native';
+import { Linking, NativeModules, NativeEventEmitter, Platform } from 'react-native';
 import TrackPlayer from 'react-native-track-player';
 import { useProgress } from 'react-native-track-player';
 import { useAppSelector } from '../store';
@@ -16,73 +16,80 @@ import RNFS from 'react-native-fs';
 
 const { MusicWidgetModule } = NativeModules;
 
+/**
+ * Execute a widget playback command by action name.
+ */
+function executeWidgetAction(action: string) {
+  switch (action) {
+    case 'play_pause':
+    case 'toggle':
+      TrackPlayer.getPlaybackState().then(state => {
+        const s = typeof state === 'object' ? (state as any).state : state;
+        if (s === 'playing') {
+          TrackPlayer.pause();
+        } else {
+          TrackPlayer.play();
+        }
+      });
+      break;
+    case 'next': {
+      const st = store.getState().music;
+      const queue = st.playQueue.length > 0 ? st.playQueue : st.tracks;
+      if (st.repeatMode === 'queue' && queue.length > 1) {
+        if (st.shuffleHistoryIndex < st.shuffleHistory.length - 1) {
+          const nextId = st.shuffleHistory[st.shuffleHistoryIndex + 1];
+          const nextTrack = queue.find(t => t.id === nextId);
+          if (nextTrack) {
+            store.dispatch(shuffleHistoryForward());
+            store.dispatch(playTrack({ track: nextTrack, queue, navigatingShuffleHistory: true }));
+            break;
+          }
+        }
+        const candidates = queue.filter(t => t.id !== st.currentTrack?.id);
+        if (candidates.length > 0) {
+          const random = candidates[Math.floor(Math.random() * candidates.length)];
+          store.dispatch(playTrack({ track: random, queue }));
+        }
+      } else if (queue.length > 0 && st.currentTrack) {
+        const currentIdx = queue.findIndex(t => t.id === st.currentTrack!.id);
+        if (currentIdx >= 0) {
+          const nextIdx = (currentIdx + 1) % queue.length;
+          store.dispatch(playTrack({ track: queue[nextIdx], queue }));
+        }
+      }
+      break;
+    }
+    case 'prev': {
+      const st = store.getState().music;
+      const queue = st.playQueue.length > 0 ? st.playQueue : st.tracks;
+      if (st.repeatMode === 'queue' && queue.length > 1) {
+        if (st.shuffleHistoryIndex > 0) {
+          const prevId = st.shuffleHistory[st.shuffleHistoryIndex - 1];
+          const prevTrack = queue.find(t => t.id === prevId);
+          if (prevTrack) {
+            store.dispatch(shuffleHistoryBack());
+            store.dispatch(playTrack({ track: prevTrack, queue, navigatingShuffleHistory: true }));
+          }
+        }
+      } else if (queue.length > 0 && st.currentTrack) {
+        const currentIdx = queue.findIndex(t => t.id === st.currentTrack!.id);
+        if (currentIdx >= 0) {
+          const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
+          store.dispatch(playTrack({ track: queue[prevIdx], queue }));
+        }
+      }
+      break;
+    }
+  }
+}
+
 function handleWidgetURL(url: string | null) {
   if (!url) return;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'musicx:') return;
     const action = parsed.hostname || parsed.host;
-    switch (action) {
-      case 'play_pause':
-      case 'toggle':
-        TrackPlayer.getPlaybackState().then(state => {
-          const s = typeof state === 'object' ? (state as any).state : state;
-          if (s === 'playing') {
-            TrackPlayer.pause();
-          } else {
-            TrackPlayer.play();
-          }
-        });
-        break;
-      case 'next': {
-        const st = store.getState().music;
-        const queue = st.playQueue.length > 0 ? st.playQueue : st.tracks;
-        if (st.repeatMode === 'queue' && queue.length > 1) {
-          if (st.shuffleHistoryIndex < st.shuffleHistory.length - 1) {
-            const nextId = st.shuffleHistory[st.shuffleHistoryIndex + 1];
-            const nextTrack = queue.find(t => t.id === nextId);
-            if (nextTrack) {
-              store.dispatch(shuffleHistoryForward());
-              store.dispatch(playTrack({ track: nextTrack, queue, navigatingShuffleHistory: true }));
-              break;
-            }
-          }
-          const candidates = queue.filter(t => t.id !== st.currentTrack?.id);
-          if (candidates.length > 0) {
-            const random = candidates[Math.floor(Math.random() * candidates.length)];
-            store.dispatch(playTrack({ track: random, queue }));
-          }
-        } else if (queue.length > 0 && st.currentTrack) {
-          const currentIdx = queue.findIndex(t => t.id === st.currentTrack!.id);
-          if (currentIdx >= 0) {
-            const nextIdx = (currentIdx + 1) % queue.length;
-            store.dispatch(playTrack({ track: queue[nextIdx], queue }));
-          }
-        }
-        break;
-      }
-      case 'prev': {
-        const st = store.getState().music;
-        const queue = st.playQueue.length > 0 ? st.playQueue : st.tracks;
-        if (st.repeatMode === 'queue' && queue.length > 1) {
-          if (st.shuffleHistoryIndex > 0) {
-            const prevId = st.shuffleHistory[st.shuffleHistoryIndex - 1];
-            const prevTrack = queue.find(t => t.id === prevId);
-            if (prevTrack) {
-              store.dispatch(shuffleHistoryBack());
-              store.dispatch(playTrack({ track: prevTrack, queue, navigatingShuffleHistory: true }));
-            }
-          }
-        } else if (queue.length > 0 && st.currentTrack) {
-          const currentIdx = queue.findIndex(t => t.id === st.currentTrack!.id);
-          if (currentIdx >= 0) {
-            const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
-            store.dispatch(playTrack({ track: queue[prevIdx], queue }));
-          }
-        }
-        break;
-      }
-    }
+    if (action) executeWidgetAction(action);
   } catch {}
 }
 
@@ -93,15 +100,28 @@ export function useWidgetSync() {
   // Track which artwork has been sent to avoid resending on every progress tick
   const sentArtworkIdRef = useRef('');
 
-  // Listen for widget deep-link actions (iOS)
-  // Works with both:
-  //   - Link-based buttons (iOS <17 fallback)
-  //   - AppIntent openAppWhenRun=true path (iOS 17+, delivered via applicationDidBecomeActive)
+  // Listen for widget actions (iOS)
+  // - Darwin notification path (iOS 17+): native onWidgetCommand event from MusicWidgetModule
+  // - Link-based fallback (iOS <17): Linking URL events
+  // - Cold start: check pending command via Linking.getInitialURL
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
+    // Check for pending command from cold start
     Linking.getInitialURL().then(handleWidgetURL);
-    const sub = Linking.addEventListener('url', (e) => handleWidgetURL(e.url));
-    return () => sub.remove();
+    // Link-based fallback
+    const linkSub = Linking.addEventListener('url', (e) => handleWidgetURL(e.url));
+    // Darwin notification path (iOS 17+ widget intents)
+    let emitterSub: ReturnType<InstanceType<typeof NativeEventEmitter>['addListener']> | null = null;
+    if (MusicWidgetModule) {
+      const emitter = new NativeEventEmitter(MusicWidgetModule);
+      emitterSub = emitter.addListener('onWidgetCommand', (event: { command: string }) => {
+        if (event?.command) executeWidgetAction(event.command);
+      });
+    }
+    return () => {
+      linkSub.remove();
+      emitterSub?.remove();
+    };
   }, []);
 
   // Immediate track-change push (artwork + metadata) — runs independently of progress ticks

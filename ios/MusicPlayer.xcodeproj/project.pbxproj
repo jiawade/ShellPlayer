@@ -102,9 +102,9 @@
 		AA0000012F73B5AA00000013 /* MusicPlayerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerLiveActivity.swift; sourceTree = "<group>"; };
 		AA0000012F73B5AA00000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000012F73B5AA00000015 /* MusicPlayerHomeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerHomeWidget.swift; sourceTree = "<group>"; };
-		AA0000012F73B5AA00000018 /* WidgetIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetIntents.swift; sourceTree = "<group>"; };
 		AA0000012F73B5AA00000016 /* MusicPlayer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = MusicPlayer.entitlements; path = MusicPlayer/MusicPlayer.entitlements; sourceTree = "<group>"; };
 		AA0000012F73B5AA00000017 /* MusicPlayerWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MusicPlayerWidgetsExtension.entitlements; sourceTree = "<group>"; };
+		AA0000012F73B5AA00000018 /* WidgetIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetIntents.swift; sourceTree = "<group>"; };
 		AF9C6E20E0C669832FE4BB4D /* TagWriterModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = TagWriterModule.m; path = MusicPlayer/TagWriterModule.m; sourceTree = "<group>"; };
 		B1C2D3E41234567800BBCCDD /* iOSEqualizerModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iOSEqualizerModule.h; path = MusicPlayer/iOSEqualizerModule.h; sourceTree = "<group>"; };
 		B1C2D3E51234567800BBCCDD /* iOSEqualizerModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = iOSEqualizerModule.m; path = MusicPlayer/iOSEqualizerModule.m; sourceTree = "<group>"; };

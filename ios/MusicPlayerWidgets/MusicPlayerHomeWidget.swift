@@ -156,7 +156,8 @@ struct MusicWidgetView: View {
       }
       .frame(maxWidth: .infinity)
     }
-    .padding(.horizontal, 12)
+    .padding(.leading, 16)
+    .padding(.trailing, 12)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .widgetBackground(dynamicBgColor)

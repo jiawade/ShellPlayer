@@ -1,246 +1,234 @@
 // src/service.ts
-import TrackPlayer, { Event } from 'react-native-track-player';
-import { rebindEqualizer } from './utils/equalizer';
-import { store } from './store';
-import {
-  playTrack,
-  setPlaybackErrorMsg,
-  setCurrentTrack,
-  addToHistory,
-  shuffleHistoryBack,
-  shuffleHistoryForward,
-  setIsPlaying,
-  removeUnplayableTrack,
-} from './store/musicSlice';
-import { exportTrackToFile } from './utils/mediaLibrary';
-import { recordPlay } from './utils/reviewPrompt';
-import { loadBluetoothLyricsSetting } from './utils/bluetoothLyrics';
+import TrackPlayer, {Event} from 'react-native-track-player';
+import {Platform} from 'react-native';
+import {rebindEqualizer} from './utils/equalizer';
+import {store} from './store';
+import {playTrack, setPlaybackErrorMsg, setCurrentTrack, addToHistory, shuffleHistoryBack, shuffleHistoryForward} from './store/musicSlice';
+import {exportTrackToFile} from './utils/mediaLibrary';
+import {recordPlay} from './utils/reviewPrompt';
+import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
+import {startLiveActivity, stopLiveActivity} from './utils/liveActivity';
 import i18n from './i18n';
-import RNFS from 'react-native-fs';
 
 /**
  * Preload the next track into TrackPlayer's queue for gapless playback.
  * Ensures the TP queue always has the current + next track ready.
  */
 async function preloadNextTrack() {
-  try {
-    const state = store.getState().music;
-    const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
-    if (!state.currentTrack || queue.length <= 1) return;
+    try {
+        const state = store.getState().music;
+        const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+        if (!state.currentTrack || queue.length <= 1) return;
 
-    // Don't preload if repeat-one mode
-    if (state.repeatMode === 'track') return;
+        // Don't preload if repeat-one mode
+        if (state.repeatMode === 'track') return;
 
-    // Don't preload in shuffle mode — next track is determined at play time,
-    // and preloading a random track causes race conditions with skip/queue-end handlers
-    if (state.repeatMode === 'queue') return;
+        // Don't preload in shuffle mode — next track is determined at play time,
+        // and preloading a random track causes race conditions with skip/queue-end handlers
+        if (state.repeatMode === 'queue') return;
 
-    const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
-    if (currentIdx < 0) return;
+        const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+        if (currentIdx < 0) return;
 
-    let nextTrack: (typeof queue)[number] | undefined;
-    // Sequential: preload next in order (don't wrap around at end)
-    if (currentIdx >= queue.length - 1) return;
-    nextTrack = queue[currentIdx + 1];
+        let nextTrack: typeof queue[number] | undefined;
+        // Sequential: preload next in order (don't wrap around at end)
+        if (currentIdx >= queue.length - 1) return;
+        nextTrack = queue[currentIdx + 1];
 
-    // Check if already in TP queue
-    if (!nextTrack) return;
-    const tpQueue = await TrackPlayer.getQueue();
-    if (tpQueue.some(t => t.id === nextTrack!.id)) return;
+        // Check if already in TP queue
+        if (!nextTrack) return;
+        const tpQueue = await TrackPlayer.getQueue();
+        if (tpQueue.some(t => t.id === nextTrack!.id)) return;
 
-    const url = nextTrack!.url.startsWith('ipod-library://')
-      ? await exportTrackToFile(nextTrack!.url)
-      : nextTrack!.url;
+        const url = nextTrack!.url.startsWith('ipod-library://')
+            ? await exportTrackToFile(nextTrack!.url)
+            : nextTrack!.url;
 
-    await TrackPlayer.add({
-      id: nextTrack!.id,
-      url,
-      title: nextTrack!.title,
-      artist: nextTrack!.artist,
-      artwork: nextTrack!.artwork,
-    });
-  } catch {}
+        await TrackPlayer.add({
+            id: nextTrack!.id,
+            url,
+            title: nextTrack!.title,
+            artist: nextTrack!.artist,
+            artwork: nextTrack!.artwork,
+        });
+    } catch {}
 }
 
 export async function PlaybackService() {
-  loadBluetoothLyricsSetting().catch(() => {});
-  TrackPlayer.addEventListener(Event.RemotePause, () => {
-    TrackPlayer.pause();
-  });
-  TrackPlayer.addEventListener(Event.RemotePlay, () => {
-    TrackPlayer.play();
-  });
+    loadBluetoothLyricsSetting().catch(() => {});
+    TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
+    TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
 
-  TrackPlayer.addEventListener(Event.RemoteNext, async () => {
-    const state = store.getState().music;
-    const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+    TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+        const state = store.getState().music;
+        const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
 
-    // Shuffle mode: use shuffle history for navigation
-    if (state.repeatMode === 'queue' && queue.length > 1) {
-      // If we went back in history, go forward through existing history first
-      if (state.shuffleHistoryIndex < state.shuffleHistory.length - 1) {
-        const nextId = state.shuffleHistory[state.shuffleHistoryIndex + 1];
-        const nextTrack = queue.find(t => t.id === nextId);
-        if (nextTrack) {
-          store.dispatch(shuffleHistoryForward());
-          store.dispatch(playTrack({ track: nextTrack, queue, navigatingShuffleHistory: true }));
-          return;
+        // Shuffle mode: use shuffle history for navigation
+        if (state.repeatMode === 'queue' && queue.length > 1) {
+            // If we went back in history, go forward through existing history first
+            if (state.shuffleHistoryIndex < state.shuffleHistory.length - 1) {
+                const nextId = state.shuffleHistory[state.shuffleHistoryIndex + 1];
+                const nextTrack = queue.find(t => t.id === nextId);
+                if (nextTrack) {
+                    store.dispatch(shuffleHistoryForward());
+                    store.dispatch(playTrack({track: nextTrack, queue, navigatingShuffleHistory: true}));
+                    return;
+                }
+            }
+            // At end of history: pick new random track
+            const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
+            if (candidates.length > 0) {
+                const random = candidates[Math.floor(Math.random() * candidates.length)];
+                store.dispatch(playTrack({track: random, queue}));
+            }
+            return;
         }
-      }
-      // At end of history: pick new random track
-      const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
-      if (candidates.length > 0) {
-        const random = candidates[Math.floor(Math.random() * candidates.length)];
-        store.dispatch(playTrack({ track: random, queue }));
-      }
-      return;
-    }
 
-    // Non-shuffle: check if TP queue has a next track
-    try {
-      const activeIdx = await TrackPlayer.getActiveTrackIndex();
-      const tpQueue = await TrackPlayer.getQueue();
-      if (activeIdx != null && activeIdx < tpQueue.length - 1) {
-        await TrackPlayer.skipToNext();
-        return;
-      }
-    } catch {}
+        // Non-shuffle: check if TP queue has a next track
+        try {
+            const activeIdx = await TrackPlayer.getActiveTrackIndex();
+            const tpQueue = await TrackPlayer.getQueue();
+            if (activeIdx != null && activeIdx < tpQueue.length - 1) {
+                await TrackPlayer.skipToNext();
+                return;
+            }
+        } catch {}
 
-    // TP queue exhausted — find next from full play queue
-    if (queue.length > 0 && state.currentTrack) {
-      const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
-      if (currentIdx >= 0) {
-        const nextIdx = (currentIdx + 1) % queue.length;
-        store.dispatch(playTrack({ track: queue[nextIdx], queue }));
-      }
-    }
-  });
-
-  TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
-    const state = store.getState().music;
-    const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
-
-    // Shuffle mode: navigate back through shuffle history
-    if (state.repeatMode === 'queue' && queue.length > 1) {
-      if (state.shuffleHistoryIndex > 0) {
-        const prevId = state.shuffleHistory[state.shuffleHistoryIndex - 1];
-        const prevTrack = queue.find(t => t.id === prevId);
-        if (prevTrack) {
-          store.dispatch(shuffleHistoryBack());
-          store.dispatch(playTrack({ track: prevTrack, queue, navigatingShuffleHistory: true }));
-          return;
+        // TP queue exhausted — find next from full play queue
+        if (queue.length > 0 && state.currentTrack) {
+            const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+            if (currentIdx >= 0) {
+                const nextIdx = (currentIdx + 1) % queue.length;
+                store.dispatch(playTrack({track: queue[nextIdx], queue}));
+            }
         }
-      }
-      // At beginning of shuffle history — do nothing
-      return;
-    }
+    });
 
-    // Non-shuffle: check if TP queue has a previous track
-    try {
-      const activeIdx = await TrackPlayer.getActiveTrackIndex();
-      if (activeIdx != null && activeIdx > 0) {
-        await TrackPlayer.skipToPrevious();
-        return;
-      }
-    } catch {}
+    TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+        const state = store.getState().music;
+        const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
 
-    // TP queue exhausted — find previous from full play queue
-    if (queue.length > 0 && state.currentTrack) {
-      const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
-      if (currentIdx >= 0) {
-        const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
-        store.dispatch(playTrack({ track: queue[prevIdx], queue }));
-      }
-    }
-  });
-
-  TrackPlayer.addEventListener(Event.RemoteStop, () => {
-    TrackPlayer.stop();
-  });
-  TrackPlayer.addEventListener(Event.RemoteSeek, e => {
-    TrackPlayer.seekTo(e.position);
-  });
-
-  // Handle playback errors (unsupported format, corrupted files, etc.)
-  TrackPlayer.addEventListener(Event.PlaybackError, async e => {
-    const currentState = store.getState().music;
-
-    console.warn('[PlaybackError]', e.message, e.code);
-    const trackTitle = currentState.currentTrack?.title || '';
-    const failedTrackId = currentState.currentTrack?.id;
-
-    // Check if the file actually exists to show the right error message
-    let fileExists = true;
-    if (failedTrackId) {
-      try {
-        fileExists = await RNFS.exists(failedTrackId);
-      } catch {}
-    }
-
-    const msgKey = fileExists ? 'playback.unsupportedFormat' : 'playback.fileNotFound';
-    store.dispatch(setPlaybackErrorMsg(i18n.t(msgKey, { title: trackTitle })));
-
-    // Remove unplayable track from lists (allows re-import later)
-    if (failedTrackId) {
-      store.dispatch(removeUnplayableTrack(failedTrackId));
-    }
-
-    // Auto-dismiss after 1.5s and skip to next track in queue
-    setTimeout(() => {
-      store.dispatch(setPlaybackErrorMsg(null));
-      if (!failedTrackId) return;
-      const s = store.getState().music;
-      const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
-      if (queue.length > 0) {
-        store.dispatch(playTrack({ track: queue[0], queue }));
-      }
-    }, 1500);
-  });
-
-  // When a new track starts playing, rebind the equalizer and preload next track
-  TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: any) => {
-    // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
-    // This ensures currentTrack is always in sync before preloadNextTrack reads it.
-    const nextTrack = event?.track;
-    if (nextTrack?.id) {
-      const state = store.getState().music;
-      if (state.currentTrack?.id !== nextTrack.id) {
-        const q = state.playQueue.length > 0 ? state.playQueue : state.tracks;
-        const matched = q.find(t => t.id === nextTrack.id);
-        if (matched) {
-          store.dispatch(setCurrentTrack(matched));
-          store.dispatch(addToHistory(matched.id));
+        // Shuffle mode: navigate back through shuffle history
+        if (state.repeatMode === 'queue' && queue.length > 1) {
+            if (state.shuffleHistoryIndex > 0) {
+                const prevId = state.shuffleHistory[state.shuffleHistoryIndex - 1];
+                const prevTrack = queue.find(t => t.id === prevId);
+                if (prevTrack) {
+                    store.dispatch(shuffleHistoryBack());
+                    store.dispatch(playTrack({track: prevTrack, queue, navigatingShuffleHistory: true}));
+                    return;
+                }
+            }
+            // At beginning of shuffle history — do nothing
+            return;
         }
-      }
-    }
 
-    rebindEqualizer();
-    preloadNextTrack();
-    recordPlay().catch(() => {});
+        // Non-shuffle: check if TP queue has a previous track
+        try {
+            const activeIdx = await TrackPlayer.getActiveTrackIndex();
+            if (activeIdx != null && activeIdx > 0) {
+                await TrackPlayer.skipToPrevious();
+                return;
+            }
+        } catch {}
 
-    // Live Activity disabled: iOS lock screen already shows Now Playing widget;
-    // starting a Live Activity creates a duplicate entry.
-  });
+        // TP queue exhausted — find previous from full play queue
+        if (queue.length > 0 && state.currentTrack) {
+            const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+            if (currentIdx >= 0) {
+                const prevIdx = (currentIdx - 1 + queue.length) % queue.length;
+                store.dispatch(playTrack({track: queue[prevIdx], queue}));
+            }
+        }
+    });
 
-  // Handle queue exhaustion: when TrackPlayer finishes its internal queue,
-  // auto-continue to the next track from the full play queue
-  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
-    const state = store.getState().music;
-    const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+    TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.stop());
+    TrackPlayer.addEventListener(Event.RemoteSeek, e =>
+        TrackPlayer.seekTo(e.position),
+    );
 
-    if (state.repeatMode === 'queue' && queue.length > 1) {
-      // Shuffle mode: random next
-      const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
-      if (candidates.length > 0) {
-        const random = candidates[Math.floor(Math.random() * candidates.length)];
-        store.dispatch(playTrack({ track: random, queue }));
-      }
-    } else if (state.repeatMode !== 'track' && queue.length > 0 && state.currentTrack) {
-      // Sequential mode: continue to next if not at the end of playlist
-      const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
-      if (currentIdx >= 0 && currentIdx < queue.length - 1) {
-        store.dispatch(playTrack({ track: queue[currentIdx + 1], queue }));
-      }
-    }
-  });
+    // Handle playback errors (unsupported format, corrupted files, etc.)
+    TrackPlayer.addEventListener(Event.PlaybackError, async (e) => {
+        console.warn('[PlaybackError]', e.message, e.code);
+        const state = store.getState().music;
+        const trackTitle = state.currentTrack?.title || '';
+        store.dispatch(setPlaybackErrorMsg(
+            i18n.t('playback.unsupportedFormat', { title: trackTitle }),
+        ));
+        // Auto-dismiss after 1.5s and skip to next track
+        setTimeout(() => {
+            store.dispatch(setPlaybackErrorMsg(null));
+            const s = store.getState().music;
+            const queue = s.playQueue.length > 0 ? s.playQueue : s.tracks;
+            if (queue.length > 0 && s.currentTrack) {
+                const idx = queue.findIndex(t => t.id === s.currentTrack!.id);
+                if (idx >= 0) {
+                    const nextIdx = (idx + 1) % queue.length;
+                    store.dispatch(playTrack({track: queue[nextIdx], queue}));
+                }
+            }
+        }, 1500);
+    });
+
+    // When a new track starts playing, rebind the equalizer and preload next track
+    TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: any) => {
+        // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
+        // This ensures currentTrack is always in sync before preloadNextTrack reads it.
+        const nextTrack = event?.track;
+        if (nextTrack?.id) {
+            const state = store.getState().music;
+            if (state.currentTrack?.id !== nextTrack.id) {
+                const q = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+                const matched = q.find(t => t.id === nextTrack.id);
+                if (matched) {
+                    store.dispatch(setCurrentTrack(matched));
+                    store.dispatch(addToHistory(matched.id));
+                }
+            }
+        }
+
+        rebindEqualizer();
+        preloadNextTrack();
+        recordPlay().catch(() => {});
+
+        // Fix iOS lock screen: after auto-advancement, the AVPlayerItem's duration
+        // may not yet be available when SwiftAudioEx first sets NowPlayingInfo,
+        // causing the progress bar and times to show "--". Force-sync after a brief
+        // delay so the resolved duration and elapsed time reach MPNowPlayingInfoCenter.
+        if (Platform.OS === 'ios' && event?.track) {
+            setTimeout(async () => {
+                try {
+                    const {position: pos, duration: dur} = await TrackPlayer.getProgress();
+                    if (dur > 0) {
+                        await TrackPlayer.updateNowPlayingMetadata({elapsedTime: pos, duration: dur});
+                    }
+                } catch {}
+            }, 800);
+        }
+
+        // Live Activity disabled: iOS lock screen already shows Now Playing widget;
+        // starting a Live Activity creates a duplicate entry.
+    });
+
+    // Handle queue exhaustion: when TrackPlayer finishes its internal queue,
+    // auto-continue to the next track from the full play queue
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
+        const state = store.getState().music;
+        const queue = state.playQueue.length > 0 ? state.playQueue : state.tracks;
+
+        if (state.repeatMode === 'queue' && queue.length > 1) {
+            // Shuffle mode: random next
+            const candidates = queue.filter(t => t.id !== state.currentTrack?.id);
+            if (candidates.length > 0) {
+                const random = candidates[Math.floor(Math.random() * candidates.length)];
+                store.dispatch(playTrack({track: random, queue}));
+            }
+        } else if (state.repeatMode !== 'track' && queue.length > 0 && state.currentTrack) {
+            // Sequential mode: continue to next if not at the end of playlist
+            const currentIdx = queue.findIndex(t => t.id === state.currentTrack!.id);
+            if (currentIdx >= 0 && currentIdx < queue.length - 1) {
+                store.dispatch(playTrack({track: queue[currentIdx + 1], queue}));
+            }
+        }
+    });
 }

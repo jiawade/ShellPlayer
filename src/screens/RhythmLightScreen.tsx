@@ -1,5 +1,5 @@
 // src/screens/RhythmLightScreen.tsx
-import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,9 @@ import {
   Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useNavigation} from '@react-navigation/native';
-import {useAppSelector} from '../store';
-import {usePlayerControls} from '../hooks/usePlayerProgress';
+import { useNavigation } from '@react-navigation/native';
+import { useAppSelector } from '../store';
+import { usePlayerControls } from '../hooks/usePlayerProgress';
 import CoverArt from '../components/CoverArt';
 import {
   startAudioLevelMonitoring,
@@ -22,9 +22,8 @@ import {
   addAudioLevelListener,
 } from '../utils/audioLevel';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useTranslation} from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const SPEAKER_IMAGES = [
   require('../assets/fg2.jpeg'),
   require('../assets/fg4.jpeg'),
@@ -42,19 +41,19 @@ const LED_TARGET_H = Math.max(320, Math.floor(SCREEN_H * 0.56));
 const BASE_CELL_H = Math.floor((LED_TARGET_H - ROW_GAP * (NUM_ROWS - 1)) / NUM_ROWS);
 const CELL_H = Math.max(9, Math.min(16, BASE_CELL_H));
 
-const COLS_ARR = Array.from({length: NUM_COLS}, (_, i) => i);
-const ROWS_ARR = Array.from({length: NUM_ROWS}, (_, i) => i);
+const COLS_ARR = Array.from({ length: NUM_COLS }, (_, i) => i);
+const ROWS_ARR = Array.from({ length: NUM_ROWS }, (_, i) => i);
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
 type VisualizerMode = 'classic' | 'mirror' | 'speaker' | 'radar' | 'matrix';
 
 const VISUALIZER_MODES: Array<{key: VisualizerMode; labelKey: string; icon: string}> = [
-  {key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline'},
-  {key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline'},
-  {key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline'},
-  {key: 'radar', labelKey: 'rhythmLight.modes.radar', icon: 'scan-outline'},
-  {key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline'},
+  { key: 'classic', labelKey: 'rhythmLight.modes.classic', icon: 'apps-outline' },
+  { key: 'mirror', labelKey: 'rhythmLight.modes.mirror', icon: 'swap-vertical-outline' },
+  { key: 'speaker', labelKey: 'rhythmLight.modes.speaker', icon: 'volume-high-outline' },
+  { key: 'radar', labelKey: 'rhythmLight.modes.radar', icon: 'scan-outline' },
+  { key: 'matrix', labelKey: 'rhythmLight.modes.matrix', icon: 'grid-outline' },
 ];
 
 /** LED color gradient: green (bottom) → yellow → orange → red (top) */
@@ -99,9 +98,9 @@ const getMatrixColor = (rowFromBottom: number): string => {
 
 const RhythmLightScreen: React.FC = () => {
   const navigation = useNavigation();
-  const {currentTrack, isPlaying} = useAppSelector(s => s.music);
-  const {togglePlayPause, skipToNext, skipToPrevious} = usePlayerControls();
-  const {t} = useTranslation();
+  const { currentTrack, isPlaying } = useAppSelector(s => s.music);
+  const { togglePlayPause, skipToNext, skipToPrevious } = usePlayerControls();
+  const { t } = useTranslation();
   // Use a single state object to batch updates into one re-render per frame
   const [vizState, setVizState] = useState(() => ({
     levels: new Array(NUM_COLS).fill(0) as number[],
@@ -166,7 +165,7 @@ const RhythmLightScreen: React.FC = () => {
   useEffect(() => {
     AsyncStorage.setItem(
       RHYTHM_PREFS_KEY,
-      JSON.stringify({mode, spkBeatMode, speakerImgIdx}),
+      JSON.stringify({ mode, spkBeatMode, speakerImgIdx }),
     ).catch(() => {});
   }, [mode, spkBeatMode, speakerImgIdx]);
 
@@ -350,7 +349,7 @@ const RhythmLightScreen: React.FC = () => {
                   key={rowIdx}
                   style={[
                     styles.cell,
-                    {backgroundColor: isLit || isPeak ? getCellColor(fromBottom) : DIM_COLOR},
+                    { backgroundColor: isLit || isPeak ? getCellColor(fromBottom) : DIM_COLOR },
                   ]}
                 />
               );
@@ -366,7 +365,7 @@ const RhythmLightScreen: React.FC = () => {
     const halfHeight = Math.floor(mirrorHeight / 2);
 
     return (
-      <View style={[styles.mirrorWrap, {height: mirrorHeight}]}>
+      <View style={[styles.mirrorWrap, { height: mirrorHeight }]}>
         {COLS_ARR.map(i => {
           const lv = volLevel[i] || 0;
           const barH = hasAudibleSignal ? Math.max(0, Math.round(lv * (halfHeight - 6))) : 2;
@@ -375,10 +374,10 @@ const RhythmLightScreen: React.FC = () => {
             <View key={i} style={styles.mirrorCol}>
               <View style={styles.mirrorCenterLine} />
               <View
-                style={[styles.mirrorBar, styles.mirrorBarTop, {height: barH, opacity: alpha}]}
+                style={[styles.mirrorBar, styles.mirrorBarTop, { height: barH, opacity: alpha }]}
               />
               <View
-                style={[styles.mirrorBar, styles.mirrorBarBottom, {height: barH, opacity: alpha}]}
+                style={[styles.mirrorBar, styles.mirrorBarBottom, { height: barH, opacity: alpha }]}
               />
             </View>
           );
@@ -389,7 +388,7 @@ const RhythmLightScreen: React.FC = () => {
 
   // ---- Speaker + LED Bars effect ----
   const SPKR_BAR_ROWS = 48;
-  const SPKR_BAR_ROWS_ARR = Array.from({length: SPKR_BAR_ROWS}, (_, i) => i);
+  const SPKR_BAR_ROWS_ARR = Array.from({ length: SPKR_BAR_ROWS }, (_, i) => i);
 
   const getBarCellColor = (rowFromBottom: number): string => {
     const ratio = rowFromBottom / SPKR_BAR_ROWS;
@@ -429,9 +428,9 @@ const RhythmLightScreen: React.FC = () => {
     const litCount = Math.max(1, Math.round(barLevel * SPKR_BAR_ROWS));
 
     const renderBar = (keyPrefix: string) => (
-      <View style={{gap: barGap, flexDirection: 'row'}}>
+      <View style={{ gap: barGap, flexDirection: 'row' }}>
         {[0, 1].map(bi => (
-          <View key={`${keyPrefix}-${bi}`} style={{gap: ROW_GAP}}>
+          <View key={`${keyPrefix}-${bi}`} style={{ gap: ROW_GAP }}>
             {SPKR_BAR_ROWS_ARR.map(rowIdx => {
               const fromBottom = SPKR_BAR_ROWS - 1 - rowIdx;
               const isLit = fromBottom < litCount;
@@ -453,7 +452,7 @@ const RhythmLightScreen: React.FC = () => {
     );
 
     return (
-      <View style={{width: areaW, height: areaH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12}}>
+      <View style={{ width: areaW, height: areaH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         {/* Left bars */}
         {renderBar('L')}
 
@@ -472,7 +471,7 @@ const RhythmLightScreen: React.FC = () => {
           justifyContent: 'center',
           overflow: 'hidden',
           shadowColor: '#000',
-          shadowOffset: {width: 0, height: 4},
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.8,
           shadowRadius: 12,
         }}>
@@ -503,7 +502,7 @@ const RhythmLightScreen: React.FC = () => {
     const dotSz = 5;
 
     return (
-      <View style={{width: sz, height: sz}}>
+      <View style={{ width: sz, height: sz }}>
         {/* Guide rings */}
         {[0.33, 0.66, 1].map((frac, ri) => {
           const r = innerR + maxBarH * frac;
@@ -525,8 +524,8 @@ const RhythmLightScreen: React.FC = () => {
         })}
 
         {/* Cross-hair guides */}
-        <View style={{position: 'absolute', left: cx - outerR, top: cy - 0.25, width: outerR * 2, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,229,255,0.08)'}} />
-        <View style={{position: 'absolute', left: cx - 0.25, top: cy - outerR, width: StyleSheet.hairlineWidth, height: outerR * 2, backgroundColor: 'rgba(0,229,255,0.08)'}} />
+        <View style={{ position: 'absolute', left: cx - outerR, top: cy - 0.25, width: outerR * 2, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,229,255,0.08)' }} />
+        <View style={{ position: 'absolute', left: cx - 0.25, top: cy - outerR, width: StyleSheet.hairlineWidth, height: outerR * 2, backgroundColor: 'rgba(0,229,255,0.08)' }} />
 
         {/* Scan sweep line */}
         <View style={{
@@ -535,9 +534,9 @@ const RhythmLightScreen: React.FC = () => {
           top: cy - outerR,
           width: 2,
           height: outerR * 2,
-          transform: [{rotate: `${(motionPhase * 180) / Math.PI}deg`}],
+          transform: [{ rotate: `${(motionPhase * 180) / Math.PI}deg` }],
         }}>
-          <View style={{width: 2, height: maxBarH, borderRadius: 1, backgroundColor: 'rgba(0,229,255,0.2)'}} />
+          <View style={{ width: 2, height: maxBarH, borderRadius: 1, backgroundColor: 'rgba(0,229,255,0.2)' }} />
         </View>
 
         {/* Frequency bars + peak dots */}
@@ -557,7 +556,7 @@ const RhythmLightScreen: React.FC = () => {
                 top: cy - outerR,
                 width: barW,
                 height: outerR * 2,
-                transform: [{rotate: `${angle}deg`}],
+                transform: [{ rotate: `${angle}deg` }],
               }}>
               {/* Active bar */}
               <View
@@ -569,7 +568,7 @@ const RhythmLightScreen: React.FC = () => {
                   borderRadius: barW / 2,
                   backgroundColor: `rgba(0,229,255,${0.35 + lv * 0.65})`,
                   shadowColor: '#00E5FF',
-                  shadowOffset: {width: 0, height: 0},
+                  shadowOffset: { width: 0, height: 0 },
                   shadowOpacity: lv * 0.9,
                   shadowRadius: 2 + lv * 8,
                 }}
@@ -586,7 +585,7 @@ const RhythmLightScreen: React.FC = () => {
                     borderRadius: dotSz / 2,
                     backgroundColor: '#fff',
                     shadowColor: '#00E5FF',
-                    shadowOffset: {width: 0, height: 0},
+                    shadowOffset: { width: 0, height: 0 },
                     shadowOpacity: 0.9,
                     shadowRadius: 5,
                   }}
@@ -609,7 +608,7 @@ const RhythmLightScreen: React.FC = () => {
             borderWidth: 1.5,
             borderColor: `rgba(0,229,255,${(0.2 + overallLevel * 0.5).toFixed(3)})`,
             shadowColor: '#00E5FF',
-            shadowOffset: {width: 0, height: 0},
+            shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.3 + overallLevel * 0.5,
             shadowRadius: 8 + overallLevel * 18,
             alignItems: 'center',
@@ -639,7 +638,7 @@ const RhythmLightScreen: React.FC = () => {
               const fromBottom = NUM_ROWS - 1 - rowIdx;
               const isLit = fromBottom < litCount;
               const matrixCellStyle = isLit
-                ? {backgroundColor: getMatrixColor(fromBottom), opacity: 0.25 + (level || 0) * 0.75}
+                ? { backgroundColor: getMatrixColor(fromBottom), opacity: 0.25 + (level || 0) * 0.75 }
                 : styles.matrixCellDim;
               return <View key={rowIdx} style={[styles.cell, matrixCellStyle]} />;
             })}
@@ -749,7 +748,7 @@ const RhythmLightScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#000'},
+  root: { flex: 1, backgroundColor: '#000' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,7 +756,7 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingBottom: 12,
   },
-  headerSide: {width: 44, alignItems: 'center'},
+  headerSide: { width: 44, alignItems: 'center' },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
@@ -773,8 +772,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 16,
   },
-  grid: {flexDirection: 'row', gap: COL_GAP},
-  column: {gap: ROW_GAP},
+  grid: { flexDirection: 'row', gap: COL_GAP },
+  column: { gap: ROW_GAP },
   cell: {
     width: CELL_W,
     height: CELL_H,
@@ -816,7 +815,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,229,255,0.1)',
     borderColor: 'rgba(0,229,255,0.45)',
     shadowColor: '#00E5FF',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 12,
   },
@@ -835,7 +834,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#00E5FF',
     shadowColor: '#00E5FF',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
     marginTop: -2,
@@ -936,7 +935,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: '#6EFFE0',
     shadowColor: '#6EFFE0',
-    shadowOffset: {width: 0, height: 0},
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7,
     shadowRadius: 4,
   },
@@ -953,8 +952,8 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     gap: 12,
   },
-  trackText: {flex: 1, marginRight: 6},
-  trackTitle: {fontSize: 15, fontWeight: '600', color: '#fff'},
+  trackText: { flex: 1, marginRight: 6 },
+  trackTitle: { fontSize: 15, fontWeight: '600', color: '#fff' },
   trackArtist: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.5)',

@@ -99,6 +99,8 @@ export function useWidgetSync() {
   const prevRef = useRef({ id: '', isPlaying: false, progress: 0 });
   // Track which artwork has been sent to avoid resending on every progress tick
   const sentArtworkIdRef = useRef('');
+  // Incremental token used to ignore stale async artwork reads on rapid track switches.
+  const artworkRequestTokenRef = useRef(0);
 
   // Listen for widget actions (iOS)
   // - Darwin notification path (iOS 17+): native onWidgetCommand event from MusicWidgetModule
@@ -129,6 +131,7 @@ export function useWidgetSync() {
     if (!MusicWidgetModule || !currentTrack) return;
     const id = currentTrack.id;
     if (sentArtworkIdRef.current === id) return; // already sent
+    const requestToken = ++artworkRequestTokenRef.current;
 
     const title = currentTrack.title || 'Music X';
     const artist = currentTrack.artist || '';
@@ -163,12 +166,15 @@ export function useWidgetSync() {
       const filePath = artwork.startsWith('file://') ? artwork.replace('file://', '') : artwork;
       RNFS.readFile(filePath, 'base64')
         .then(b64 => {
+          if (requestToken !== artworkRequestTokenRef.current) return;
           sentArtworkIdRef.current = id;
           sendUpdate(b64);
         })
         .catch(() => {
+          if (requestToken !== artworkRequestTokenRef.current) return;
           sentArtworkIdRef.current = id;
-          sendUpdate(null);
+          // Clear artwork instead of preserving stale previous-track cover.
+          sendUpdate('');
         });
     }
   }, [currentTrack?.id]); // eslint-disable-line react-hooks/exhaustive-deps

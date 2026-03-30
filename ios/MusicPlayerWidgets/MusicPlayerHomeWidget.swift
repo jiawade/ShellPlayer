@@ -91,15 +91,12 @@ struct MusicWidgetView: View {
   @Environment(\.widgetFamily) var family
   
   private let accentColor = Color(red: 0.43, green: 0.78, blue: 0.96)  // #6EC7F5
-  
-  private let fallbackBg = Color(red: 0.08, green: 0.08, blue: 0.14)
+
+  private let fallbackBg = Color.white
 
   /// Use pre-computed average color from main app (fast path)
   private var dynamicBgColor: Color {
-    let darken = 0.35
-    if let r = entry.data.bgR, let g = entry.data.bgG, let b = entry.data.bgB {
-      return Color(red: r * darken, green: g * darken, blue: b * darken)
-    }
+    // Keep widget on a clean white theme as requested.
     return fallbackBg
   }
   
@@ -118,13 +115,13 @@ struct MusicWidgetView: View {
         // Song title
         Text(entry.data.title)
           .font(.system(size: 15, weight: .bold))
-          .foregroundColor(.white)
+          .foregroundColor(.black)
           .lineLimit(1)
         
         // Artist
         Text(entry.data.artist.isEmpty ? "Music X" : entry.data.artist)
           .font(.system(size: 12))
-          .foregroundColor(.white.opacity(0.6))
+          .foregroundColor(.black.opacity(0.55))
           .lineLimit(1)
           .padding(.top, 2)
         
@@ -134,7 +131,7 @@ struct MusicWidgetView: View {
         GeometryReader { geo in
           ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 1.5)
-              .fill(Color.white.opacity(0.15))
+              .fill(Color.black.opacity(0.12))
               .frame(height: 3)
             RoundedRectangle(cornerRadius: 1.5)
               .fill(accentColor)
@@ -156,9 +153,8 @@ struct MusicWidgetView: View {
       }
       .frame(maxWidth: .infinity)
     }
-    .padding(.leading, 16)
-    .padding(.trailing, 12)
-    .padding(.vertical, 10)
+    // Uniform insets keeps album art visually centered with equal margins.
+    .padding(12)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .widgetBackground(dynamicBgColor)
   }
@@ -188,7 +184,7 @@ struct MusicWidgetView: View {
   var playPauseLabel: some View {
     ZStack {
       Circle()
-        .fill(accentColor.opacity(0.18))
+        .fill(accentColor.opacity(0.16))
         .frame(width: 38, height: 38)
       Image(systemName: entry.data.isPlaying ? "pause.fill" : "play.fill")
         .font(.system(size: 18, weight: .bold))
@@ -204,7 +200,7 @@ struct MusicWidgetView: View {
         Button(intent: intentForAction(action)) {
           Image(systemName: systemName)
             .font(.system(size: size, weight: .semibold))
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(.black.opacity(0.72))
             .frame(width: 36, height: 36)
         }
         .buttonStyle(.plain)
@@ -212,7 +208,7 @@ struct MusicWidgetView: View {
         Link(destination: URL(string: "musicx://\(action)")!) {
           Image(systemName: systemName)
             .font(.system(size: size, weight: .semibold))
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(.black.opacity(0.72))
             .frame(width: 36, height: 36)
         }
         #endif
@@ -220,7 +216,7 @@ struct MusicWidgetView: View {
         Link(destination: URL(string: "musicx://\(action)")!) {
           Image(systemName: systemName)
             .font(.system(size: size, weight: .semibold))
-            .foregroundColor(.white.opacity(0.7))
+            .foregroundColor(.black.opacity(0.72))
             .frame(width: 36, height: 36)
         }
       }
@@ -249,11 +245,11 @@ struct MusicWidgetView: View {
           .clipShape(RoundedRectangle(cornerRadius: size * 0.16))
       } else {
         RoundedRectangle(cornerRadius: size * 0.16)
-          .fill(Color.white.opacity(0.08))
+          .fill(Color.black.opacity(0.06))
           .frame(width: size, height: size)
           .overlay(
             Image(systemName: "music.note")
-              .foregroundColor(.white.opacity(0.3))
+              .foregroundColor(.black.opacity(0.35))
               .font(.system(size: size * 0.35))
           )
       }

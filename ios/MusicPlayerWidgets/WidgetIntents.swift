@@ -49,6 +49,7 @@ struct NextTrackIntent: AppIntent {
     defaults.set("next", forKey: "widget_command")
     defaults.synchronize()
     notifyMainApp()
+    WidgetCenter.shared.reloadAllTimelines()
     return .result()
   }
 }
@@ -64,6 +65,7 @@ struct PrevTrackIntent: AppIntent {
     defaults.set("prev", forKey: "widget_command")
     defaults.synchronize()
     notifyMainApp()
+    WidgetCenter.shared.reloadAllTimelines()
     return .result()
   }
 }

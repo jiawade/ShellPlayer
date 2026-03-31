@@ -321,7 +321,7 @@
     "selectCurrent": "选择此目录",
     "emptyMessage": {
       "iosFolders": "此目录下没有子文件夹或音乐文件",
-      "androidFolders": "此目录下没有子文件夹",
+      "androidFolders": "此目录下没有子文件夹或音乐文件",
       "documentsFolder": "Documents 目录下暂无文件夹或音乐文件"
     },
     "selectAllFiles": {
@@ -348,7 +348,7 @@
     },
     "buttons": {
       "iosImportAll": "导入全部（iTunes/iPod音乐库）",
-      "androidScanAll": "扫描全部常用目录",
+      "androidScanAll": "扫描全部目录",
       "iosStart": "开始导入",
       "androidStart": "开始扫描",
       "filesFormat": "个音乐文件",

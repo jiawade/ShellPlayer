@@ -321,7 +321,7 @@
     "selectCurrent": "Select This Directory",
     "emptyMessage": {
       "iosFolders": "No subfolders or music files in this directory",
-      "androidFolders": "No subfolders in this directory",
+      "androidFolders": "No subfolders or music files in this directory",
       "documentsFolder": "No folders or music files in Documents directory"
     },
     "selectAllFiles": {
@@ -348,7 +348,7 @@
     },
     "buttons": {
       "iosImportAll": "Import All (iTunes/iPod Music Library)",
-      "androidScanAll": "Scan All Common Directories",
+      "androidScanAll": "Scan All Directories",
       "iosStart": "Start Import",
       "androidStart": "Start Scan",
       "filesFormat": "music files",

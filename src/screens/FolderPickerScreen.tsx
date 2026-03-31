@@ -87,7 +87,13 @@ const FolderPickerScreen: React.FC<Props> = ({
   const isIOS = Platform.OS === 'ios';
   const { isScanning, scanProgress } = useAppSelector(s => s.music);
 
-  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(new Set(initialSelected));
+  const [selectedDirs, setSelectedDirs] = useState<Set<string>>(
+    new Set(
+      isIOS
+        ? initialSelected
+        : initialSelected.filter(path => path !== getDefaultMusicDir()),
+    ),
+  );
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [browsePath, setBrowsePath] = useState<string | null>(null);
   const [pendingBrowsePath, setPendingBrowsePath] = useState<string | null>(null);
@@ -136,7 +142,7 @@ const FolderPickerScreen: React.FC<Props> = ({
     }
     let cancelled = false;
     setLoading(true);
-    listDirEntries(browsePath, isIOS).then(entries => {
+    listDirEntries(browsePath, true).then(entries => {
       if (cancelled) {
         return;
       }
@@ -276,7 +282,7 @@ const FolderPickerScreen: React.FC<Props> = ({
       onIOSImport({ includeIPod: true, localDirs: [], localFiles: [] });
       return;
     }
-    onConfirm(COMMON_DIRS.map(d => d.path));
+    onConfirm([STORAGE_ROOT]);
   };
 
   const dirName = (path: string) => path.substring(path.lastIndexOf('/') + 1);
@@ -465,7 +471,7 @@ const FolderPickerScreen: React.FC<Props> = ({
                     <Icon name="chevron-forward" size={20} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
-              ) : (
+              ) : isIOS ? (
                 <TouchableOpacity
                   style={[
                     styles.fileRow,
@@ -495,6 +501,20 @@ const FolderPickerScreen: React.FC<Props> = ({
                     {item.name}
                   </Text>
                 </TouchableOpacity>
+              ) : (
+                <View style={[styles.fileRow, { borderBottomColor: colors.border }]}>
+                  <Icon name="musical-note" size={18} color={colors.accent} />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: sizes.sm,
+                      color: colors.textPrimary,
+                      marginLeft: 10,
+                    }}
+                    numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                </View>
               )
             }
             ListHeaderComponent={

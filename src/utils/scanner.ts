@@ -24,9 +24,6 @@ async function findLrcFile(filePath: string): Promise<string | undefined> {
 }
 
 async function scanDirectory(dirPath: string, depth = 0): Promise<string[]> {
-  if (depth > 3) {
-    return [];
-  }
   const results: string[] = [];
   try {
     if (!(await RNFS.exists(dirPath))) {

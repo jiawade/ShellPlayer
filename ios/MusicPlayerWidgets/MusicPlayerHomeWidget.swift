@@ -91,6 +91,7 @@ struct MusicWidgetView: View {
   @Environment(\.widgetFamily) var family
   
   private let accentColor = Color(red: 0.43, green: 0.78, blue: 0.96)  // #6EC7F5
+  private let contentInset: CGFloat = 12
 
   private let fallbackBg = Color.white
 
@@ -106,56 +107,59 @@ struct MusicWidgetView: View {
   
   // MARK: Medium Widget (4×1)
   var mediumView: some View {
-    HStack(spacing: 12) {
-      // Large artwork on the left — fills most of the height
-      artworkImage(size: 110)
-      
-      // Right side: song info on top, controls at bottom
-      VStack(alignment: .leading, spacing: 0) {
-        // Song title
-        Text(entry.data.title)
-          .font(.system(size: 15, weight: .bold))
-          .foregroundColor(.black)
-          .lineLimit(1)
+    GeometryReader { containerGeo in
+      let artworkSize = max(72, containerGeo.size.height - (contentInset * 2))
+
+      HStack(spacing: 12) {
+        // Make artwork fill the available height after uniform insets.
+        artworkImage(size: artworkSize)
         
-        // Artist
-        Text(entry.data.artist.isEmpty ? "Music X" : entry.data.artist)
-          .font(.system(size: 12))
-          .foregroundColor(.black.opacity(0.55))
-          .lineLimit(1)
-          .padding(.top, 2)
-        
-        Spacer(minLength: 4)
-        
-        // Progress bar
-        GeometryReader { geo in
-          ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 1.5)
-              .fill(Color.black.opacity(0.12))
-              .frame(height: 3)
-            RoundedRectangle(cornerRadius: 1.5)
-              .fill(accentColor)
-              .frame(width: geo.size.width * max(0, min(1, entry.data.progress)), height: 3)
+        // Right side: song info on top, controls at bottom
+        VStack(alignment: .leading, spacing: 0) {
+          // Song title
+          Text(entry.data.title)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(.black)
+            .lineLimit(1)
+          
+          // Artist
+          Text(entry.data.artist.isEmpty ? "Music X" : entry.data.artist)
+            .font(.system(size: 12))
+            .foregroundColor(.black.opacity(0.55))
+            .lineLimit(1)
+            .padding(.top, 2)
+          
+          Spacer(minLength: 4)
+          
+          // Progress bar
+          GeometryReader { geo in
+            ZStack(alignment: .leading) {
+              RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.black.opacity(0.12))
+                .frame(height: 3)
+              RoundedRectangle(cornerRadius: 1.5)
+                .fill(accentColor)
+                .frame(width: geo.size.width * max(0, min(1, entry.data.progress)), height: 3)
+            }
+          }
+          .frame(height: 3)
+          
+          Spacer(minLength: 6)
+          
+          // Playback controls
+          HStack(spacing: 20) {
+            Spacer()
+            controlButton(systemName: "backward.fill", action: "prev", size: 18)
+            playPauseButton
+            controlButton(systemName: "forward.fill", action: "next", size: 18)
+            Spacer()
           }
         }
-        .frame(height: 3)
-        
-        Spacer(minLength: 6)
-        
-        // Playback controls
-        HStack(spacing: 20) {
-          Spacer()
-          controlButton(systemName: "backward.fill", action: "prev", size: 18)
-          playPauseButton
-          controlButton(systemName: "forward.fill", action: "next", size: 18)
-          Spacer()
-        }
+        .frame(maxWidth: .infinity)
       }
-      .frame(maxWidth: .infinity)
+      .padding(contentInset)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    // Uniform insets keeps album art visually centered with equal margins.
-    .padding(12)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .widgetBackground(dynamicBgColor)
   }
   

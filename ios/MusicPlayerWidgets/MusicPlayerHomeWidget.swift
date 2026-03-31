@@ -259,9 +259,9 @@ struct MusicWidgetView: View {
           .resizable()
           .aspectRatio(contentMode: .fill)
           .frame(width: size, height: size)
-          .clipShape(RoundedRectangle(cornerRadius: size * 0.16))
+          .clipShape(RoundedRectangle(cornerRadius: size * 0.12))
       } else {
-        RoundedRectangle(cornerRadius: size * 0.16)
+        RoundedRectangle(cornerRadius: size * 0.12)
           .fill(Color.black.opacity(0.06))
           .frame(width: size, height: size)
           .overlay(

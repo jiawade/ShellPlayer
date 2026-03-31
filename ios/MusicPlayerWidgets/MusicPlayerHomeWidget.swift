@@ -93,8 +93,9 @@ struct MusicWidgetView: View {
   private let accentColor = Color(red: 0.43, green: 0.78, blue: 0.96)  // #6EC7F5
   private let contentInset: CGFloat = 0
   // 稳妥放大：artworkBleed = 10，HStack(spacing: 4)
- 激进贴边：artworkBleed = 12，HStack(spacing: 2)
-  private let artworkBleed: CGFloat = 10
+  // 激进贴边：artworkBleed = 12，HStack(spacing: 2)
+  private let artworkBleed: CGFloat = 9
+  private let progressRightInset: CGFloat = 20
 
   private let fallbackBg = Color.white
 
@@ -113,7 +114,7 @@ struct MusicWidgetView: View {
     GeometryReader { containerGeo in
       let artworkSize = max(72, containerGeo.size.height - (contentInset * 2) + (artworkBleed * 2))
 
-      HStack(spacing: 4) {
+      HStack(spacing: 5) {
         // Make artwork fill the available height after uniform insets.
         artworkImage(size: artworkSize)
           .padding(.leading, -artworkBleed)
@@ -126,6 +127,9 @@ struct MusicWidgetView: View {
             .font(.system(size: 15, weight: .bold))
             .foregroundColor(.black)
             .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .allowsTightening(true)
+            .truncationMode(.tail)
 
           // Artist
           Text(entry.data.artist.isEmpty ? "Music X" : entry.data.artist)
@@ -138,14 +142,16 @@ struct MusicWidgetView: View {
 
           // Progress bar
           GeometryReader { geo in
+            let trackWidth = max(0, geo.size.width - progressRightInset)
             ZStack(alignment: .leading) {
               RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color.black.opacity(0.12))
-                .frame(height: 3)
+                .frame(width: trackWidth, height: 3, alignment: .leading)
               RoundedRectangle(cornerRadius: 1.5)
                 .fill(accentColor)
-                .frame(width: geo.size.width * max(0, min(1, entry.data.progress)), height: 3)
+                .frame(width: trackWidth * max(0, min(1, entry.data.progress)), height: 3)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
           .frame(height: 3)
 
@@ -160,7 +166,7 @@ struct MusicWidgetView: View {
             Spacer()
           }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
       .padding(contentInset)
       .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -2,6 +2,25 @@
 #import "MusicPlayer-Swift.h"
 #import <UIKit/UIKit.h>
 
+static UIImage *SPResizeImage(UIImage *image, CGFloat maxSide)
+{
+  if (!image || maxSide <= 0) return image;
+  CGSize size = image.size;
+  CGFloat width = size.width;
+  CGFloat height = size.height;
+  if (width <= 0 || height <= 0) return image;
+  CGFloat longest = MAX(width, height);
+  if (longest <= maxSide) return image;
+
+  CGFloat scale = maxSide / longest;
+  CGSize target = CGSizeMake(floor(width * scale), floor(height * scale));
+  UIGraphicsBeginImageContextWithOptions(target, YES, 1.0);
+  [image drawInRect:CGRectMake(0, 0, target.width, target.height)];
+  UIImage *resized = UIGraphicsGetImageFromCurrentImageContext();
+  UIGraphicsEndImageContext();
+  return resized ?: image;
+}
+
 // C callback for Darwin notification from widget extension
 static void widgetCommandCallback(CFNotificationCenterRef center,
                                   void *observer,
@@ -106,11 +125,32 @@ RCT_EXPORT_METHOD(updateWidget:(NSString *)title
   // nil means "no change" (only metadata/progress update)
   if (artworkBase64 != nil) {
     if (artworkBase64.length > 0) {
-      [defaults setObject:artworkBase64 forKey:@"widget_artworkBase64"];
-      // Extract average color from artwork for dynamic widget background
+      NSString *finalArtworkBase64 = artworkBase64;
       NSData *imgData = [[NSData alloc] initWithBase64EncodedString:artworkBase64 options:0];
+      UIImage *img = imgData ? [UIImage imageWithData:imgData] : nil;
+      if (img) {
+        // Normalize very large covers to a compact JPEG so UserDefaults remains reliable.
+        UIImage *resized = SPResizeImage(img, 320.0);
+        NSData *jpegData = UIImageJPEGRepresentation(resized, 0.70);
+        if (jpegData.length > 0) {
+          finalArtworkBase64 = [jpegData base64EncodedStringWithOptions:0];
+          imgData = jpegData;
+          img = resized;
+        }
+      } else {
+        // Invalid artwork payload: clear stale cover instead of keeping previous one.
+        [defaults removeObjectForKey:@"widget_artworkBase64"];
+        [defaults removeObjectForKey:@"widget_bgR"];
+        [defaults removeObjectForKey:@"widget_bgG"];
+        [defaults removeObjectForKey:@"widget_bgB"];
+        [defaults synchronize];
+        [WidgetReloader reloadAll];
+        return;
+      }
+
+      [defaults setObject:finalArtworkBase64 forKey:@"widget_artworkBase64"];
+      // Extract average color from artwork for dynamic widget background
       if (imgData) {
-        UIImage *img = [UIImage imageWithData:imgData];
         if (img && img.CGImage) {
           int sz = 4;
           CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();

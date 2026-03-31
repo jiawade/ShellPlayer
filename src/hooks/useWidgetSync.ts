@@ -164,6 +164,8 @@ export function useWidgetSync() {
       }
 
       const filePath = artwork.startsWith('file://') ? artwork.replace('file://', '') : artwork;
+      // Clear previous cover first to avoid showing stale artwork during async file reads.
+      sendUpdate('');
       RNFS.readFile(filePath, 'base64')
         .then(b64 => {
           if (requestToken !== artworkRequestTokenRef.current) return;

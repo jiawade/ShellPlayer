@@ -30,7 +30,7 @@ const SPEAKER_IMAGES = [
 ];
 
 const NUM_COLS = 16;
-const NUM_ROWS = 28;
+const NUM_ROWS = 22;
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
 const GRID_H_PAD = 20;
@@ -43,6 +43,8 @@ const CELL_H = Math.max(9, Math.min(16, BASE_CELL_H));
 
 const COLS_ARR = Array.from({ length: NUM_COLS }, (_, i) => i);
 const ROWS_ARR = Array.from({ length: NUM_ROWS }, (_, i) => i);
+const SPKR_BAR_ROWS = 32;
+const SPKR_BAR_ROWS_ARR = Array.from({ length: SPKR_BAR_ROWS }, (_, i) => i);
 const TAU = Math.PI * 2;
 const RHYTHM_PREFS_KEY = '@rhythmLightPrefs';
 
@@ -96,6 +98,17 @@ const getMatrixColor = (rowFromBottom: number): string => {
   return '#8B5CFF';
 };
 
+const getBarCellColor = (rowFromBottom: number): string => {
+  const ratio = rowFromBottom / SPKR_BAR_ROWS;
+  if (ratio <= 0.28) return '#00FF44';
+  if (ratio <= 0.46) return '#55FF00';
+  if (ratio <= 0.60) return '#AAFF00';
+  if (ratio <= 0.73) return '#FFD700';
+  if (ratio <= 0.84) return '#FF8C00';
+  if (ratio <= 0.92) return '#FF4500';
+  return '#FF0000';
+};
+
 const RhythmLightScreen: React.FC = () => {
   const navigation = useNavigation();
   const { currentTrack, isPlaying } = useAppSelector(s => s.music);
@@ -128,6 +141,9 @@ const RhythmLightScreen: React.FC = () => {
   const prevEnergyRef = useRef(0);
   const fluxHistoryRef = useRef<number[]>([]);
   const beatLevelRef = useRef(0);
+  const prevRenderLevelsRef = useRef(new Array(NUM_COLS).fill(0));
+  const prevRenderPeaksRef = useRef(new Array(NUM_COLS).fill(0));
+  const lastEmitTsRef = useRef(0);
 
   // Restore last selected mode/beat switch/speaker image index after app relaunch.
   useEffect(() => {
@@ -219,14 +235,20 @@ const RhythmLightScreen: React.FC = () => {
   // Animation loop – smooth interpolation with peak hold
   const startAnimLoop = useCallback(() => {
     let lastFrameTime = 0;
-    // Target ~30fps on iOS, ~20fps on Android to reduce CPU while staying smooth
-    const FRAME_INTERVAL = Platform.OS === 'android' ? 50 : 33;
 
     const animate = (timestamp: number) => {
       if (!appActiveRef.current) return;
 
+      const modeFrameInterval = (() => {
+        if (!isPlayingRef.current) return 90; // paused: reduce refresh cost
+        if (mode === 'classic' || mode === 'matrix' || mode === 'speaker') {
+          return Platform.OS === 'android' ? 70 : 58; // heavy modes ~14-17fps
+        }
+        return Platform.OS === 'android' ? 50 : 42; // lighter modes ~20-24fps
+      })();
+
       // Throttle: skip frame if not enough time has elapsed
-      if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+      if (timestamp - lastFrameTime < modeFrameInterval) {
         animRef.current = requestAnimationFrame(animate);
         return;
       }
@@ -266,18 +288,41 @@ const RhythmLightScreen: React.FC = () => {
         beatLevelRef.current = Math.max(0, beatLevelRef.current * 0.9);
       }
 
+      // Skip React state updates for tiny visual changes to cut JS/render overhead.
+      let maxLevelDelta = 0;
+      let maxPeakDelta = 0;
+      for (let i = 0; i < NUM_COLS; i++) {
+        maxLevelDelta = Math.max(maxLevelDelta, Math.abs(newLevels[i] - prevRenderLevelsRef.current[i]));
+        maxPeakDelta = Math.max(maxPeakDelta, Math.abs(newPeaks[i] - prevRenderPeaksRef.current[i]));
+      }
+      const phasePrev = motionPhaseRef.current;
+      const nextPhase = (phasePrev + 0.09) % TAU;
+      const phaseDelta = Math.abs(nextPhase - phasePrev);
+      const shouldEmit =
+        maxLevelDelta > 0.015 ||
+        maxPeakDelta > 0.02 ||
+        phaseDelta > 0.08 ||
+        timestamp - lastEmitTsRef.current > 140;
+
       // Single batched state update instead of 3 separate ones
-      setVizState({
-        levels: newLevels,
-        peakLevels: newPeaks,
-        motionPhase: (motionPhaseRef.current + 0.09) % TAU,
-      });
-      motionPhaseRef.current = (motionPhaseRef.current + 0.09) % TAU;
+      if (shouldEmit) {
+        const renderLevels = newLevels.map(v => Math.round(v * 100) / 100);
+        const renderPeaks = newPeaks.map(v => Math.round(v * 100) / 100);
+        setVizState({
+          levels: renderLevels,
+          peakLevels: renderPeaks,
+          motionPhase: nextPhase,
+        });
+        prevRenderLevelsRef.current = renderLevels;
+        prevRenderPeaksRef.current = renderPeaks;
+        lastEmitTsRef.current = timestamp;
+      }
+      motionPhaseRef.current = nextPhase;
 
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     startAnimLoop();
@@ -386,21 +431,6 @@ const RhythmLightScreen: React.FC = () => {
     );
   };
 
-  // ---- Speaker + LED Bars effect ----
-  const SPKR_BAR_ROWS = 48;
-  const SPKR_BAR_ROWS_ARR = Array.from({ length: SPKR_BAR_ROWS }, (_, i) => i);
-
-  const getBarCellColor = (rowFromBottom: number): string => {
-    const ratio = rowFromBottom / SPKR_BAR_ROWS;
-    if (ratio <= 0.28) return '#00FF44';
-    if (ratio <= 0.46) return '#55FF00';
-    if (ratio <= 0.60) return '#AAFF00';
-    if (ratio <= 0.73) return '#FFD700';
-    if (ratio <= 0.84) return '#FF8C00';
-    if (ratio <= 0.92) return '#FF4500';
-    return '#FF0000';
-  };
-
   const renderSpeaker = () => {
     const areaW = SCREEN_W - 24;
     const areaH = Math.min(LED_TARGET_H, Math.floor(SCREEN_H * 0.52));
@@ -411,8 +441,17 @@ const RhythmLightScreen: React.FC = () => {
     } else {
       // Android 音量模式：跟随经典灯柱中第二活跃的那条
       if (levels.length >= 2) {
-        const sorted = [...levels].sort((a, b) => b - a);
-        barLevel = sorted[1];
+        let first = 0;
+        let second = 0;
+        for (const v of levels) {
+          if (v >= first) {
+            second = first;
+            first = v;
+          } else if (v > second) {
+            second = v;
+          }
+        }
+        barLevel = second;
       } else {
         barLevel = minLevel;
       }

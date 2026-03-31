@@ -95,7 +95,7 @@ struct MusicWidgetView: View {
   // 稳妥放大：artworkBleed = 10，HStack(spacing: 4)
   // 激进贴边：artworkBleed = 12，HStack(spacing: 2)
   private let artworkBleed: CGFloat = 9
-  private let progressRightInset: CGFloat = 20
+  private let progressRightInset: CGFloat = 0
 
   private let fallbackBg = Color.white
 
@@ -142,7 +142,7 @@ struct MusicWidgetView: View {
 
           // Progress bar
           GeometryReader { geo in
-            let trackWidth = max(0, geo.size.width - progressRightInset)
+            let trackWidth = max(0, geo.size.width * 0.85)
             ZStack(alignment: .leading) {
               RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color.black.opacity(0.12))
@@ -168,7 +168,9 @@ struct MusicWidgetView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .padding(contentInset)
+      .padding(.leading, contentInset)
+      .padding(.trailing, 16)
+      .padding(.vertical, contentInset)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     .widgetBackground(dynamicBgColor)

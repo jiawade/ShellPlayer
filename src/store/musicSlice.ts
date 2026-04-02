@@ -278,20 +278,53 @@ export const loadCachedTracks = createAsyncThunk('music/loadCache', async () => 
       return [];
     }
     const cached = JSON.parse(data) as Track[];
-    // Filter out any tracks with unsupported/encrypted formats
-    // Use whitelist: only keep tracks whose extension is in SUPPORTED_FORMATS,
-    // or tracks from iPod library (no file extension on disk)
-    return cached
+    // Filter out any tracks with unsupported/encrypted formats.
+    const normalized: Track[] = cached
       .filter(t => {
         const ext = t.fileName?.substring(t.fileName.lastIndexOf('.')).toLowerCase() || '';
         // iPod library tracks may not have a normal extension — keep them
         if (!ext || t.url?.startsWith('ipod-library://')) return true;
         return SUPPORTED_FORMATS.includes(ext);
       })
-      .map(t => ({
+      .map(t =>
+        t.artwork === '<<HAS>>'
+          ? {
+              ...t,
+              artwork: undefined,
+            }
+          : t,
+      );
+
+    // Drop local-file records that no longer exist on disk (e.g. deleted outside app or restored stale cache).
+    const checked = await Promise.all(
+      normalized.map(async t => {
+        if (t.url?.startsWith('ipod-library://')) return t;
+
+        const shouldCheckLocalFile =
+          t.filePath?.startsWith('/') || t.url?.startsWith('file://') || t.id.startsWith('/');
+        if (!shouldCheckLocalFile) return t;
+
+        const localPath = t.filePath || (t.url?.startsWith('file://') ? t.url.replace('file://', '') : t.id);
+        if (!localPath) return null;
+
+        try {
+          return (await RNFS.exists(localPath)) ? t : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const playable = checked.filter((t): t is Track => t !== null);
+    if (playable.length !== normalized.length) {
+      const lite = playable.map(t => ({
         ...t,
-        artwork: t.artwork === '<<HAS>>' ? undefined : t.artwork,
+        artwork: serializeArtworkForCache(t.artwork),
       }));
+      await AsyncStorage.setItem('@trackCache', JSON.stringify(lite));
+    }
+
+    return playable;
   } catch {
     return [];
   }
@@ -461,6 +494,17 @@ export const playTrack = createAsyncThunk(
     try {
       const gen = ++playTrackGeneration;
 
+      const localPath =
+        track.filePath || (track.url?.startsWith('file://') ? track.url.replace('file://', '') : track.id);
+      const isLocalTrack =
+        !!localPath &&
+        (track.filePath?.startsWith('/') || track.url?.startsWith('file://') || track.id.startsWith('/'));
+      if (isLocalTrack && !(await RNFS.exists(localPath))) {
+        dispatch(removeUnplayableTrack(track.id));
+        dispatch(setPlaybackErrorMsg('文件不存在，已从列表移除'));
+        throw new Error('Track file does not exist');
+      }
+
       const ext = track.fileName?.substring(track.fileName.lastIndexOf('.')).toLowerCase() || '';
 
       let idx = queue.findIndex(t => t.id === track.id);
@@ -596,7 +640,7 @@ export const playTrack = createAsyncThunk(
       return { track, index: idx };
     } catch (err) {
       await logCrash(err instanceof Error ? err : new Error(String(err)), 'playTrack');
-      return { track, index: 0 };
+      throw err;
     }
   },
 );
@@ -958,8 +1002,17 @@ const musicSlice = createSlice({
         s.currentIndex = a.payload.index;
         s.isPlaying = true;
       })
+      .addCase(playTrack.rejected, s => {
+        s.isPlaying = false;
+      })
       .addCase(deleteTrackPermanently.fulfilled, (s, a) => {
         s.tracks = s.tracks.filter(t => t.id !== a.payload);
+        s.playQueue = s.playQueue.filter(t => t.id !== a.payload);
+        if (s.currentTrack?.id === a.payload) {
+          s.currentTrack = null;
+          s.currentIndex = -1;
+          s.isPlaying = false;
+        }
       });
   },
 });

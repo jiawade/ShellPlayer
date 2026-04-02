@@ -6,6 +6,7 @@ import fi.iki.elonen.NanoHTTPD
 import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import org.json.JSONObject
 
 class WifiTransferModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -23,7 +24,8 @@ class WifiTransferModule(private val reactContext: ReactApplicationContext) :
             val lrcDir = File(mDir.parent, "lrc").apply { mkdirs() }
             server = TransferServer(port, mDir, lrcDir, html,
                 onFileReceived = { filename, size -> emitFileReceived(filename, size) },
-                onClientConnected = { emitClientConnected() }
+                onClientConnected = { emitClientConnected() },
+                onUploadProgress = { payload -> emitUploadProgress(payload) }
             )
             server?.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
 
@@ -87,6 +89,14 @@ class WifiTransferModule(private val reactContext: ReactApplicationContext) :
         } catch (_: Exception) {}
     }
 
+    private fun emitUploadProgress(payload: WritableMap) {
+        try {
+            reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit("onWifiUploadProgress", payload)
+        } catch (_: Exception) {}
+    }
+
     private fun getLocalIpAddress(): String {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
@@ -118,7 +128,8 @@ class TransferServer(
     private val lrcDir: File,
     private val htmlContent: String,
     private val onFileReceived: (String, Long) -> Unit,
-    private val onClientConnected: () -> Unit
+    private val onClientConnected: () -> Unit,
+    private val onUploadProgress: (WritableMap) -> Unit
 ) : NanoHTTPD(port) {
 
     companion object {
@@ -137,9 +148,47 @@ class TransferServer(
             session.method == Method.POST && session.uri == "/upload" -> {
                 handleUpload(session)
             }
+            session.method == Method.POST && session.uri == "/progress" -> {
+                handleProgress(session)
+            }
             else -> {
                 newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not Found")
             }
+        }
+    }
+
+    private fun handleProgress(session: IHTTPSession): Response {
+        return try {
+            val len = session.headers["content-length"]?.toIntOrNull() ?: 0
+            val body = if (len > 0) {
+                val bytes = ByteArray(len)
+                var offset = 0
+                while (offset < len) {
+                    val read = session.inputStream.read(bytes, offset, len - offset)
+                    if (read <= 0) break
+                    offset += read
+                }
+                String(bytes, 0, offset, Charsets.UTF_8)
+            } else {
+                ""
+            }
+
+            if (body.isNotBlank()) {
+                val json = JSONObject(body)
+                val map = Arguments.createMap().apply {
+                    putString("uploadId", json.optString("uploadId", ""))
+                    putString("filename", json.optString("filename", "unknown"))
+                    putDouble("size", json.optDouble("size", 0.0))
+                    putDouble("loaded", json.optDouble("loaded", 0.0))
+                    putDouble("total", json.optDouble("total", 0.0))
+                    putDouble("progress", json.optDouble("progress", 0.0))
+                    putString("status", json.optString("status", "uploading"))
+                }
+                onUploadProgress(map)
+            }
+            jsonResponse(Response.Status.OK, "{\"ok\":true}")
+        } catch (_: Exception) {
+            jsonResponse(Response.Status.OK, "{\"ok\":false}")
         }
     }
 

@@ -126,8 +126,18 @@ body{
 <script>
 var dz=document.getElementById('dz'),fi=document.getElementById('fi'),fl=document.getElementById('fl');
 var pending=0,done=0,fail=0;
+var lastProgressSent={};
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function fmt(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB'}
+function sendProgress(payload){
+  try{
+    fetch('/progress',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    }).catch(function(){});
+  }catch(e){}
+}
 dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('dragover')});
 dz.addEventListener('dragleave',function(){dz.classList.remove('dragover')});
 dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('dragover');go(e.dataTransfer.files)});
@@ -139,6 +149,16 @@ function send(file){
   var id='f'+Date.now()+Math.random().toString(36).substr(2,4);
   var ext=file.name.split('.').pop().toLowerCase();
   var isLrc=ext==='lrc';
+  lastProgressSent[id]=-1;
+  sendProgress({
+    uploadId:id,
+    filename:file.name,
+    size:file.size,
+    loaded:0,
+    total:file.size,
+    progress:0,
+    status:'uploading'
+  });
   var el=document.createElement('div');el.className='file-item';el.id=id;
   el.innerHTML='<div class="file-icon '+(isLrc?'lyrics':'music')+'">'+(isLrc?'\\uD83D\\uDCDD':'\\uD83C\\uDFB5')+'</div>'+
     '<div class="file-info"><div class="file-name">'+esc(file.name)+'</div>'+
@@ -156,18 +176,51 @@ function send(file){
       // Cap at 99% during upload, only show 100% after server confirms
       if(p>=100)p=99;
       document.getElementById(id+'p').style.width=p+'%';
-      document.getElementById(id+'s').textContent=p+'%'}
+      document.getElementById(id+'s').textContent=p+'%';
+      if(lastProgressSent[id]!==p){
+        lastProgressSent[id]=p;
+        sendProgress({
+          uploadId:id,
+          filename:file.name,
+          size:file.size,
+          loaded:e.loaded,
+          total:e.total,
+          progress:p,
+          status:'uploading'
+        });
+      }
+    }
   };
   xhr.onload=function(){
     var bar=document.getElementById(id+'p'),st=document.getElementById(id+'s');
     if(xhr.status===200){done++;bar.style.width='100%';bar.style.background='#4ade80';
       st.textContent='\\u2713';st.className='file-status s-ok';document.getElementById(id).classList.add('done');
+      sendProgress({
+        uploadId:id,
+        filename:file.name,
+        size:file.size,
+        loaded:file.size,
+        total:file.size,
+        progress:100,
+        status:'done'
+      });
     }else{fail++;st.textContent='\\u2717';st.className='file-status s-err'}
     pending--;chk();
   };
   xhr.onerror=function(){fail++;pending--;
     document.getElementById(id+'s').textContent='\\u2717';
-    document.getElementById(id+'s').className='file-status s-err';chk()};
+    document.getElementById(id+'s').className='file-status s-err';
+    sendProgress({
+      uploadId:id,
+      filename:file.name,
+      size:file.size,
+      loaded:0,
+      total:file.size,
+      progress:0,
+      status:'error'
+    });
+    chk()
+  };
   xhr.open('POST','/upload');xhr.send(fd);
 }
 window._L={done:'${lDone}',doneFail:'${lDoneFail}',files:'${lFiles}',ok:'${lOk}',fail:'${lFail}'};

@@ -34,8 +34,17 @@ let _serverPort: number = DEFAULT_PORT;
 let _serverStarted = false;
 let _clientConnected = false;
 let _receivedFiles: { filename: string; size: number }[] = [];
+type UploadingFile = {
+  uploadId: string;
+  filename: string;
+  size: number;
+  progress: number;
+  status: 'uploading' | 'done' | 'error';
+};
+let _uploadingFiles: Record<string, UploadingFile> = {};
 let _fileSub: any = null;
 let _connectSub: any = null;
+let _progressSub: any = null;
 let _onUpdate: (() => void) | null = null;
 let _isScreenMounted = false;
 let _bgImportTimer: ReturnType<typeof setTimeout> | null = null;
@@ -62,9 +71,11 @@ function scheduleBgImport() {
     }
     if (_fileSub) { _fileSub.remove(); _fileSub = null; }
     if (_connectSub) { _connectSub.remove(); _connectSub = null; }
+    if (_progressSub) { _progressSub.remove(); _progressSub = null; }
     _serverUrl = null;
     _clientConnected = false;
     _receivedFiles = [];
+    _uploadingFiles = {};
     _onUpdate = null;
     // Import
     try {
@@ -98,6 +109,27 @@ function ensureEventListener() {
     _clientConnected = true;
     _onUpdate?.();
   });
+  _progressSub = emitter.addListener('onWifiUploadProgress', event => {
+    const uploadId = String(event?.uploadId || '');
+    const filename = String(event?.filename || 'unknown');
+    const size = Number(event?.size || 0);
+    const progress = Math.max(0, Math.min(100, Number(event?.progress || 0)));
+    const status = String(event?.status || 'uploading');
+    if (!uploadId) return;
+
+    if (status === 'uploading') {
+      _uploadingFiles[uploadId] = {
+        uploadId,
+        filename,
+        size,
+        progress,
+        status: 'uploading',
+      };
+    } else {
+      delete _uploadingFiles[uploadId];
+    }
+    _onUpdate?.();
+  });
 }
 
 export function cleanupWifiServer() {
@@ -113,9 +145,14 @@ export function cleanupWifiServer() {
     _connectSub.remove();
     _connectSub = null;
   }
+  if (_progressSub) {
+    _progressSub.remove();
+    _progressSub = null;
+  }
   _serverUrl = null;
   _clientConnected = false;
   _receivedFiles = [];
+  _uploadingFiles = {};
   _onUpdate = null;
 }
 
@@ -130,6 +167,7 @@ const WifiTransferScreen: React.FC = () => {
   const [port, setPort] = useState(_serverPort);
   const [error, setError] = useState<string | null>(null);
   const [receivedFiles, setReceivedFiles] = useState<{ filename: string; size: number }[]>(_receivedFiles);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>(Object.values(_uploadingFiles));
   const [clientConnected, setClientConnected] = useState(_clientConnected);
   const [isImporting, setIsImporting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -148,6 +186,7 @@ const WifiTransferScreen: React.FC = () => {
 
   const syncFromGlobal = useCallback(() => {
     setReceivedFiles([..._receivedFiles]);
+    setUploadingFiles(Object.values(_uploadingFiles));
     setClientConnected(_clientConnected);
   }, []);
 
@@ -185,6 +224,7 @@ const WifiTransferScreen: React.FC = () => {
       setServerUrl(_serverUrl);
       setPort(_serverPort);
       setReceivedFiles([..._receivedFiles]);
+      setUploadingFiles(Object.values(_uploadingFiles));
       setClientConnected(_clientConnected);
     } else {
       startServer(DEFAULT_PORT);
@@ -265,6 +305,17 @@ const WifiTransferScreen: React.FC = () => {
     inputRange: [0, 1],
     outputRange: [0.6, 0],
   });
+
+  const uploadedSongCount = receivedFiles.filter(
+    f => !f.filename.toLowerCase().endsWith('.lrc'),
+  ).length;
+  const mergedFileList = [
+    ...uploadingFiles.map(f => ({ ...f, isUploading: true as const })),
+    ...receivedFiles
+      .slice()
+      .reverse()
+      .map(f => ({ ...f, isUploading: false as const })),
+  ];
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -359,32 +410,17 @@ const WifiTransferScreen: React.FC = () => {
           ))}
         </View>
 
-        {/* Receiving progress bar */}
-        {receivedFiles.length > 0 && clientConnected && !isImporting && (
-          <View style={[styles.progressCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ActivityIndicator size="small" color={colors.accent} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
-                {t('wifiTransfer.receivingProgress', { count: receivedFiles.filter(f => !f.filename.toLowerCase().endsWith('.lrc')).length })}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>
-              {t('wifiTransfer.totalSize', { size: formatSize(receivedFiles.reduce((s, f) => s + f.size, 0)) })}
-            </Text>
-          </View>
-        )}
-
         {/* Received files */}
-        {receivedFiles.length > 0 && (
+        {mergedFileList.length > 0 && (
           <View style={styles.filesSection}>
             <Text style={[styles.filesSectionTitle, { color: colors.textMuted }]}>
-              {t('wifiTransfer.receivedFiles', { count: receivedFiles.length })}
+              {t('wifiTransfer.receivingProgress', { count: uploadedSongCount })}
             </Text>
             <ScrollView
               nestedScrollEnabled
               style={{ maxHeight: 5 * 60 }}
-              showsVerticalScrollIndicator={receivedFiles.length > 5}>
-              {receivedFiles.slice().reverse().map((f, i) => (
+              showsVerticalScrollIndicator={mergedFileList.length > 5}>
+              {mergedFileList.map((f, i) => (
                 <View
                   key={i}
                   style={[
@@ -408,10 +444,19 @@ const WifiTransferScreen: React.FC = () => {
                     numberOfLines={1}>
                     {f.filename}
                   </Text>
+                  {f.isUploading && (
+                    <Text style={[styles.fileSize, { color: colors.accent, minWidth: 42, textAlign: 'right' }]}>
+                      {`${f.progress}%`}
+                    </Text>
+                  )}
                   <Text style={[styles.fileSize, { color: colors.textMuted }]}>
                     {formatSize(f.size)}
                   </Text>
-                  <Icon name="checkmark-circle" size={18} color="#4ade80" />
+                  {f.isUploading ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <Icon name="checkmark-circle" size={18} color="#4ade80" />
+                  )}
                 </View>
               ))}
             </ScrollView>
@@ -513,12 +558,6 @@ const styles = StyleSheet.create({
   tipsSection: { marginBottom: 28, gap: 10 },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tipText: { fontSize: 13 },
-  progressCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
   filesSection: { marginBottom: 20 },
   filesSectionTitle: {
     fontSize: 10,

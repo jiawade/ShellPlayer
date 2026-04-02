@@ -27,6 +27,8 @@ const persistMiddleware: Middleware = storeApi => next => (action: any) => {
     case 'music/setScanDirectories':
     case 'music/scan/fulfilled':
     case 'music/importiOS/fulfilled':
+    case 'music/deletePermanent/fulfilled':
+    case 'music/removeUnplayableTrack':
       AsyncStorage.setItem('@scanDirs', JSON.stringify(m.scanDirectories)).catch(() => {});
       {
         const lite = m.tracks.map((t: any) => ({

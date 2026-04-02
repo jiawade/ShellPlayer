@@ -135,6 +135,8 @@ const AllSongsScreen: React.FC = () => {
           t('allSongs.importAlerts.noNewSongsMessage', { totalCount: tracks.length }),
         );
       }
+      // Reset baseline after each completed import/scan so next session's delta is accurate.
+      setPrevTrackCount(tracks.length);
     }
     prevScanningRef.current = isScanning;
   }, [isScanning, loading, tracks.length, prevTrackCount, userTriggeredImport]);

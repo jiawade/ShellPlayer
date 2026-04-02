@@ -2,6 +2,7 @@
 #import <React/RCTBridge.h>
 #import <GCDWebServer/GCDWebServer.h>
 #import <GCDWebServer/GCDWebServerDataResponse.h>
+#import <GCDWebServer/GCDWebServerDataRequest.h>
 #import <GCDWebServer/GCDWebServerMultiPartFormRequest.h>
 #import <UIKit/UIKit.h>
 #include <ifaddrs.h>
@@ -21,7 +22,7 @@ RCT_EXPORT_MODULE(WifiTransferModule);
 + (BOOL)requiresMainQueueSetup { return NO; }
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[@"onWifiFileReceived", @"onWifiClientConnected"];
+  return @[@"onWifiFileReceived", @"onWifiClientConnected", @"onWifiUploadProgress"];
 }
 
 - (void)startObserving { self.hasListeners = YES; }
@@ -139,6 +140,32 @@ RCT_EXPORT_METHOD(startServer:(int)port
         @"error": error.localizedDescription ?: @"Save failed"
       }];
     }
+  }];
+
+  // Receive upload progress reported by web page (real-time UI sync in app)
+  [self.server addHandlerForMethod:@"POST"
+                              path:@"/progress"
+                      requestClass:[GCDWebServerDataRequest class]
+                      processBlock:^GCDWebServerResponse *(GCDWebServerRequest* request) {
+    GCDWebServerDataRequest *dataReq = (GCDWebServerDataRequest *)request;
+    if (!dataReq.data) {
+      return [GCDWebServerDataResponse responseWithJSONObject:@{@"ok": @YES}];
+    }
+
+    NSError *jsonError = nil;
+    id payload = [NSJSONSerialization JSONObjectWithData:dataReq.data options:0 error:&jsonError];
+    if (jsonError || ![payload isKindOfClass:[NSDictionary class]]) {
+      return [GCDWebServerDataResponse responseWithJSONObject:@{@"ok": @NO}];
+    }
+
+    if (weakSelf.hasListeners) {
+      NSDictionary *body = (NSDictionary *)payload;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf sendEventWithName:@"onWifiUploadProgress" body:body];
+      });
+    }
+
+    return [GCDWebServerDataResponse responseWithJSONObject:@{@"ok": @YES}];
   }];
 
   NSError *error = nil;

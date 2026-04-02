@@ -7,7 +7,7 @@ import RNFS from 'react-native-fs';
 import { Track, LyricLine, RepeatMode, SortMode, ThemeMode, PlayHistoryEntry } from '../types';
 import { scanAllMusic, readLrcFile, findMatchingLrcInDir, ScanProgress } from '../utils/scanner';
 import { parseLRC, parseTextLyrics } from '../utils/lrcParser';
-import { getDefaultLrcDir, ensureDefaultDirs } from '../utils/defaultDirs';
+import { getDefaultLrcDir, getDefaultMusicDir, ensureDefaultDirs } from '../utils/defaultDirs';
 import { requestStoragePermission } from '../utils/permissions';
 import { SUPPORTED_FORMATS } from '../utils/theme';
 import { logCrash, logInfo } from '../utils/crashLogger';
@@ -538,15 +538,14 @@ export const playTrack = createAsyncThunk(
 
       try {
         let lyrLines: LyricLine[] = [];
-        if (track.lrcPath) {
-          lyrLines = parseLRC(await readLrcFile(track.lrcPath));
-        } else if (track.embeddedLyrics) {
+        // Priority 1: 内置歌词（ID3 标签中的歌词）
+        if (track.embeddedLyrics) {
           lyrLines = parseLRC(track.embeddedLyrics);
           if (lyrLines.length === 0) {
             lyrLines = parseTextLyrics(track.embeddedLyrics, track.duration);
           }
         }
-        // iOS: 如果没有歌词，通过 AVURLAsset 从音频文件直接读取内嵌歌词
+        // iOS: 通过 AVURLAsset 从音频文件直接读取内嵌歌词
         if (lyrLines.length === 0 && Platform.OS === 'ios' && track.url) {
           const nativeLyrics = await getLyricsForUrl(track.url);
           if (nativeLyrics) {
@@ -556,12 +555,25 @@ export const playTrack = createAsyncThunk(
             }
           }
         }
-        // Fallback: search the default lrc directory for a matching .lrc file
+        // Priority 2: lrc 目录中匹配的 .lrc 文件
         if (lyrLines.length === 0) {
           const lrcDir = getDefaultLrcDir();
           const matchedLrc = await findMatchingLrcInDir(track, lrcDir);
           if (matchedLrc) {
             lyrLines = parseLRC(await readLrcFile(matchedLrc));
+          }
+        }
+        // Priority 3: music 目录中匹配的 .lrc 文件
+        if (lyrLines.length === 0) {
+          if (track.lrcPath) {
+            lyrLines = parseLRC(await readLrcFile(track.lrcPath));
+          }
+          if (lyrLines.length === 0) {
+            const musicDir = getDefaultMusicDir();
+            const matchedLrc = await findMatchingLrcInDir(track, musicDir);
+            if (matchedLrc) {
+              lyrLines = parseLRC(await readLrcFile(matchedLrc));
+            }
           }
         }
         dispatch(setLyrics(lyrLines));

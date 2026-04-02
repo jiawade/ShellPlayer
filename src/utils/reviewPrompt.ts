@@ -60,7 +60,7 @@ export async function checkAndPromptReview() {
       }
     } catch {}
 
-    // Fallback: show alert with store link
+    //TODO Fallback: show alert with store link
     Alert.alert(
       'Enjoying ShellPlayer?',
       'Please rate us on the store!',

@@ -24,7 +24,7 @@ import { recordListenTime } from '../store/statsSlice';
 import { findCurrentLyricIndex, parseLRC, parseTextLyrics } from '../utils/lrcParser';
 import { readLrcFile, findMatchingLrcInDir } from '../utils/scanner';
 import { getLyricsForUrl } from '../utils/mediaLibrary';
-import { getDefaultLrcDir } from '../utils/defaultDirs';
+import { getDefaultLrcDir, getDefaultMusicDir } from '../utils/defaultDirs';
 import {
     isBluetoothLyricsEnabled,
     setOriginalTrackInfo,
@@ -93,9 +93,8 @@ export function usePlayerSync() {
 
         const loadLyrics = async () => {
             let lines: import('../types').LyricLine[] = [];
-            if (matched.lrcPath) {
-                lines = parseLRC(await readLrcFile(matched.lrcPath));
-            } else if (matched.embeddedLyrics) {
+            // Priority 1: 内置歌词（ID3 标签中的歌词）
+            if (matched.embeddedLyrics) {
                 lines = parseLRC(matched.embeddedLyrics);
                 if (lines.length === 0) {
                     lines = parseTextLyrics(matched.embeddedLyrics, matched.duration);
@@ -111,12 +110,25 @@ export function usePlayerSync() {
                     }
                 }
             }
-            // Fallback: search the default lrc directory for a matching .lrc file
+            // Priority 2: lrc 目录中匹配的 .lrc 文件
             if (lines.length === 0) {
                 const lrcDir = getDefaultLrcDir();
                 const matchedLrc = await findMatchingLrcInDir(matched, lrcDir);
                 if (matchedLrc) {
                     lines = parseLRC(await readLrcFile(matchedLrc));
+                }
+            }
+            // Priority 3: music 目录中匹配的 .lrc 文件
+            if (lines.length === 0) {
+                if (matched.lrcPath) {
+                    lines = parseLRC(await readLrcFile(matched.lrcPath));
+                }
+                if (lines.length === 0) {
+                    const musicDir = getDefaultMusicDir();
+                    const matchedLrc = await findMatchingLrcInDir(matched, musicDir);
+                    if (matchedLrc) {
+                        lines = parseLRC(await readLrcFile(matchedLrc));
+                    }
                 }
             }
             dispatch(setLyrics(lines));

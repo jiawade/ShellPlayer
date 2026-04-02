@@ -641,7 +641,8 @@
     "openSettings": "打开设置"
   },
   "playback": {
-    "unsupportedFormat": "\"{{title}}\" 格式不支持，即将跳过...",
-    "fileNotFound": "\"{{title}}\" 文件不存在，即将跳过..."
+    "unsupportedFormat": "{{title}} 的音频格式暂不支持",
+    "fileCorrupted": "{{title}} 无法播放，文件可能已损坏",
+    "fileNotFound": "{{title}} 文件不存在"
   }
 }

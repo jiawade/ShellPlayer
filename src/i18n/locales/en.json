@@ -641,7 +641,8 @@
     "openSettings": "Open Settings"
   },
   "playback": {
-    "unsupportedFormat": "\"{{title}}\" format not supported, skipping...",
-    "fileNotFound": "\"{{title}}\" file not found, skipping..."
+    "unsupportedFormat": "{{title}}: audio format not supported",
+    "fileCorrupted": "{{title}}: unable to play, file may be corrupted",
+    "fileNotFound": "{{title}}: file not found"
   }
 }

@@ -7,8 +7,10 @@ import {playTrack, setPlaybackErrorMsg, setCurrentTrack, addToHistory, shuffleHi
 import {exportTrackToFile} from './utils/mediaLibrary';
 import {recordPlay} from './utils/reviewPrompt';
 import {loadBluetoothLyricsSetting} from './utils/bluetoothLyrics';
-import {startLiveActivity, stopLiveActivity} from './utils/liveActivity';
 import i18n from './i18n';
+
+// Track the last errored track ID to prevent repeated error toasts
+let _lastErrorTrackId: string | null = null;
 
 /**
  * Preload the next track into TrackPlayer's queue for gapless playback.
@@ -151,11 +153,26 @@ export async function PlaybackService() {
     TrackPlayer.addEventListener(Event.PlaybackError, async (e) => {
         console.warn('[PlaybackError]', e.message, e.code);
         const state = store.getState().music;
-        const trackTitle = state.currentTrack?.title || '';
+        const currentTrack = state.currentTrack;
+        const trackId = currentTrack?.id || '';
+        const trackTitle = currentTrack?.title || '';
+
+        // Prevent repeated error toasts for the same track
+        if (trackId && trackId === _lastErrorTrackId) return;
+        _lastErrorTrackId = trackId;
+
+        // Determine error message based on file extension
+        const fileName = currentTrack?.fileName || '';
+        const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+        const isFormatSupported = SUPPORTED_FORMATS.includes(ext);
+        const msgKey = isFormatSupported
+            ? 'playback.fileCorrupted'
+            : 'playback.unsupportedFormat';
         store.dispatch(setPlaybackErrorMsg(
-            i18n.t('playback.unsupportedFormat', { title: trackTitle }),
+            i18n.t(msgKey, { title: trackTitle }),
         ));
-        // Auto-dismiss after 1.5s and skip to next track
+
+        // Auto-dismiss after 2s and skip to next track (if available & different)
         setTimeout(() => {
             store.dispatch(setPlaybackErrorMsg(null));
             const s = store.getState().music;
@@ -164,14 +181,20 @@ export async function PlaybackService() {
                 const idx = queue.findIndex(t => t.id === s.currentTrack!.id);
                 if (idx >= 0) {
                     const nextIdx = (idx + 1) % queue.length;
-                    store.dispatch(playTrack({track: queue[nextIdx], queue}));
+                    // Don't skip if next track is the same (e.g. single-track queue)
+                    if (queue[nextIdx].id !== s.currentTrack!.id) {
+                        store.dispatch(playTrack({track: queue[nextIdx], queue}));
+                    }
                 }
             }
-        }, 1500);
+        }, 2000);
     });
 
     // When a new track starts playing, rebind the equalizer and preload next track
     TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: any) => {
+        // Reset error guard when a new track starts successfully
+        _lastErrorTrackId = null;
+
         // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
         // This ensures currentTrack is always in sync before preloadNextTrack reads it.
         const nextTrack = event?.track;

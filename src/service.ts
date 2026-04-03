@@ -197,10 +197,23 @@ export async function PlaybackService() {
 
         // Sync Redux state immediately for auto-advanced tracks (e.g. gapless preload in sequential mode)
         // This ensures currentTrack is always in sync before preloadNextTrack reads it.
+        // BUT: skip if the event track disagrees with what playTrack.pending just set —
+        // this can happen when TrackPlayer.add(track, insertBeforeIndex) shifts the
+        // active index without updating it, producing a spurious event.
         const nextTrack = event?.track;
         if (nextTrack?.id) {
             const state = store.getState().music;
             if (state.currentTrack?.id !== nextTrack.id) {
+                // Verify the event is genuine by checking the actual TP active track
+                try {
+                    const actualActive = await TrackPlayer.getActiveTrack();
+                    if (actualActive && actualActive.id !== nextTrack.id) {
+                        // Spurious event — the real active track differs from what the event reported
+                        rebindEqualizer();
+                        preloadNextTrack();
+                        return;
+                    }
+                } catch {}
                 const q = state.playQueue.length > 0 ? state.playQueue : state.tracks;
                 const matched = q.find(t => t.id === nextTrack.id);
                 if (matched) {

@@ -546,10 +546,9 @@ export const playTrack = createAsyncThunk(
       await TrackPlayer.play();
 
       // 后台逐个导出并添加周围歌曲（串行执行，避免并发操作导致队列竞态）
-      const before = sub.slice(0, si);
       const after = sub.slice(si + 1);
       const addSurrounding = async () => {
-        // 先添加后续歌曲（追加到队尾，无需指定索引）
+        // 添加后续歌曲（追加到队尾，无需指定索引）
         for (const t of after) {
           if (gen !== playTrackGeneration) return;
           const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
@@ -564,19 +563,10 @@ export const playTrack = createAsyncThunk(
             });
           } catch {}
         }
-        // 再添加前面的歌曲（从最远的开始，逐个插入到队首，保持正确顺序）
-        for (let i = before.length - 1; i >= 0; i--) {
-          if (gen !== playTrackGeneration) return;
-          const t = before[i];
-          const u = t.url.startsWith('ipod-library://') ? await exportTrackToFile(t.url) : t.url;
-          if (gen !== playTrackGeneration) return;
-          try {
-            await TrackPlayer.add(
-              { id: t.id, url: u, title: t.title, artist: t.artist, artwork: t.artwork },
-              0,
-            );
-          } catch {}
-        }
+        // 注意：不在活跃轨道前方插入歌曲（TrackPlayer.add(track, 0)），
+        // 因为插入会导致 active track index 不更新，触发虚假的
+        // PlaybackActiveTrackChanged 事件，使 currentTrack / 歌词 / 封面
+        // 被错误覆盖。向前导航已通过 playQueue 回退机制处理。
       };
       addSurrounding();
 
